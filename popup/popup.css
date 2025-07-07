@@ -5,9 +5,15 @@ body {
 }
 
 .container {
-  width: 800px;
-  padding: 20px;
+  width: 650px;
+  padding: 10px;
+  height: 100%;
   box-sizing: border-box;
+  transition: width 0.3s ease;
+}
+
+.container.with-log {
+  width: 900px;
 }
 
 h1 {
@@ -50,17 +56,24 @@ p {
   border-bottom: 1px solid #dadce0;
 }
 
+.step-actions {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
 .step-number {
   font-weight: bold;
   color: #3c78d8;
   font-size: 14px;
 }
 
-.delete-step {
+.delete-step,
+.duplicate-step {
   background: none;
   border: none;
   color: #5f6368;
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   padding: 0;
   width: 24px;
@@ -68,11 +81,17 @@ p {
   line-height: 24px;
   text-align: center;
   border-radius: 50%;
+  transition: all 0.2s ease;
 }
 
 .delete-step:hover {
   background-color: #fee8e7;
   color: #d93025;
+}
+
+.duplicate-step:hover {
+  background-color: #e8f0fe;
+  color: #1a73e8;
 }
 
 .step-content {
@@ -128,25 +147,88 @@ p {
 
 /* 循环步骤项样式 */
 .loop-step-item {
-  background-color: #f2f6fc;
-  border: 1px solid #d2e3fc;
   border-radius: 6px;
   margin-bottom: 8px;
   overflow: hidden;
+  position: relative;
+}
+
+/* 为不同的循环子步骤添加不同颜色 */
+.loop-step-item:nth-child(1) {
+  background-color: #fff3e0;
+  border: 1px solid #ffcc80;
+}
+
+.loop-step-item:nth-child(1) .loop-step-header {
+  background-color: #ffe0b2;
+}
+
+.loop-step-item:nth-child(1) .loop-step-number {
+  color: #f57c00;
+}
+
+.loop-step-item:nth-child(2) {
+  background-color: #e8f5e8;
+  border: 1px solid #a5d6a7;
+}
+
+.loop-step-item:nth-child(2) .loop-step-header {
+  background-color: #c8e6c9;
+}
+
+.loop-step-item:nth-child(2) .loop-step-number {
+  color: #388e3c;
+}
+
+.loop-step-item:nth-child(3) {
+  background-color: #f3e5f5;
+  border: 1px solid #ce93d8;
+}
+
+.loop-step-item:nth-child(3) .loop-step-header {
+  background-color: #e1bee7;
+}
+
+.loop-step-item:nth-child(3) .loop-step-number {
+  color: #7b1fa2;
+}
+
+.loop-step-item:nth-child(4) {
+  background-color: #e0f2f1;
+  border: 1px solid #80cbc4;
+}
+
+.loop-step-item:nth-child(4) .loop-step-header {
+  background-color: #b2dfdb;
+}
+
+.loop-step-item:nth-child(4) .loop-step-number {
+  color: #00695c;
+}
+
+.loop-step-item:nth-child(n+5) {
+  background-color: #fce4ec;
+  border: 1px solid #f8bbd9;
+}
+
+.loop-step-item:nth-child(n+5) .loop-step-header {
+  background-color: #f8bbd9;
+}
+
+.loop-step-item:nth-child(n+5) .loop-step-number {
+  color: #c2185b;
 }
 
 .loop-step-header {
-  background-color: #e8f0fe;
   padding: 6px 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #d2e3fc;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
 }
 
 .loop-step-number {
   font-weight: bold;
-  color: #1a73e8;
   font-size: 12px;
 }
 
@@ -197,18 +279,38 @@ p {
 }
 
 .form-group select,
-.form-group input {
+.form-group input,
+.form-group textarea {
   width: 100%;
   padding: 6px;
   border: 1px solid #dadce0;
   border-radius: 4px;
   box-sizing: border-box;
   font-size: 13px;
+  font-family: inherit;
+}
+
+.form-group select,
+.form-group input {
   height: 32px;
 }
 
+.form-group textarea {
+  min-height: 60px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+/* 测试按钮容器样式 */
+.test-button-container,
+.loop-test-button-container {
+  text-align: right;
+  margin-top: 10px;
+}
+
 .form-group select:focus,
-.form-group input:focus {
+.form-group input:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: #4285f4;
 }
@@ -358,7 +460,6 @@ p {
   background-color: #f8f9fa;
   padding: 8px 12px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid #dadce0;
 }
@@ -415,6 +516,31 @@ p {
   color: #1a73e8;
 }
 
+.log-warning {
+  color: #f57c00;
+}
+
+/* 循环操作相关的日志颜色 */
+.log-loop {
+  color: #7b1fa2;
+  font-weight: bold;
+}
+
+.log-loop-element {
+  color: #388e3c;
+  font-weight: 500;
+}
+
+.log-loop-substep {
+  color: #f57c00;
+  margin-left: 20px;
+}
+
+.log-loop-complete {
+  color: #1976d2;
+  font-weight: bold;
+}
+
 /* 危险按钮样式 */
 .button.danger {
   background-color: #fce8e6;
@@ -455,11 +581,12 @@ p {
 
 .left-panel {
   flex: 1;
-  min-width: 380px;
+  min-width: 500px;
 }
 
 .right-panel {
   width: 280px;
+  flex-shrink: 0;
 }
 
 /* 添加动画指示器样式 */
@@ -539,7 +666,6 @@ p {
   padding: 10px;
   margin: 8px 0 8px 12px;
   display: flex;
-  flex-wrap: wrap;
   gap: 10px;
   border: 1px dashed #d2e3fc;
 }
@@ -563,4 +689,31 @@ p {
   font-weight: bold;
   color: #1a73e8;
   font-size: 12px;
-} 
+}
+
+/* outerHTML输入框特殊样式 */
+.outerhtml-input {
+  font-family: 'Courier New', monospace !important;
+  font-size: 12px !important;
+  resize: vertical !important;
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+  line-height: 1.4 !important;
+}
+
+/* 为outerHTML策略添加提示样式 */
+.outerhtml-hint {
+  font-size: 11px;
+  color: #5f6368;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* 定位字段组样式 */
+.locator-group {
+  transition: opacity 0.3s ease;
+}
+
+.locator-group[style*="display: none"] {
+  display: none !important;
+}

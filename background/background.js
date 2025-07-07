@@ -114,7 +114,7 @@ async function handleStepsExecution(steps) {
         await handleLoopOperation(tab.id, step, i);
       } else {
         // 处理普通操作
-        await executeStepWithRetry(tab.id, step, i);
+        await executeStepWithRetry(tab.id, step, i + 1);
       }
 
       // 操作完成后等待页面稳定 - 根据操作类型调整等待时间
@@ -146,11 +146,30 @@ async function handleStepsExecution(steps) {
         })
         .catch((err) => console.error("发送停止消息时出错:", err));
     } else {
-      // 其他错误
+      // 其他错误 - 尝试从错误信息中提取步骤信息
+      let currentStep = undefined;
+      const stepMatch = error.message.match(/步骤\s+(\d+(?:\.\d+)?)/);
+      if (stepMatch) {
+        // 如果错误信息中包含步骤编号，解析它
+        const stepStr = stepMatch[1];
+        if (stepStr.includes('.')) {
+          // 循环子步骤，使用主步骤编号
+          currentStep = parseInt(stepStr.split('.')[0]) - 1;
+        } else {
+          // 普通步骤
+          currentStep = parseInt(stepStr) - 1;
+        }
+      }
+
       chrome.runtime
         .sendMessage({
           action: "executionResult",
-          result: { success: false, error: error.message, completed: true },
+          result: {
+            success: false,
+            error: error.message,
+            completed: true,
+            currentStep: currentStep
+          },
         })
         .catch((err) => console.error("发送错误结果时出错:", err));
     }
@@ -180,32 +199,72 @@ async function handleLoopOperation(tabId, loopStep, stepIndex) {
   // 确保startIndex是一个有效的非负整数
   startIndex = Math.max(0, Math.floor(startIndex));
 
-  console.log(`开始循环操作，查找所有匹配元素:`, loopStep.locator);
-  console.log(
-    `执行范围: 起始=${startIndex}, 结束=${endIndex}, 跳过=[${skipIndices.join(
-      ","
-    )}]`
-  );
+  // 检查是否有主循环定位器
+  const hasMainLocator = loopStep.locator && loopStep.locator.value && loopStep.locator.value.trim();
 
-  // 查找所有匹配元素
-  const response = await sendMessageToTab(
-    tabId,
-    {
-      action: "findAllElements",
-      locator: loopStep.locator,
-    },
-    10000 // 减少到10秒，而不是之前的30秒
-  );
+  let elementCount = 1; // 默认执行一次
 
-  if (!response.success) {
-    throw new Error(`查找循环元素失败: ${response.error || "未知错误"}`);
-  }
+  if (hasMainLocator) {
+    // 如果有主循环定位器，查找所有匹配元素
+    console.log(`🔄 循环操作模式：元素循环 - 查找循环目标元素`);
+    console.log(`📍 定位器:`, loopStep.locator);
+    console.log(`📊 执行范围: 起始=${startIndex}, 结束=${endIndex}, 跳过=[${skipIndices.join(",")}]`);
 
-  const elementCount = response.count || 0;
-  console.log(`找到 ${elementCount} 个匹配元素`);
+    // 通知UI开始查找循环元素
+    chrome.runtime
+      .sendMessage({
+        action: "executionProgress",
+        currentStep: stepIndex,
+        message: `🔄 循环操作 ${stepIndex + 1}: 查找循环目标元素...`,
+        completed: false,
+      })
+      .catch((err) => console.error("发送进度时出错:", err));
 
-  if (elementCount === 0) {
-    throw new Error(`没有找到匹配的循环元素`);
+    const response = await sendMessageToTab(
+      tabId,
+      {
+        action: "findAllElements",
+        locator: loopStep.locator,
+      },
+      10000
+    );
+
+    if (!response.success) {
+      throw new Error(`查找循环元素失败: ${response.error || "未知错误"}`);
+    }
+
+    elementCount = response.count || 0;
+    console.log(`✅ 找到 ${elementCount} 个循环目标元素`);
+
+    if (elementCount === 0) {
+      throw new Error(`没有找到匹配的循环元素`);
+    }
+
+    // 通知UI找到循环元素
+    chrome.runtime
+      .sendMessage({
+        action: "executionProgress",
+        currentStep: stepIndex,
+        message: `✅ 循环操作 ${stepIndex + 1}: 找到 ${elementCount} 个目标元素，开始执行循环`,
+        completed: false,
+      })
+      .catch((err) => console.error("发送进度时出错:", err));
+  } else {
+    // 如果没有主循环定位器，直接执行子步骤
+    console.log(`🔄 循环操作模式：简单循环 - 直接执行子步骤`);
+    elementCount = 1;
+    startIndex = 0;
+    endIndex = 0;
+
+    // 通知UI开始简单循环
+    chrome.runtime
+      .sendMessage({
+        action: "executionProgress",
+        currentStep: stepIndex,
+        message: `🔄 循环操作 ${stepIndex + 1}: 开始执行循环子步骤`,
+        completed: false,
+      })
+      .catch((err) => console.error("发送进度时出错:", err));
   }
 
   // 计算实际的结束索引
@@ -264,39 +323,42 @@ async function handleLoopOperation(tabId, loopStep, stepIndex) {
     console.log(`处理第 ${elementIndex + 1}/${elementCount} 个元素`);
 
     // 通知UI当前循环进度
-    chrome.runtime
-      .sendMessage({
-        action: "executionProgress",
-        currentStep: stepIndex,
-        message: `循环操作 ${stepIndex + 1}: 处理第 ${
-          elementIndex + 1
-        }/${elementCount} 个元素`,
-        completed: false,
-      })
-      .catch((err) => console.error("发送进度时出错:", err));
+    if (hasMainLocator) {
+      console.log(`🎯 处理循环目标元素 ${elementIndex + 1}/${elementCount}`);
+      chrome.runtime
+        .sendMessage({
+          action: "executionProgress",
+          currentStep: stepIndex,
+          message: `🎯 循环操作 ${stepIndex + 1}: 处理第 ${elementIndex + 1}/${elementCount} 个目标元素`,
+          completed: false,
+        })
+        .catch((err) => console.error("发送进度时出错:", err));
 
-    // 1. 首先点击当前循环元素
-    const clickResponse = await sendMessageToTab(
-      tabId,
-      {
-        action: "performActionOnElementByIndex",
-        locator: loopStep.locator,
-        index: elementIndex,
-        actionType: "click",
-      },
-      8000 // 减少到8秒，而不是之前的15秒
-    );
-
-    if (!clickResponse.success) {
-      throw new Error(
-        `点击第 ${elementIndex + 1} 个循环元素失败: ${
-          clickResponse.error || "未知错误"
-        }`
+      // 1. 首先点击当前循环元素（仅当有主循环定位器时）
+      console.log(`👆 点击循环目标元素 ${elementIndex + 1}`);
+      const clickResponse = await sendMessageToTab(
+        tabId,
+        {
+          action: "performActionOnElementByIndex",
+          locator: loopStep.locator,
+          index: elementIndex,
+          actionType: "click",
+        },
+        8000
       );
-    }
 
-    // 等待页面稳定 - 略微减少等待时间
-    await sleep(800); // 从1000ms减少到800ms
+      if (!clickResponse.success) {
+        throw new Error(
+          `点击第 ${elementIndex + 1} 个循环元素失败: ${
+            clickResponse.error || "未知错误"
+          }`
+        );
+      }
+
+      console.log(`✅ 成功点击循环目标元素 ${elementIndex + 1}`);
+      // 等待页面稳定
+      await sleep(800);
+    }
 
     // 2. 执行循环内的所有子步骤
     for (let j = 0; j < loopStep.loopSteps.length; j++) {
@@ -306,22 +368,31 @@ async function handleLoopOperation(tabId, loopStep, stepIndex) {
       }
 
       const subStep = loopStep.loopSteps[j];
-      console.log(`执行循环内步骤 ${j + 1}/${loopStep.loopSteps.length}`);
+      console.log(`🔸 执行循环子步骤 ${j + 1}/${loopStep.loopSteps.length}: ${subStep.action}`);
 
       // 通知UI当前子步骤
-      chrome.runtime
-        .sendMessage({
-          action: "executionProgress",
-          currentStep: stepIndex,
-          message: `循环操作 ${stepIndex + 1}: 元素 ${
-            elementIndex + 1
-          }/${elementCount} - 执行子步骤 ${j + 1}`,
-          completed: false,
-        })
-        .catch((err) => console.error("发送进度时出错:", err));
+      if (hasMainLocator) {
+        chrome.runtime
+          .sendMessage({
+            action: "executionProgress",
+            currentStep: stepIndex,
+            message: `🔸 循环操作 ${stepIndex + 1}: 目标元素 ${elementIndex + 1}/${elementCount} - 执行子步骤 ${j + 1}/${loopStep.loopSteps.length}`,
+            completed: false,
+          })
+          .catch((err) => console.error("发送进度时出错:", err));
+      } else {
+        chrome.runtime
+          .sendMessage({
+            action: "executionProgress",
+            currentStep: stepIndex,
+            message: `🔸 循环操作 ${stepIndex + 1}: 执行子步骤 ${j + 1}/${loopStep.loopSteps.length}`,
+            completed: false,
+          })
+          .catch((err) => console.error("发送进度时出错:", err));
+      }
 
       // 执行子步骤
-      await executeStepWithRetry(tabId, subStep, `${stepIndex}.${j}`);
+      await executeStepWithRetry(tabId, subStep, `${stepIndex + 1}.${j + 1}`);
 
       // 子步骤之间稍作等待 - 减少等待时间
       await sleep(600); // 从800ms减少到600ms
@@ -331,7 +402,27 @@ async function handleLoopOperation(tabId, loopStep, stepIndex) {
     await sleep(1000); // 从1500ms减少到1000ms
   }
 
-  console.log(`循环操作完成，已执行从 ${startIndex} 到 ${endIndex} 的元素`);
+  if (hasMainLocator) {
+    console.log(`🎉 循环操作完成！已处理 ${endIndex - startIndex + 1} 个目标元素`);
+    chrome.runtime
+      .sendMessage({
+        action: "executionProgress",
+        currentStep: stepIndex,
+        message: `🎉 循环操作 ${stepIndex + 1}: 完成！已处理 ${endIndex - startIndex + 1} 个目标元素`,
+        completed: false,
+      })
+      .catch((err) => console.error("发送进度时出错:", err));
+  } else {
+    console.log(`🎉 循环操作完成！已执行所有子步骤`);
+    chrome.runtime
+      .sendMessage({
+        action: "executionProgress",
+        currentStep: stepIndex,
+        message: `🎉 循环操作 ${stepIndex + 1}: 完成！已执行所有子步骤`,
+        completed: false,
+      })
+      .catch((err) => console.error("发送进度时出错:", err));
+  }
 }
 
 /**
@@ -428,19 +519,20 @@ function getCurrentTab() {
  */
 function sendMessageToTab(tabId, message, timeout = 5000) {
   // 根据操作类型优化超时时间
-  let adjustedTimeout = timeout;
-  if (message.action === "findAllElements") {
-    adjustedTimeout = Math.min(timeout, 10000); // 最多10秒，而不是之前的30秒
-  } else if (message.action === "performAction") {
-    adjustedTimeout = Math.min(timeout, 8000); // 最多8秒，而不是之前的15秒
-  } else if (message.action === "performActionOnElementByIndex") {
-    adjustedTimeout = Math.min(timeout, 8000); // 最多8秒，而不是之前的15秒
-  }
+  const timeoutMap = {
+    "findAllElements": 10000,
+    "performAction": 8000,
+    "performActionOnElementByIndex": 8000,
+    "testElementLocator": 5000
+  };
+
+  const adjustedTimeout = timeoutMap[message.action] || timeout;
 
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
-      console.warn(`向标签页 ${tabId} 发送消息超时: ${message.action}`);
-      reject(new Error(`消息发送超时（${adjustedTimeout}ms）`));
+      const errorMsg = `向标签页 ${tabId} 发送消息超时: ${message.action} (${adjustedTimeout}ms)`;
+      console.warn(errorMsg);
+      reject(new Error(errorMsg));
     }, adjustedTimeout);
 
     try {
@@ -448,20 +540,26 @@ function sendMessageToTab(tabId, message, timeout = 5000) {
         clearTimeout(timeoutId);
 
         if (chrome.runtime.lastError) {
-          console.error(`发送消息失败:`, chrome.runtime.lastError);
-          reject(new Error(chrome.runtime.lastError.message));
+          const errorMsg = `发送消息失败: ${chrome.runtime.lastError.message}`;
+          console.error(errorMsg, { tabId, message });
+          reject(new Error(errorMsg));
         } else if (!response) {
-          console.error(`未收到响应:`, message);
-          reject(new Error("没有收到响应"));
+          const errorMsg = `未收到响应: ${message.action}`;
+          console.error(errorMsg, { tabId, message });
+          reject(new Error(errorMsg));
         } else {
-          // 成功响应
+          // 记录成功的响应（仅在调试模式下）
+          if (message.action !== "ping") {
+            console.log(`消息发送成功: ${message.action}`, { tabId, success: response.success });
+          }
           resolve(response);
         }
       });
     } catch (error) {
       clearTimeout(timeoutId);
-      console.error(`发送消息异常:`, error);
-      reject(error);
+      const errorMsg = `发送消息异常: ${error.message}`;
+      console.error(errorMsg, { tabId, message, error });
+      reject(new Error(errorMsg));
     }
   });
 }

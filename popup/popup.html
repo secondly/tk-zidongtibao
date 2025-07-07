@@ -20,6 +20,7 @@
           <button id="clearSteps" class="button warning">清除所有</button>
           <button id="startAction" class="button primary">执行操作</button>
           <button id="stopAction" class="button danger">停止操作</button>
+          <button id="toggleLog" class="button secondary small">打开日志</button>
         </div>
         
         <div class="export-import-container">
@@ -32,7 +33,7 @@
         <div id="debugInfo" class="debug-info"></div>
       </div>
       
-      <div class="right-panel">
+      <div class="right-panel" id="rightPanel" style="display: none;">
         <!-- 日志区域移到右侧 -->
         <div class="log-container">
           <div class="log-header">
@@ -44,6 +45,12 @@
       </div>
     </div>
   </div>
+  <!-- 加载模块化的JavaScript文件 -->
+  <script src="utils.js"></script>
+  <script src="step-manager.js"></script>
+  <script src="step-renderer.js"></script>
+  <script src="event-handler.js"></script>
+  <script src="ui-manager.js"></script>
   <script src="popup.js"></script>
 </body>
-</html> 
+</html>
