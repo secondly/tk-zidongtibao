@@ -1191,9 +1191,9 @@ function showStatus(message, type) {
     statusElement.className = `status-message status-${type}`;
     statusElement.style.display = 'block';
     
-    setTimeout(() => {
-        statusElement.style.display = 'none';
-    }, 3000);
+    // setTimeout(() => {
+    //     statusElement.style.display = 'none';
+    // }, 3000);
 }
 
 // 加载保存的工作流
