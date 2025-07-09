@@ -1921,6 +1921,13 @@ async function testMainLocator() {
         // 发送消息到content script进行测试
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
+        // 确保content script已加载
+        const isLoaded = await ensureContentScriptLoaded(tab.id);
+        if (!isLoaded) {
+            showTestResult(resultElement, '页面不支持测试功能', 'error');
+            return;
+        }
+
         const response = await chrome.tabs.sendMessage(tab.id, {
             action: 'testLocator',
             locator: { strategy, value }
@@ -1938,8 +1945,8 @@ async function testMainLocator() {
             showTestResult(resultElement, response?.error || '测试失败', 'error');
         }
     } catch (error) {
-        console.error('❌ 测试定位器失败:', error);
-        showTestResult(resultElement, '测试失败：' + error.message, 'error');
+        console.log('⚠️ 测试定位器失败，可能是因为页面不支持或content script未加载');
+        showTestResult(resultElement, '页面不支持测试功能', 'error');
     } finally {
         // 恢复按钮状态
         testBtn.disabled = false;
@@ -1978,6 +1985,13 @@ async function testSubOpLocator() {
         // 发送消息到content script进行测试
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
+        // 确保content script已加载
+        const isLoaded = await ensureContentScriptLoaded(tab.id);
+        if (!isLoaded) {
+            showTestResult(resultElement, '页面不支持测试功能', 'error');
+            return;
+        }
+
         const response = await chrome.tabs.sendMessage(tab.id, {
             action: 'testLocator',
             locator: { strategy, value }
@@ -1995,8 +2009,8 @@ async function testSubOpLocator() {
             showTestResult(resultElement, response?.error || '测试失败', 'error');
         }
     } catch (error) {
-        console.error('❌ 测试定位器失败:', error);
-        showTestResult(resultElement, '测试失败：' + error.message, 'error');
+        console.log('⚠️ 测试定位器失败，可能是因为页面不支持或content script未加载');
+        showTestResult(resultElement, '页面不支持测试功能', 'error');
     } finally {
         // 恢复按钮状态
         testBtn.disabled = false;
@@ -2019,16 +2033,54 @@ function clearTestResult(resultElementId) {
     }
 }
 
+// 检查content script是否已加载
+async function checkContentScriptLoaded(tabId) {
+    try {
+        const response = await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+        return response && response.success;
+    } catch (error) {
+        return false;
+    }
+}
+
+// 注入content script（如果需要）
+async function ensureContentScriptLoaded(tabId) {
+    const isLoaded = await checkContentScriptLoaded(tabId);
+    if (!isLoaded) {
+        try {
+            await chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                files: ['content/content.js']
+            });
+            // 等待一下让content script初始化
+            await new Promise(resolve => setTimeout(resolve, 100));
+            return await checkContentScriptLoaded(tabId);
+        } catch (error) {
+            console.log('无法注入content script:', error);
+            return false;
+        }
+    }
+    return true;
+}
+
 // 清除页面上的测试高亮
 async function clearTestHighlights() {
     try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        // 确保content script已加载
+        const isLoaded = await ensureContentScriptLoaded(tab.id);
+        if (!isLoaded) {
+            console.log('Content script未加载，跳过清除高亮');
+            return;
+        }
+
         await chrome.tabs.sendMessage(tab.id, {
             action: 'clearTestHighlights'
         });
         console.log('✅ 已清除页面测试高亮');
     } catch (error) {
-        console.error('❌ 清除测试高亮失败:', error);
+        console.log('⚠️ 无法清除测试高亮，可能是因为页面不支持');
     }
 }
 
@@ -2305,7 +2357,7 @@ function importWorkflow(event) {
 
             // 重新生成步骤ID（避免冲突）
             workflow.steps.forEach(step => {
-                step.id = 'step_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                step.id = 'step_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
             });
 
             // 保存到工作流管理器
