@@ -1,6 +1,6 @@
 /**
  * 通用自动化操作引擎
- * 支持任意层级的嵌套循环和各种操作类型
+ * 支持基本的循环和各种操作类型
  */
 
 console.log('📦 universal-automation-engine.js 脚本开始执行');
@@ -141,9 +141,7 @@ class UniversalAutomationEngine {
             case 'loop':
                 await this.executeGenericLoopStep(step, context);
                 break;
-            case 'rangeSelect':
-                await this.executeRangeSelectStep(step);
-                break;
+
             case 'custom':
                 await this.executeCustomStep(step);
                 break;
@@ -265,7 +263,7 @@ class UniversalAutomationEngine {
                     await this.executeSimpleLoopAction(element, step);
                 } else if (loopType === 'parentLoop') {
                     // Type A: 父级循环（带子操作）
-                    await this.executeParentLoopWithSubOperations(element, step, [...context, 'loop', i]);
+                    await this.executeParentLoopWithSubOperations(element, step);
                 }
 
                 // 循环间隔
@@ -288,210 +286,15 @@ class UniversalAutomationEngine {
         this.log(`✅ 循环执行完成，共处理 ${actualEndIndex - startIndex + 1} 个元素`, 'success');
     }
 
-    /**
-     * 执行嵌套循环步骤（支持三层嵌套）
-     * 专门用于复杂的多层弹窗操作流程
-     */
-    async executeNestedLoopStep(step, context) {
-        const loopName = step.name || `嵌套循环${context.join('.')}`;
-        this.log(`🔄 开始执行嵌套循环: ${loopName}`, 'info');
 
-        // 第一层：主列表循环
-        const mainElements = await this.findElements(step.mainLocator);
-        const totalMainElements = mainElements.length;
 
-        if (totalMainElements === 0) {
-            throw new Error(`主循环目标元素未找到: ${step.mainLocator.value}`);
-        }
 
-        this.log(`📋 找到 ${totalMainElements} 个主列表元素`, 'info');
-
-        // 计算主循环范围
-        const startIndex = Math.max(0, step.startIndex || 0);
-        const endIndex = step.endIndex >= 0 ? Math.min(step.endIndex, totalMainElements - 1) : totalMainElements - 1;
-        const skipIndices = step.skipIndices || [];
-
-        this.log(`🎯 主循环范围: ${startIndex} 到 ${endIndex}`, 'info');
-
-        // 执行主循环
-        for (let i = startIndex; i <= endIndex; i++) {
-            if (!this.isRunning) {
-                throw new Error('执行已被停止');
-            }
-
-            if (skipIndices.includes(i)) {
-                this.log(`⏭️ 跳过主列表索引 ${i}`, 'info');
-                continue;
-            }
-
-            this.log(`🎯 处理第 ${i + 1}/${totalMainElements} 个主列表项`, 'info');
-
-            try {
-                // 第一层：点击主列表项
-                await this.clickElement(mainElements[i]);
-                this.log(`✅ 已点击第 ${i + 1} 个主列表项`, 'info');
-
-                // 等待第一个弹窗出现
-                if (step.firstModalWait) {
-                    await this.executeSmartWait({
-                        locator: step.firstModalWait.locator,
-                        timeout: step.firstModalWait.timeout || 10000,
-                        interval: step.firstModalWait.interval || 500,
-                        description: '等待第一个弹窗加载'
-                    });
-                }
-
-                // 第二层：处理第一个弹窗
-                if (step.firstModalAction) {
-                    this.log(`🔧 执行第一个弹窗操作`, 'info');
-                    await this.executeStepAction(step.firstModalAction);
-                }
-
-                // 等待第二个弹窗出现
-                if (step.secondModalWait) {
-                    await this.executeSmartWait({
-                        locator: step.secondModalWait.locator,
-                        timeout: step.secondModalWait.timeout || 10000,
-                        interval: step.secondModalWait.interval || 500,
-                        description: '等待第二个弹窗加载'
-                    });
-                }
-
-                // 第三层：处理第二个弹窗（区间选择）
-                if (step.rangeSelection) {
-                    this.log(`📋 执行区间选择操作`, 'info');
-                    await this.executeRangeSelectionInModal(step.rangeSelection);
-                }
-
-                // 确认操作
-                if (step.confirmAction) {
-                    this.log(`✅ 执行确认操作`, 'info');
-                    await this.executeStepAction(step.confirmAction);
-                }
-
-                // 等待返回主页面
-                if (step.returnWait) {
-                    await this.sleep(step.returnWait);
-                }
-
-                this.log(`✅ 第 ${i + 1} 个主列表项的嵌套操作完成`, 'success');
-
-            } catch (error) {
-                this.log(`❌ 第 ${i + 1} 个主列表项处理失败: ${error.message}`, 'error');
-
-                // 尝试关闭可能打开的弹窗
-                await this.closeAnyOpenModals();
-
-                if (step.errorHandling === 'stop') {
-                    throw error;
-                }
-                // 继续下一个主列表项
-            }
-
-            // 主循环间隔
-            if (step.mainLoopDelay && i < endIndex) {
-                await this.sleep(step.mainLoopDelay);
-            }
-        }
-
-        this.log(`🎉 嵌套循环执行完成: ${loopName}`, 'success');
-    }
 
     /**
-     * 在模态框中执行区间选择
-     */
-    async executeRangeSelectionInModal(rangeConfig) {
-        const elements = await this.findElements(rangeConfig.locator);
-        if (elements.length === 0) {
-            throw new Error(`区间选择目标元素未找到: ${rangeConfig.locator.value}`);
-        }
-
-        const startIdx = rangeConfig.startIndex || 0;
-        const endIdx = rangeConfig.endIndex || elements.length - 1;
-
-        this.log(`📋 在模态框中执行区间选择: 索引 ${startIdx} 到 ${endIdx}`, 'info');
-
-        for (let i = startIdx; i <= Math.min(endIdx, elements.length - 1); i++) {
-            try {
-                // 对于复选框，检查是否已选中
-                if (elements[i].type === 'checkbox' && !elements[i].checked) {
-                    await this.clickElement(elements[i]);
-                    this.log(`✅ 已选中索引 ${i} 的选项`, 'info');
-                } else if (elements[i].type !== 'checkbox') {
-                    // 对于其他元素，直接点击
-                    await this.clickElement(elements[i]);
-                    this.log(`✅ 已点击索引 ${i} 的元素`, 'info');
-                }
-
-                // 选择间隔
-                if (rangeConfig.selectionDelay && i < endIdx) {
-                    await this.sleep(rangeConfig.selectionDelay);
-                }
-            } catch (error) {
-                this.log(`⚠️ 选择索引 ${i} 失败: ${error.message}`, 'warning');
-            }
-        }
-    }
-
-    /**
-     * 执行单个步骤操作
-     */
-    async executeStepAction(action) {
-        const element = await this.findElement(action.locator);
-
-        switch (action.type) {
-            case 'click':
-                await this.clickElement(element);
-                break;
-            case 'input':
-                await this.inputText(element, action.text || '');
-                break;
-            default:
-                throw new Error(`不支持的操作类型: ${action.type}`);
-        }
-    }
-
-    /**
-     * 关闭任何可能打开的模态框
-     */
-    async closeAnyOpenModals() {
-        try {
-            // 尝试查找并点击关闭按钮
-            const closeButtons = [
-                '.close', '.modal-close', '[data-dismiss="modal"]',
-                '.btn-cancel', '.btn-close', '.modal .close'
-            ];
-
-            for (const selector of closeButtons) {
-                try {
-                    const closeBtn = document.querySelector(selector);
-                    if (closeBtn && closeBtn.offsetParent !== null) { // 元素可见
-                        await this.clickElement(closeBtn);
-                        await this.sleep(500);
-                        this.log(`🔒 已关闭模态框`, 'info');
-                        break;
-                    }
-                } catch (error) {
-                    // 继续尝试下一个选择器
-                }
-            }
-
-            // 尝试按ESC键
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-            await this.sleep(300);
-
-        } catch (error) {
-            this.log(`⚠️ 关闭模态框失败: ${error.message}`, 'warning');
-        }
-    }
-
-    /**
-     * 执行父级循环（Type A - Parent Loop with Nested Sub-operations）
+     * 执行父级循环（Type A - Parent Loop with Sub-operations）
      * 每个父元素包含多个子操作，按顺序执行
      */
     async executeParentLoop(step, context) {
-        const loopName = step.name || `父级循环${context.join('.')}`;
-
         // 查找父级元素
         const parentElements = await this.findElements(step.locator);
         const totalElements = parentElements.length;
@@ -567,9 +370,7 @@ class UniversalAutomationEngine {
      * 执行简单循环（Type B - Simple Element Loop）
      * 对多个元素执行相同的单一操作
      */
-    async executeSimpleLoop(step, context) {
-        const loopName = step.name || `简单循环${context.join('.')}`;
-
+    async executeSimpleLoop(step) {
         // 查找目标元素
         const elements = await this.findElements(step.locator);
         const totalElements = elements.length;
@@ -647,44 +448,7 @@ class UniversalAutomationEngine {
         }
     }
 
-    /**
-     * 执行区间选择步骤
-     */
-    async executeRangeSelectStep(step) {
-        this.log(`📋 执行区间选择: ${step.startIndex}-${step.endIndex}`, 'info');
 
-        const elements = await this.findElements(step.locator);
-        if (elements.length === 0) {
-            throw new Error(`区间选择目标元素未找到: ${step.locator.value}`);
-        }
-
-        const startIndex = Math.max(0, (step.startIndex || 1) - 1); // 转换为0-based
-        const endIndex = Math.min(elements.length - 1, (step.endIndex || elements.length) - 1);
-
-        this.log(`📋 实际选择范围: 第${startIndex + 1}-${endIndex + 1}个 (共${elements.length}个)`, 'info');
-
-        let selectedCount = 0;
-        for (let i = startIndex; i <= endIndex; i++) {
-            const element = elements[i];
-            
-            // 根据元素类型执行选择
-            if (element.type === 'checkbox' || element.type === 'radio') {
-                if (!element.checked) {
-                    await this.clickElement(element);
-                    selectedCount++;
-                }
-            } else {
-                await this.clickElement(element);
-                selectedCount++;
-            }
-
-            if (step.selectDelay) {
-                await this.sleep(step.selectDelay);
-            }
-        }
-
-        this.log(`✅ 已选择 ${selectedCount} 个元素`, 'success');
-    }
 
     /**
      * 执行自定义步骤
@@ -988,7 +752,7 @@ class UniversalAutomationEngine {
      * 执行父级循环带子操作 (Type A)
      * 点击父级元素后执行配置的子操作序列
      */
-    async executeParentLoopWithSubOperations(element, step, context) {
+    async executeParentLoopWithSubOperations(element, step) {
         this.log(`🎯 开始处理父级元素`, 'info');
 
         try {

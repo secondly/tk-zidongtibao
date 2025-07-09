@@ -281,57 +281,7 @@ function createStepByType(type) {
                 inputText: '', // 当actionType为input时使用
                 actionDelay: 200 // 简单循环操作间隔
             };
-        case 'rangeSelect':
-            return {
-                ...baseStep,
-                locator: { strategy: 'css', value: '' },
-                startIndex: 1,
-                endIndex: 5,
-                selectDelay: 200
-            };
-        case 'nestedLoop':
-            return {
-                ...baseStep,
-                // 主循环配置
-                mainLocator: { strategy: 'css', value: '' },
-                startIndex: 0,
-                endIndex: -1,
-                skipIndices: [],
-                mainLoopDelay: 1000,
 
-                // 第一个弹窗配置
-                firstModalWait: {
-                    locator: { strategy: 'css', value: '' },
-                    timeout: 10000,
-                    interval: 500
-                },
-                firstModalAction: {
-                    type: 'click',
-                    locator: { strategy: 'css', value: '' }
-                },
-
-                // 第二个弹窗配置
-                secondModalWait: {
-                    locator: { strategy: 'css', value: '' },
-                    timeout: 10000,
-                    interval: 500
-                },
-                rangeSelection: {
-                    locator: { strategy: 'css', value: '' },
-                    startIndex: 2,
-                    endIndex: 6,
-                    selectionDelay: 200
-                },
-
-                // 确认操作
-                confirmAction: {
-                    type: 'click',
-                    locator: { strategy: 'css', value: '' }
-                },
-
-                // 返回等待时间
-                returnWait: 1000
-            };
         default:
             return baseStep;
     }
@@ -345,7 +295,7 @@ function getStepTypeName(type) {
         'wait': '等待时间',
         'smartWait': '智能等待',
         'loop': '循环操作',
-        'rangeSelect': '区间选择'
+
     };
     return names[type] || type;
 }
@@ -429,8 +379,7 @@ function getStepDetails(step) {
         case 'click':
         case 'input':
         case 'smartWait':
-        case 'rangeSelect':
-            return step.locator ? `${step.locator.strategy}: ${step.locator.value || '未配置'}` : '未配置定位器';
+
         case 'loop':
             const loopTypeText = step.loopType === 'simpleLoop' ? '简单循环' : '父级循环';
             const locatorText = step.locator ? `${step.locator.strategy}: ${step.locator.value || '未配置'}` : '未配置定位器';
@@ -439,9 +388,7 @@ function getStepDetails(step) {
             return `${loopTypeText} - ${locatorText}${actionText}${subOpsText}`;
         case 'wait':
             return `等待 ${step.duration}ms`;
-        case 'nestedLoop':
-            const mainLocatorText = step.mainLocator ? `${step.mainLocator.strategy}: ${step.mainLocator.value || '未配置'}` : '未配置主定位器';
-            return `三层嵌套 - ${mainLocatorText}`;
+
         default:
             return step.type;
     }
@@ -725,7 +672,7 @@ function generateStepEditHTML(step) {
         case 'click':
         case 'input':
         case 'smartWait':
-        case 'rangeSelect':
+
             html += `
                 <div class="form-group">
                     <label>定位策略</label>
@@ -831,72 +778,7 @@ function generateStepEditHTML(step) {
                 </div>
             `;
             break;
-        case 'nestedLoop':
-            html += `
-                <div class="form-group">
-                    <label>主循环定位策略</label>
-                    <select id="editMainLocatorStrategy">
-                        <option value="css" ${step.mainLocator?.strategy === 'css' ? 'selected' : ''}>CSS选择器</option>
-                        <option value="xpath" ${step.mainLocator?.strategy === 'xpath' ? 'selected' : ''}>XPath</option>
-                        <option value="id" ${step.mainLocator?.strategy === 'id' ? 'selected' : ''}>ID</option>
-                        <option value="className" ${step.mainLocator?.strategy === 'className' ? 'selected' : ''}>类名</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>主循环定位值</label>
-                    <input type="text" id="editMainLocatorValue" value="${step.mainLocator?.value || ''}" placeholder="主列表元素定位值">
-                    <div class="help-text">用于定位主页面列表中的每一行</div>
-                </div>
 
-                <h4>第一个弹窗配置</h4>
-                <div class="form-group">
-                    <label>第一个弹窗等待定位值</label>
-                    <input type="text" id="editFirstModalWaitValue" value="${step.firstModalWait?.locator?.value || ''}" placeholder="第一个弹窗的定位值">
-                    <div class="help-text">等待第一个弹窗出现的元素定位</div>
-                </div>
-                <div class="form-group">
-                    <label>第一个弹窗操作定位值</label>
-                    <input type="text" id="editFirstModalActionValue" value="${step.firstModalAction?.locator?.value || ''}" placeholder="第一个弹窗中要点击的按钮">
-                    <div class="help-text">在第一个弹窗中要点击的元素（如"选择类目按钮"）</div>
-                </div>
-
-                <h4>第二个弹窗配置</h4>
-                <div class="form-group">
-                    <label>第二个弹窗等待定位值</label>
-                    <input type="text" id="editSecondModalWaitValue" value="${step.secondModalWait?.locator?.value || ''}" placeholder="第二个弹窗的定位值">
-                    <div class="help-text">等待第二个弹窗出现的元素定位</div>
-                </div>
-                <div class="form-group">
-                    <label>区间选择定位值</label>
-                    <input type="text" id="editRangeSelectionValue" value="${step.rangeSelection?.locator?.value || ''}" placeholder="多选列表中的选项定位">
-                    <div class="help-text">第二个弹窗中多选列表的选项定位</div>
-                </div>
-                <div class="form-group">
-                    <label>区间起始索引</label>
-                    <input type="number" id="editRangeStartIndex" value="${step.rangeSelection?.startIndex || 2}" min="0">
-                </div>
-                <div class="form-group">
-                    <label>区间结束索引</label>
-                    <input type="number" id="editRangeEndIndex" value="${step.rangeSelection?.endIndex || 6}" min="0">
-                </div>
-                <div class="form-group">
-                    <label>确认按钮定位值</label>
-                    <input type="text" id="editConfirmActionValue" value="${step.confirmAction?.locator?.value || ''}" placeholder="确认按钮的定位值">
-                    <div class="help-text">第二个弹窗中确认按钮的定位</div>
-                </div>
-
-                <h4>时间配置</h4>
-                <div class="form-group">
-                    <label>主循环间隔(毫秒)</label>
-                    <input type="number" id="editMainLoopDelay" value="${step.mainLoopDelay || 1000}" min="0">
-                </div>
-                <div class="form-group">
-                    <label>返回等待时间(毫秒)</label>
-                    <input type="number" id="editReturnWait" value="${step.returnWait || 1000}" min="0">
-                    <div class="help-text">完成操作后等待返回主页面的时间</div>
-                </div>
-            `;
-            break;
     }
 
     // 添加类型特定配置
@@ -929,18 +811,7 @@ function generateStepEditHTML(step) {
                 </div>
             `;
             break;
-        case 'rangeSelect':
-            html += `
-                <div class="form-group">
-                    <label>起始位置</label>
-                    <input type="number" id="editRangeStart" value="${step.startIndex || 1}" min="1">
-                </div>
-                <div class="form-group">
-                    <label>结束位置</label>
-                    <input type="number" id="editRangeEnd" value="${step.endIndex || 5}" min="1">
-                </div>
-            `;
-            break;
+
     }
 
     return html;
@@ -981,12 +852,7 @@ function saveStepChanges() {
                 if (timeoutElement) updates.timeout = parseInt(timeoutElement.value);
                 if (descElement) updates.description = descElement.value;
                 break;
-            case 'rangeSelect':
-                const startElement = document.getElementById('editRangeStart');
-                const endElement = document.getElementById('editRangeEnd');
-                if (startElement) updates.startIndex = parseInt(startElement.value);
-                if (endElement) updates.endIndex = parseInt(endElement.value);
-                break;
+
             case 'loop':
                 console.log('🔍 开始保存循环步骤配置...');
 
@@ -1049,69 +915,7 @@ function saveStepChanges() {
 
                 console.log('🔍 完整的循环更新数据:', updates);
                 break;
-            case 'nestedLoop':
-                // 主循环配置
-                const mainStrategyElement = document.getElementById('editMainLocatorStrategy');
-                const mainValueElement = document.getElementById('editMainLocatorValue');
-                if (mainStrategyElement && mainValueElement) {
-                    updates.mainLocator = {
-                        strategy: mainStrategyElement.value,
-                        value: mainValueElement.value
-                    };
-                }
 
-                // 第一个弹窗配置
-                const firstModalWaitElement = document.getElementById('editFirstModalWaitValue');
-                const firstModalActionElement = document.getElementById('editFirstModalActionValue');
-                if (firstModalWaitElement) {
-                    updates.firstModalWait = {
-                        locator: { strategy: 'css', value: firstModalWaitElement.value },
-                        timeout: 10000,
-                        interval: 500
-                    };
-                }
-                if (firstModalActionElement) {
-                    updates.firstModalAction = {
-                        type: 'click',
-                        locator: { strategy: 'css', value: firstModalActionElement.value }
-                    };
-                }
-
-                // 第二个弹窗配置
-                const secondModalWaitElement = document.getElementById('editSecondModalWaitValue');
-                const rangeSelectionElement = document.getElementById('editRangeSelectionValue');
-                const rangeStartElement = document.getElementById('editRangeStartIndex');
-                const rangeEndElement = document.getElementById('editRangeEndIndex');
-                const confirmActionElement = document.getElementById('editConfirmActionValue');
-
-                if (secondModalWaitElement) {
-                    updates.secondModalWait = {
-                        locator: { strategy: 'css', value: secondModalWaitElement.value },
-                        timeout: 10000,
-                        interval: 500
-                    };
-                }
-                if (rangeSelectionElement) {
-                    updates.rangeSelection = {
-                        locator: { strategy: 'css', value: rangeSelectionElement.value },
-                        startIndex: rangeStartElement ? parseInt(rangeStartElement.value) : 2,
-                        endIndex: rangeEndElement ? parseInt(rangeEndElement.value) : 6,
-                        selectionDelay: 200
-                    };
-                }
-                if (confirmActionElement) {
-                    updates.confirmAction = {
-                        type: 'click',
-                        locator: { strategy: 'css', value: confirmActionElement.value }
-                    };
-                }
-
-                // 时间配置
-                const mainLoopDelayElement = document.getElementById('editMainLoopDelay');
-                const returnWaitElement = document.getElementById('editReturnWait');
-                if (mainLoopDelayElement) updates.mainLoopDelay = parseInt(mainLoopDelayElement.value);
-                if (returnWaitElement) updates.returnWait = parseInt(returnWaitElement.value);
-                break;
         }
 
         // 应用更新到editingStep
@@ -1359,7 +1163,7 @@ function validateStepData(step) {
     }
 
     // 检查定位器
-    if (['click', 'input', 'loop', 'smartWait', 'rangeSelect'].includes(step.type)) {
+    if (['click', 'input', 'loop', 'smartWait'].includes(step.type)) {
         if (!step.locator) {
             console.warn('⚠️ 步骤缺少定位器对象');
         } else if (!step.locator.strategy || !step.locator.value) {
@@ -2413,11 +2217,7 @@ function createAnnotatedWorkflowData(workflow) {
                         }
                         break;
 
-                    case 'rangeSelect':
-                        if (step.startIndex !== undefined) annotatedStep["起始索引"] = step.startIndex;
-                        if (step.endIndex !== undefined) annotatedStep["结束索引"] = step.endIndex;
-                        if (step.interval !== undefined) annotatedStep["选择间隔"] = step.interval;
-                        break;
+
                 }
 
                 // 保留原始数据以便导入
@@ -2439,7 +2239,7 @@ function getStepTypeDescription(type) {
         'wait': '等待操作 - 固定时间等待',
         'smartWait': '智能等待 - 等待元素出现',
         'loop': '循环操作 - 对多个元素执行重复操作',
-        'rangeSelect': '范围选择 - 选择指定范围的元素',
+
         'custom': '自定义操作 - 执行自定义脚本'
     };
     return descriptions[type] || '未知操作类型';
