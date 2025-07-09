@@ -1180,14 +1180,12 @@ class UniversalAutomationEngine {
             try {
                 const element = elements[i];
 
-                // 添加视觉高亮效果
-                this.highlightElement(element, 'processing');
+                // 添加绿色执行进度高亮
+                this.highlightExecutionProgress(element);
 
                 await this.executeAutoLoopAction(element, operation, actionType);
                 successCount++;
 
-                // 成功高亮效果
-                this.highlightElement(element, 'success');
                 this.log(`✅ 第 ${i + 1} 个元素${actionType}操作完成`, 'success');
 
                 // 操作间隔
@@ -1195,18 +1193,17 @@ class UniversalAutomationEngine {
                     await this.sleep(actionDelay);
                 }
 
-                // 清除高亮效果
-                this.clearElementHighlight(element);
+                // 清除执行进度高亮
+                this.clearExecutionProgress(element);
 
             } catch (error) {
                 errorCount++;
 
-                // 错误高亮效果
-                this.highlightElement(element, 'error');
+                const element = elements[i];
                 this.log(`❌ 第 ${i + 1} 个元素操作失败: ${error.message}`, 'error');
 
-                // 延迟清除错误高亮
-                setTimeout(() => this.clearElementHighlight(element), 1000);
+                // 清除执行进度高亮（即使失败也要清除）
+                this.clearExecutionProgress(element);
 
                 if (errorHandling === 'stop') {
                     throw new Error(`自循环在第 ${i + 1} 个元素处停止: ${error.message}`);
@@ -1311,6 +1308,60 @@ class UniversalAutomationEngine {
 
         // 清除保存的样式
         delete element._originalStyle;
+    }
+
+    /**
+     * 高亮执行进度（绿色）
+     */
+    highlightExecutionProgress(element) {
+        if (!element) return;
+
+        this.log('🟢 添加执行进度高亮', 'info');
+
+        // 保存原始样式（如果还没保存的话）
+        if (!element._executionOriginalStyle) {
+            element._executionOriginalStyle = {
+                outline: element.style.outline || '',
+                backgroundColor: element.style.backgroundColor || '',
+                transition: element.style.transition || '',
+                zIndex: element.style.zIndex || ''
+            };
+        }
+
+        // 设置执行进度高亮样式（绿色）
+        element.style.transition = 'all 0.3s ease';
+        element.style.outline = '3px solid #27ae60';
+        element.style.backgroundColor = 'rgba(39, 174, 96, 0.1)';
+        element.style.zIndex = '10000'; // 比测试高亮更高的层级
+
+        // 标记为执行进度高亮
+        element._isExecutionHighlighted = true;
+
+        // 滚动到当前元素
+        element.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'center'
+        });
+    }
+
+    /**
+     * 清除执行进度高亮
+     */
+    clearExecutionProgress(element) {
+        if (!element || !element._executionOriginalStyle) return;
+
+        this.log('🧹 清除执行进度高亮', 'info');
+
+        // 恢复原始样式
+        element.style.outline = element._executionOriginalStyle.outline;
+        element.style.backgroundColor = element._executionOriginalStyle.backgroundColor;
+        element.style.transition = element._executionOriginalStyle.transition;
+        element.style.zIndex = element._executionOriginalStyle.zIndex;
+
+        // 清除标记和保存的样式
+        delete element._executionOriginalStyle;
+        delete element._isExecutionHighlighted;
     }
 } // 结束类定义
 

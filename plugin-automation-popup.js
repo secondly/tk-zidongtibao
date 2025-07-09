@@ -699,12 +699,16 @@ function setupSubOperationHandlers() {
 function closeStepModal() {
     document.getElementById('stepModal').style.display = 'none';
     editingStep = null;
+    // 关闭模态框时清除测试高亮
+    clearTestHighlights();
 }
 
 // 关闭模态框但保持editingStep数据（用于子操作编辑流程）
 function hideStepModal() {
     document.getElementById('stepModal').style.display = 'none';
     // 不清空editingStep，保持数据状态
+    // 隐藏模态框时也清除测试高亮
+    clearTestHighlights();
 }
 
 // 生成步骤编辑HTML
@@ -2107,6 +2111,9 @@ async function testMainLocator() {
     testBtn.textContent = '🔄测试中...';
 
     try {
+        // 先清除之前的测试高亮
+        await clearTestHighlights();
+
         // 发送消息到content script进行测试
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -2121,6 +2128,7 @@ async function testMainLocator() {
                 showTestResult(resultElement, '未找到匹配元素', 'error');
             } else {
                 showTestResult(resultElement, `找到 ${count} 个匹配元素`, 'success');
+                console.log(`🎯 主操作定位器测试成功，已高亮 ${count} 个元素`);
             }
         } else {
             showTestResult(resultElement, response?.error || '测试失败', 'error');
@@ -2160,6 +2168,9 @@ async function testSubOpLocator() {
     testBtn.textContent = '🔄测试中...';
 
     try {
+        // 先清除之前的测试高亮
+        await clearTestHighlights();
+
         // 发送消息到content script进行测试
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -2174,6 +2185,7 @@ async function testSubOpLocator() {
                 showTestResult(resultElement, '未找到匹配元素', 'error');
             } else {
                 showTestResult(resultElement, `找到 ${count} 个匹配元素`, 'success');
+                console.log(`🎯 子操作定位器测试成功，已高亮 ${count} 个元素`);
             }
         } else {
             showTestResult(resultElement, response?.error || '测试失败', 'error');
@@ -2203,6 +2215,19 @@ function clearTestResult(resultElementId) {
     }
 }
 
+// 清除页面上的测试高亮
+async function clearTestHighlights() {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        await chrome.tabs.sendMessage(tab.id, {
+            action: 'clearTestHighlights'
+        });
+        console.log('✅ 已清除页面测试高亮');
+    } catch (error) {
+        console.error('❌ 清除测试高亮失败:', error);
+    }
+}
+
 // 设置定位器测试监听器
 function setupLocatorTestListeners() {
     // 主操作定位器测试按钮监听
@@ -2224,12 +2249,14 @@ function setupLocatorTestListeners() {
     if (mainLocatorValue) {
         mainLocatorValue.addEventListener('input', () => {
             clearTestResult('mainLocatorTestResult');
+            clearTestHighlights(); // 清除高亮
         });
     }
 
     if (mainLocatorStrategy) {
         mainLocatorStrategy.addEventListener('change', () => {
             clearTestResult('mainLocatorTestResult');
+            clearTestHighlights(); // 清除高亮
         });
     }
 
@@ -2240,12 +2267,14 @@ function setupLocatorTestListeners() {
     if (subOpLocatorValue) {
         subOpLocatorValue.addEventListener('input', () => {
             clearTestResult('subOpLocatorTestResult');
+            clearTestHighlights(); // 清除高亮
         });
     }
 
     if (subOpLocatorStrategy) {
         subOpLocatorStrategy.addEventListener('change', () => {
             clearTestResult('subOpLocatorTestResult');
+            clearTestHighlights(); // 清除高亮
         });
     }
 }

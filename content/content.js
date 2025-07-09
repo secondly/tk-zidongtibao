@@ -88,6 +88,18 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     return true;
   }
 
+  // 处理清除测试高亮请求
+  if (request.action === "clearTestHighlights") {
+    try {
+      clearTestHighlights();
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error("清除测试高亮失败:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
   if (request.action === "findAllElements") {
     findAllElements(request.locator)
       .then((result) => {
@@ -1243,14 +1255,12 @@ async function executeSubOperationAutoLoop(operation, parentElement = null) {
     try {
       const element = elements[i];
 
-      // 添加视觉高亮效果
-      highlightElement(element, 'processing');
+      // 添加绿色执行进度高亮
+      highlightExecutionProgress(element);
 
       await executeAutoLoopAction(element, operation, actionType);
       successCount++;
 
-      // 成功高亮效果
-      highlightElement(element, 'success');
       console.log(`✅ 第 ${i + 1} 个元素${actionType}操作完成`);
 
       // 操作间隔
@@ -1258,18 +1268,17 @@ async function executeSubOperationAutoLoop(operation, parentElement = null) {
         await new Promise(resolve => setTimeout(resolve, actionDelay));
       }
 
-      // 清除高亮效果
-      clearElementHighlight(element);
+      // 清除执行进度高亮
+      clearExecutionProgress(element);
 
     } catch (error) {
       errorCount++;
 
-      // 错误高亮效果
-      highlightElement(element, 'error');
+      const element = elements[i];
       console.error(`❌ 第 ${i + 1} 个元素操作失败:`, error);
 
-      // 延迟清除错误高亮
-      setTimeout(() => clearElementHighlight(element), 1000);
+      // 清除执行进度高亮（即使失败也要清除）
+      clearExecutionProgress(element);
 
       if (errorHandling === 'stop') {
         throw new Error(`自循环在第 ${i + 1} 个元素处停止: ${error.message}`);
@@ -1327,6 +1336,9 @@ function testLocatorElements(locator) {
   console.log('🔍 测试定位器:', locator);
 
   try {
+    // 清除之前的测试高亮
+    clearTestHighlights();
+
     let elements;
 
     switch (locator.strategy) {
@@ -1360,9 +1372,16 @@ function testLocatorElements(locator) {
     const count = elements.length;
     console.log(`✅ 找到 ${count} 个匹配元素`);
 
+    // 如果找到元素，添加测试高亮效果
+    if (count > 0) {
+      highlightTestElements(Array.from(elements));
+    }
+
     return { count };
   } catch (error) {
     console.error('❌ 测试定位器失败:', error);
+    // 发生错误时也清除高亮
+    clearTestHighlights();
     throw error;
   }
 }
@@ -1413,4 +1432,124 @@ function clearElementHighlight(element) {
 
   // 清除保存的样式
   delete element._originalStyle;
+}
+
+// 全局变量存储测试高亮的元素
+let testHighlightedElements = [];
+
+// 高亮测试找到的元素
+function highlightTestElements(elements) {
+  console.log(`🎯 开始高亮 ${elements.length} 个测试元素`);
+
+  // 清除之前的测试高亮
+  clearTestHighlights();
+
+  elements.forEach((element, index) => {
+    if (!element) return;
+
+    // 保存原始样式
+    if (!element._testOriginalStyle) {
+      element._testOriginalStyle = {
+        outline: element.style.outline || '',
+        backgroundColor: element.style.backgroundColor || '',
+        transition: element.style.transition || '',
+        zIndex: element.style.zIndex || ''
+      };
+    }
+
+    // 设置测试高亮样式（黄色）
+    element.style.transition = 'all 0.3s ease';
+    element.style.outline = '3px solid #f1c40f';
+    element.style.backgroundColor = 'rgba(241, 196, 15, 0.1)';
+    element.style.zIndex = '9999';
+
+    // 标记为测试高亮元素
+    element._isTestHighlighted = true;
+    testHighlightedElements.push(element);
+
+    console.log(`✅ 已高亮第 ${index + 1} 个元素`);
+  });
+
+  // 滚动到第一个元素
+  if (elements.length > 0 && elements[0]) {
+    elements[0].scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+      inline: 'center'
+    });
+    console.log('📍 已滚动到第一个匹配元素');
+  }
+}
+
+// 清除所有测试高亮
+function clearTestHighlights() {
+  console.log(`🧹 清除 ${testHighlightedElements.length} 个测试高亮元素`);
+
+  testHighlightedElements.forEach(element => {
+    if (element && element._testOriginalStyle) {
+      // 恢复原始样式
+      element.style.outline = element._testOriginalStyle.outline;
+      element.style.backgroundColor = element._testOriginalStyle.backgroundColor;
+      element.style.transition = element._testOriginalStyle.transition;
+      element.style.zIndex = element._testOriginalStyle.zIndex;
+
+      // 清除标记和保存的样式
+      delete element._testOriginalStyle;
+      delete element._isTestHighlighted;
+    }
+  });
+
+  // 清空数组
+  testHighlightedElements = [];
+  console.log('✅ 所有测试高亮已清除');
+}
+
+// 高亮执行进度（绿色）
+function highlightExecutionProgress(element) {
+  if (!element) return;
+
+  console.log('🟢 添加执行进度高亮');
+
+  // 保存原始样式（如果还没保存的话）
+  if (!element._executionOriginalStyle) {
+    element._executionOriginalStyle = {
+      outline: element.style.outline || '',
+      backgroundColor: element.style.backgroundColor || '',
+      transition: element.style.transition || '',
+      zIndex: element.style.zIndex || ''
+    };
+  }
+
+  // 设置执行进度高亮样式（绿色）
+  element.style.transition = 'all 0.3s ease';
+  element.style.outline = '3px solid #27ae60';
+  element.style.backgroundColor = 'rgba(39, 174, 96, 0.1)';
+  element.style.zIndex = '10000'; // 比测试高亮更高的层级
+
+  // 标记为执行进度高亮
+  element._isExecutionHighlighted = true;
+
+  // 滚动到当前元素
+  element.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+    inline: 'center'
+  });
+}
+
+// 清除执行进度高亮
+function clearExecutionProgress(element) {
+  if (!element || !element._executionOriginalStyle) return;
+
+  console.log('🧹 清除执行进度高亮');
+
+  // 恢复原始样式
+  element.style.outline = element._executionOriginalStyle.outline;
+  element.style.backgroundColor = element._executionOriginalStyle.backgroundColor;
+  element.style.transition = element._executionOriginalStyle.transition;
+  element.style.zIndex = element._executionOriginalStyle.zIndex;
+
+  // 清除标记和保存的样式
+  delete element._executionOriginalStyle;
+  delete element._isExecutionHighlighted;
 }
