@@ -1,11 +1,51 @@
 // 监听来自后台脚本的消息
-chrome.runtime.onMessage.addListener(function (request, _sender, sendResponse) {
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   console.log("Content script收到消息:", request);
 
   // 处理ping请求，用于检测content script是否已加载
   if (request.action === "ping") {
     console.log("收到ping请求");
     sendResponse({ success: true, message: "Content script已加载" });
+    return true;
+  }
+
+  // 处理重置引擎请求
+  if (request.action === "resetEngine") {
+    try {
+      console.log("🔄 收到重置引擎请求");
+
+      // 清除可能存在的引擎实例
+      if (window.UniversalAutomationEngine) {
+        // 移除旧的脚本标签
+        const oldScripts = document.querySelectorAll('script[data-automation-engine="true"]');
+        oldScripts.forEach(script => {
+          script.remove();
+          console.log("🗑️ 已移除旧的引擎脚本");
+        });
+
+        // 清除全局引用
+        delete window.UniversalAutomationEngine;
+        console.log("✅ 自动化引擎全局引用已清除");
+      }
+
+      sendResponse({ success: true, message: "引擎已重置" });
+    } catch (error) {
+      console.error("❌ 重置引擎失败:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
+  // 处理通用自动化工作流执行
+  if (request.action === "executeWorkflow") {
+    executeUniversalWorkflow(request.workflow)
+      .then((result) => {
+        sendResponse({ success: true, result });
+      })
+      .catch((error) => {
+        console.error("执行通用工作流失败:", error);
+        sendResponse({ success: false, error: error.message });
+      });
     return true;
   }
 
@@ -84,18 +124,7 @@ async function testElementLocator(locator) {
     );
 
     if (elements.length === 0) {
-      // 为outerHTML策略提供更详细的错误信息
-      let errorMessage = "未找到匹配元素";
-      if (locator.strategy === "outerhtml") {
-        if (!locator.value.startsWith('<')) {
-          errorMessage = "outerHTML格式错误：必须以'<'开头的完整HTML标签";
-        } else if (!locator.value.includes('>')) {
-          errorMessage = "outerHTML格式错误：缺少'>'结束符";
-        } else {
-          errorMessage = "未找到匹配的HTML元素，请检查HTML代码是否正确";
-        }
-      }
-      throw new Error(errorMessage);
+      throw new Error("未找到匹配元素");
     }
 
     // 移除之前的高亮
@@ -109,18 +138,9 @@ async function testElementLocator(locator) {
     // 5秒后移除高亮
     setTimeout(removeHighlights, 5000);
 
-    // 收集元素信息用于调试
-    const elementInfo = elements.map(el => {
-      const tag = el.tagName.toLowerCase();
-      const id = el.id ? '#' + el.id : '';
-      const classes = el.className ? '.' + el.className.split(' ').filter(c => c).join('.') : '';
-      return `${tag}${id}${classes}`;
-    }).join(', ');
-
     return {
       count: elements.length,
       message: `找到 ${elements.length} 个匹配元素并已高亮显示`,
-      elementInfo: elementInfo,
     };
   } catch (error) {
     console.error("测试元素定位时出错:", error);
@@ -229,7 +249,7 @@ async function performActionOnElementByIndex(
   locator,
   index,
   actionType,
-  textToInput
+  inputText
 ) {
   try {
     console.log(`按索引 ${index} 操作元素:`, locator);
@@ -257,10 +277,10 @@ async function performActionOnElementByIndex(
         break;
 
       case "input":
-        if (textToInput === undefined) {
+        if (inputText === undefined) {
           throw new Error("输入操作需要提供输入文本");
         }
-        await inputText(element, textToInput);
+        await inputText(element, inputText);
         break;
 
       default:
@@ -294,27 +314,6 @@ async function performAction(config) {
 
       return {
         message: `成功等待 ${waitTime} 秒`,
-      };
-    }
-
-    // 等待元素出现操作
-    if (config.action === "waitfor") {
-      const timeout = parseInt(config.waitTime) || 30000; // 默认30秒超时
-      console.log(`等待元素出现: ${config.locator.strategy}="${config.locator.value}"`);
-
-      const element = await waitForElement(
-        config.locator.strategy,
-        config.locator.value,
-        timeout
-      );
-
-      // 高亮显示找到的元素
-      highlightElement(element);
-      setTimeout(removeHighlights, 2000);
-
-      return {
-        message: `元素已出现并找到`,
-        element: elementToString(element)
       };
     }
 
@@ -389,22 +388,6 @@ async function findElementByStrategy(strategy, value, timeout = 5000) {
     case "contains":
       return await findElementContainingText(value, ["*"], timeout);
 
-    case "outerhtml":
-      // outerHTML策略查找元素
-      const outerHTMLElements = await findElementsByStrategy(strategy, value, timeout);
-      if (outerHTMLElements.length === 0) {
-        throw new Error(`未找到匹配元素 ${strategy}="${value}"`);
-      }
-      return outerHTMLElements[0];
-
-    case "jspath":
-      // JS路径策略查找元素
-      const jsPathElements = await findElementsByStrategy(strategy, value, timeout);
-      if (jsPathElements.length === 0) {
-        throw new Error(`未找到匹配元素 ${strategy}="${value}"`);
-      }
-      return jsPathElements[0];
-
     case "all":
       // 对于查找所有元素，仍返回第一个元素，但会发出警告
       console.warn(
@@ -422,37 +405,6 @@ async function findElementByStrategy(strategy, value, timeout = 5000) {
 }
 
 /**
- * 等待元素出现
- * @param {string} strategy - 定位策略
- * @param {string} value - 定位值
- * @param {number} timeout - 超时时间（毫秒）
- * @param {number} pollInterval - 轮询间隔（毫秒）
- * @returns {Promise<HTMLElement>} - 找到的元素
- */
-async function waitForElement(strategy, value, timeout = 30000, pollInterval = 500) {
-  console.log(`等待元素出现: ${strategy}="${value}", 超时时间: ${timeout}ms`);
-  const startTime = Date.now();
-
-  while (Date.now() - startTime < timeout) {
-    try {
-      const elements = await performSingleElementSearch(strategy, value);
-      if (elements.length > 0) {
-        console.log(`元素已出现: 找到 ${elements.length} 个匹配元素`);
-        return elements[0];
-      }
-    } catch (error) {
-      // 忽略查找过程中的错误，继续等待
-      console.log(`等待过程中的查找尝试失败，继续等待...`);
-    }
-
-    // 等待指定间隔后再次尝试
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
-  }
-
-  throw new Error(`等待超时(${timeout}ms): 元素未出现 ${strategy}="${value}"`);
-}
-
-/**
  * 根据定位策略查找所有匹配元素
  * @param {string} strategy - 定位策略
  * @param {string} value - 定位值
@@ -462,7 +414,7 @@ async function findElementsByStrategy(strategy, value, timeout = 5000) {
   console.log(`尝试使用${strategy}策略查找所有匹配元素: ${value}`);
 
   // 对于基本选择器，尝试立即查找而不使用轮询
-  if (["id", "class", "css", "xpath", "outerhtml", "jspath", "all"].includes(strategy)) {
+  if (["id", "class", "css", "xpath", "all"].includes(strategy)) {
     try {
       // 对于基本的DOM选择器，直接尝试一次查询
       let elements = await performSingleElementSearch(strategy, value);
@@ -594,16 +546,6 @@ async function performSingleElementSearch(strategy, value) {
       }
       break;
 
-    case "outerhtml":
-      // 通过outerHTML匹配元素
-      elements = findElementsByOuterHTML(value);
-      break;
-
-    case "jspath":
-      // 通过JS路径匹配元素
-      elements = findElementsByJSPath(value);
-      break;
-
     case "all":
       // "all"策略下，默认使用CSS选择器查找所有匹配元素
       elements = Array.from(document.querySelectorAll(value));
@@ -614,199 +556,6 @@ async function performSingleElementSearch(strategy, value) {
   }
 
   return elements;
-}
-
-/**
- * 通过outerHTML查找元素
- * @param {string} outerHTML - 要匹配的outerHTML字符串
- * @returns {HTMLElement[]} - 匹配的元素数组
- */
-function findElementsByOuterHTML(outerHTML) {
-  console.log('开始outerHTML匹配，目标HTML:', outerHTML);
-  const elements = [];
-  const allElements = document.querySelectorAll('*');
-
-  // 清理和验证输入的HTML
-  let targetHTML = cleanAndValidateHTML(outerHTML);
-  console.log('清理后的目标HTML:', targetHTML);
-
-  // 如果输入的HTML不完整，尝试智能补全
-  if (!targetHTML.startsWith('<')) {
-    console.log('检测到不完整的HTML，尝试智能匹配...');
-    return findElementsByPartialHTML(targetHTML);
-  }
-
-  for (const element of allElements) {
-    try {
-      // 获取元素的outerHTML并清理空白字符
-      const elementHTML = element.outerHTML.replace(/\s+/g, ' ').trim();
-
-      // 完全匹配
-      if (elementHTML === targetHTML) {
-        console.log('找到完全匹配的元素:', element);
-        elements.push(element);
-        continue;
-      }
-
-      // 如果完全匹配失败，尝试部分匹配（忽略属性顺序）
-      if (isHTMLStructureMatch(element, targetHTML)) {
-        console.log('找到结构匹配的元素:', element);
-        elements.push(element);
-      }
-    } catch (error) {
-      // 忽略无法访问outerHTML的元素
-      console.warn('无法访问元素的outerHTML:', error);
-    }
-  }
-
-  console.log(`outerHTML匹配完成，找到 ${elements.length} 个元素`);
-  return elements;
-}
-
-/**
- * 清理和验证HTML字符串
- * @param {string} html - 原始HTML字符串
- * @returns {string} - 清理后的HTML字符串
- */
-function cleanAndValidateHTML(html) {
-  // 移除多余的空白字符
-  let cleaned = html.replace(/\s+/g, ' ').trim();
-
-  // 检测并修复重复的HTML结构
-  if (cleaned.includes('</a></a>') || cleaned.includes('</span></span>') || cleaned.includes('</div></div>')) {
-    console.warn('检测到重复的HTML结构，尝试修复...');
-
-    // 尝试提取第一个完整的标签
-    const match = cleaned.match(/^<[^>]+>.*?<\/[^>]+>/);
-    if (match) {
-      const firstComplete = match[0];
-      console.log('提取的第一个完整标签:', firstComplete);
-
-      // 检查是否是有效的HTML
-      if (isValidHTML(firstComplete)) {
-        cleaned = firstComplete;
-        console.log('使用修复后的HTML:', cleaned);
-      }
-    }
-  }
-
-  return cleaned;
-}
-
-/**
- * 验证HTML字符串是否有效
- * @param {string} html - HTML字符串
- * @returns {boolean} - 是否有效
- */
-function isValidHTML(html) {
-  try {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-
-    // 检查是否成功解析为单个元素
-    const children = tempDiv.children;
-    if (children.length === 1) {
-      const element = children[0];
-      // 检查元素的outerHTML是否与输入匹配（忽略空白差异）
-      const normalizedInput = html.replace(/\s+/g, ' ').trim();
-      const normalizedOutput = element.outerHTML.replace(/\s+/g, ' ').trim();
-      return normalizedInput === normalizedOutput;
-    }
-
-    return false;
-  } catch (error) {
-    console.warn('HTML验证失败:', error);
-    return false;
-  }
-}
-
-/**
- * 处理不完整HTML的匹配
- * @param {string} partialHTML - 不完整的HTML片段
- * @returns {HTMLElement[]} - 匹配的元素数组
- */
-function findElementsByPartialHTML(partialHTML) {
-  console.log('使用部分HTML匹配:', partialHTML);
-  const elements = [];
-  const allElements = document.querySelectorAll('*');
-
-  for (const element of allElements) {
-    try {
-      const elementHTML = element.outerHTML.replace(/\s+/g, ' ').trim();
-
-      // 检查元素的outerHTML是否包含目标片段
-      if (elementHTML.includes(partialHTML)) {
-        console.log('找到包含目标片段的元素:', element);
-        elements.push(element);
-      }
-
-      // 也检查innerHTML
-      const elementInnerHTML = element.innerHTML.replace(/\s+/g, ' ').trim();
-      if (elementInnerHTML.includes(partialHTML)) {
-        console.log('找到innerHTML包含目标片段的元素:', element);
-        elements.push(element);
-      }
-    } catch (error) {
-      console.warn('处理元素时出错:', error);
-    }
-  }
-
-  return elements;
-}
-
-/**
- * 检查HTML结构是否匹配（忽略属性顺序）
- * @param {HTMLElement} element - 要检查的元素
- * @param {string} targetHTML - 目标HTML字符串
- * @returns {boolean} - 是否匹配
- */
-function isHTMLStructureMatch(element, targetHTML) {
-  try {
-    // 创建一个临时元素来解析目标HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = targetHTML;
-    const targetElement = tempDiv.firstElementChild;
-
-    if (!targetElement) {
-      // 如果无法解析为元素，尝试文本匹配
-      return element.textContent.includes(targetHTML.replace(/<[^>]*>/g, ''));
-    }
-
-    // 比较标签名
-    if (element.tagName.toLowerCase() !== targetElement.tagName.toLowerCase()) {
-      return false;
-    }
-
-    // 比较属性（更宽松的匹配）
-    const targetAttrs = targetElement.attributes;
-
-    // 检查目标元素的所有属性是否在当前元素中存在（允许当前元素有更多属性）
-    for (let i = 0; i < targetAttrs.length; i++) {
-      const attr = targetAttrs[i];
-      const elementAttrValue = element.getAttribute(attr.name);
-
-      // 如果属性不存在或值不匹配，则不匹配
-      if (elementAttrValue === null || elementAttrValue !== attr.value) {
-        return false;
-      }
-    }
-
-    // 比较文本内容（更宽松的匹配）
-    if (targetElement.textContent.trim()) {
-      const elementText = element.textContent.trim();
-      const targetText = targetElement.textContent.trim();
-
-      // 检查是否包含目标文本
-      if (!elementText.includes(targetText)) {
-        return false;
-      }
-    }
-
-    return true;
-  } catch (error) {
-    console.warn('HTML结构匹配检查失败:', error);
-    return false;
-  }
 }
 
 /**
@@ -961,14 +710,11 @@ async function findElementByXPath(xpath, timeout = 5000) {
       }
     } catch (error) {
       console.error(`XPath查询错误: ${error.message}`);
-      throw new Error(`XPath语法错误: ${error.message}`);
+      return null;
     }
-
-    // 等待一段时间再重试
-    await new Promise(resolve => setTimeout(resolve, 100));
   }
 
-  throw new Error(`超时(${timeout}ms)：无法找到XPath元素 "${xpath}"`);
+  throw new Error(`超时(${timeout}ms)：无法找到元素`);
 }
 
 /**
@@ -1071,84 +817,364 @@ async function inputText(element, text) {
 }
 
 /**
- * 通过JS路径查找元素
- * @param {string} jsPath - JS路径字符串，如 'document.querySelector("#btn2")'
- * @returns {HTMLElement[]} - 匹配的元素数组
+ * 执行通用自动化工作流
+ * @param {object} workflow - 工作流配置
+ * @returns {Promise<object>} - 执行结果
  */
-function findElementsByJSPath(jsPath) {
-  console.log('开始JS路径匹配，目标路径:', jsPath);
-  const elements = [];
-
+async function executeUniversalWorkflow(workflow) {
   try {
-    // 清理和验证JS路径
-    let cleanPath = jsPath.trim();
+    console.log('🚀 开始执行通用自动化工作流:', workflow.name);
 
-    // 提取CSS选择器
-    const selector = extractSelectorFromJSPath(cleanPath);
-    if (!selector) {
-      console.error('无法从JS路径中提取选择器:', cleanPath);
-      return elements;
+    // 直接执行工作流，跳过引擎加载
+    console.log('🚀 开始执行工作流...');
+
+    // 使用简单的步骤执行
+    for (const step of workflow.steps) {
+      console.log(`🎯 执行步骤: ${step.name} (${step.type})`);
+
+      switch (step.type) {
+        case 'click':
+          await executeClickStep(step);
+          break;
+        case 'input':
+          await executeInputStep(step);
+          break;
+        case 'wait':
+          await executeWaitStep(step);
+          break;
+        case 'loop':
+          await executeLoopStep(step);
+          break;
+        default:
+          console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
+      }
+
+      // 步骤间等待
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
-    console.log('提取的CSS选择器:', selector);
+    console.log('✅ 工作流执行完成');
+    return { success: true, message: '工作流执行完成' };
 
-    // 使用提取的选择器查找元素
-    const foundElements = document.querySelectorAll(selector);
-    elements.push(...foundElements);
-
-    console.log(`JS路径匹配完成，找到 ${elements.length} 个元素`);
   } catch (error) {
-    console.error('JS路径匹配出错:', error);
+    console.error('❌ 通用工作流执行失败:', error);
+    throw error;
   }
-
-  return elements;
 }
 
 /**
- * 从JS路径中提取CSS选择器
- * @param {string} jsPath - JS路径字符串
- * @returns {string|null} - 提取的CSS选择器，失败返回null
+ * 动态加载通用自动化引擎
  */
-function extractSelectorFromJSPath(jsPath) {
-  try {
-    // 匹配 document.querySelector("selector") 或 document.querySelector('selector')
-    const querySelectorMatch = jsPath.match(/document\.querySelector\s*\(\s*["']([^"']+)["']\s*\)/);
-    if (querySelectorMatch) {
-      return querySelectorMatch[1];
+async function loadUniversalAutomationEngine() {
+  return new Promise(async (resolve, reject) => {
+    console.log('🔄 开始加载通用自动化引擎...');
+
+    // 检查是否已经加载
+    if (window.UniversalAutomationEngine && typeof window.UniversalAutomationEngine === 'function') {
+      console.log('✅ 通用自动化引擎已存在');
+      resolve();
+      return;
     }
 
-    // 匹配 document.querySelectorAll("selector") 或 document.querySelectorAll('selector')
-    const querySelectorAllMatch = jsPath.match(/document\.querySelectorAll\s*\(\s*["']([^"']+)["']\s*\)/);
-    if (querySelectorAllMatch) {
-      return querySelectorAllMatch[1];
+    // 清理所有旧的脚本
+    const oldScripts = document.querySelectorAll('script[data-automation-engine="true"]');
+    oldScripts.forEach(script => {
+      console.log('🗑️ 移除旧的引擎脚本');
+      script.remove();
+    });
+
+    // 创建脚本标签注入到页面
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('universal-automation-engine.js');
+    script.setAttribute('data-automation-engine', 'true');
+
+    // 监听页面脚本的加载完成消息
+    const messageHandler = (event) => {
+      if (event.data && event.data.type === 'AUTOMATION_ENGINE_LOADED') {
+        console.log('✅ 收到引擎加载完成消息');
+        window.removeEventListener('message', messageHandler);
+
+        // 直接检查引擎是否可用（简化方法）
+        setTimeout(() => {
+          console.log('✅ 引擎加载完成，直接解析');
+          resolve();
+        }, 100);
+      }
+
+      if (event.data && event.data.type === 'ENGINE_CHECK_RESULT') {
+        if (event.data.available) {
+          console.log('✅ 引擎在页面上下文中可用');
+          resolve();
+        } else {
+          console.error('❌ 引擎在页面上下文中不可用:', event.data.engineType);
+          reject(new Error(`引擎不可用: ${event.data.engineType}`));
+        }
+      }
+    };
+
+    window.addEventListener('message', messageHandler);
+
+    // 设置超时
+    setTimeout(() => {
+      window.removeEventListener('message', messageHandler);
+      reject(new Error('引擎加载超时'));
+    }, 10000);
+
+    script.onload = () => {
+      console.log('📦 引擎脚本文件已加载，等待初始化...');
+    };
+
+    script.onerror = (error) => {
+      console.error('❌ 脚本加载失败:', error);
+      reject(new Error('脚本加载失败'));
+    };
+
+    // 注入到页面而不是content script上下文
+    document.documentElement.appendChild(script);
+  });
+}
+
+// 简单的步骤执行函数
+async function executeClickStep(step) {
+  const selector = step.locator?.value || step.locator;
+  if (!selector) {
+    throw new Error('缺少定位器');
+  }
+
+  const element = document.querySelector(selector);
+  if (!element) {
+    throw new Error(`找不到元素: ${selector}`);
+  }
+
+  element.click();
+  console.log(`✅ 点击元素: ${selector}`);
+}
+
+async function executeInputStep(step) {
+  const selector = step.locator?.value || step.locator;
+  const text = step.text || step.inputText || '';
+
+  if (!selector) {
+    throw new Error('缺少定位器');
+  }
+
+  const element = document.querySelector(selector);
+  if (!element) {
+    throw new Error(`找不到元素: ${selector}`);
+  }
+
+  element.value = text;
+  element.dispatchEvent(new Event('input', { bubbles: true }));
+  console.log(`✅ 输入文本: ${selector} = "${text}"`);
+}
+
+async function executeWaitStep(step) {
+  const duration = step.duration || step.waitTime || 1000;
+  console.log(`⏳ 等待 ${duration}ms`);
+  await new Promise(resolve => setTimeout(resolve, duration));
+  console.log(`✅ 等待完成`);
+}
+
+async function executeLoopStep(step) {
+  const selector = step.locator?.value || step.locator;
+  if (!selector) {
+    throw new Error('缺少循环定位器');
+  }
+
+  const elements = document.querySelectorAll(selector);
+  if (elements.length === 0) {
+    throw new Error(`找不到循环元素: ${selector}`);
+  }
+
+  const startIndex = step.startIndex || 0;
+  const endIndex = step.endIndex === -1 ? elements.length - 1 : (step.endIndex || elements.length - 1);
+  const actualEndIndex = Math.min(endIndex, elements.length - 1);
+
+  console.log(`🔄 开始执行${step.loopType === 'simpleLoop' ? '简单' : '父级'}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`);
+
+  for (let i = startIndex; i <= actualEndIndex; i++) {
+    const element = elements[i];
+    console.log(`🎯 处理第 ${i + 1} 个元素`);
+
+    try {
+      if (step.loopType === 'simpleLoop') {
+        // 简单循环：执行单一操作
+        await executeSimpleLoopAction(element, step);
+      } else {
+        // 父级循环：点击后执行子操作
+        await executeParentLoopAction(element, step);
+      }
+
+      // 循环间隔
+      if (step.loopDelay) {
+        await new Promise(resolve => setTimeout(resolve, step.loopDelay));
+      }
+
+    } catch (error) {
+      console.error(`❌ 第 ${i + 1} 个元素处理失败:`, error);
+      if (step.errorHandling === 'stop') {
+        throw error;
+      }
+    }
+  }
+
+  console.log(`✅ 循环执行完成`);
+}
+
+async function executeSimpleLoopAction(element, step) {
+  const actionType = step.actionType || 'click';
+  console.log(`🔧 执行简单操作: ${actionType}`);
+
+  switch (actionType) {
+    case 'click':
+      element.click();
+      console.log(`👆 点击元素`);
+      break;
+    case 'input':
+      const inputText = step.inputText || '';
+      element.value = inputText;
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      console.log(`⌨️ 输入文本: "${inputText}"`);
+      break;
+    case 'check':
+      if (!element.checked) {
+        element.checked = true;
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`☑️ 勾选复选框`);
+      }
+      break;
+    case 'uncheck':
+      if (element.checked) {
+        element.checked = false;
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`☐ 取消勾选复选框`);
+      }
+      break;
+    default:
+      throw new Error(`不支持的简单循环操作类型: ${actionType}`);
+  }
+
+  // 操作后等待
+  if (step.actionDelay) {
+    await new Promise(resolve => setTimeout(resolve, step.actionDelay));
+  }
+}
+
+async function executeParentLoopAction(element, step) {
+  console.log(`🎯 开始处理父级元素`);
+
+  // 1. 点击父级元素
+  element.click();
+  console.log(`👆 已点击父级元素`);
+
+  // 2. 等待页面响应
+  if (step.waitAfterClick) {
+    console.log(`⏳ 等待页面响应 ${step.waitAfterClick}ms`);
+    await new Promise(resolve => setTimeout(resolve, step.waitAfterClick));
+  }
+
+  // 3. 执行子操作序列
+  if (step.subOperations && step.subOperations.length > 0) {
+    console.log(`🔧 开始执行 ${step.subOperations.length} 个子操作`);
+
+    for (let i = 0; i < step.subOperations.length; i++) {
+      const subOp = step.subOperations[i];
+      console.log(`🎯 执行子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator}`);
+
+      try {
+        // 传递父级元素上下文给子操作
+        await executeSubOperation(subOp, element);
+      } catch (error) {
+        console.error(`❌ 子操作 ${i + 1} 失败:`, error);
+        if (step.errorHandling === 'stop') {
+          throw error;
+        }
+      }
+
+      // 子操作间等待
+      if (subOp.delay) {
+        await new Promise(resolve => setTimeout(resolve, subOp.delay));
+      }
     }
 
-    // 匹配 document.getElementById("id")
-    const getElementByIdMatch = jsPath.match(/document\.getElementById\s*\(\s*["']([^"']+)["']\s*\)/);
-    if (getElementByIdMatch) {
-      return `#${getElementByIdMatch[1]}`;
-    }
+    console.log(`✅ 所有子操作执行完成`);
+  }
+}
 
-    // 匹配 document.getElementsByClassName("class")[index]
-    const getElementByClassMatch = jsPath.match(/document\.getElementsByClassName\s*\(\s*["']([^"']+)["']\s*\)\s*\[\s*(\d+)\s*\]/);
-    if (getElementByClassMatch) {
-      const className = getElementByClassMatch[1];
-      const index = parseInt(getElementByClassMatch[2]);
-      return `.${className}:nth-of-type(${index + 1})`;
-    }
+async function executeSubOperation(operation, parentElement = null) {
+  const selector = operation.locator?.value || operation.locator;
 
-    // 匹配 document.getElementsByTagName("tag")[index]
-    const getElementByTagMatch = jsPath.match(/document\.getElementsByTagName\s*\(\s*["']([^"']+)["']\s*\)\s*\[\s*(\d+)\s*\]/);
-    if (getElementByTagMatch) {
-      const tagName = getElementByTagMatch[1];
-      const index = parseInt(getElementByTagMatch[2]);
-      return `${tagName}:nth-of-type(${index + 1})`;
-    }
+  // 如果有父级元素上下文，优先在父级元素内查找，否则全局查找
+  const searchContext = parentElement || document;
 
-    console.warn('无法识别的JS路径格式:', jsPath);
-    return null;
-  } catch (error) {
-    console.error('解析JS路径时出错:', error);
-    return null;
+  console.log(`🔍 在${parentElement ? '父级元素内' : '全局'}查找: ${selector}`);
+
+  switch (operation.type) {
+    case 'click':
+      const clickElement = searchContext.querySelector(selector);
+      if (!clickElement) {
+        // 如果在父级元素内找不到，尝试全局查找
+        const globalElement = document.querySelector(selector);
+        if (!globalElement) {
+          throw new Error(`找不到点击元素: ${selector}`);
+        }
+        globalElement.click();
+        console.log(`👆 子操作-点击(全局): ${selector}`);
+      } else {
+        clickElement.click();
+        console.log(`👆 子操作-点击(父级内): ${selector}`);
+      }
+      break;
+
+    case 'input':
+      const inputElement = searchContext.querySelector(selector) || document.querySelector(selector);
+      if (!inputElement) throw new Error(`找不到输入元素: ${selector}`);
+      inputElement.value = operation.text || '';
+      inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+      inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+      console.log(`⌨️ 子操作-输入: "${operation.text}"`);
+      break;
+
+    case 'wait':
+      const duration = operation.duration || 1000;
+      console.log(`⏱️ 子操作-等待: ${duration}ms`);
+      await new Promise(resolve => setTimeout(resolve, duration));
+      break;
+
+    case 'waitForElement':
+      console.log(`🔍 子操作-等待元素: ${selector}`);
+      const timeout = operation.timeout || 10000;
+      const startTime = Date.now();
+      while (Date.now() - startTime < timeout) {
+        const waitElement = searchContext.querySelector(selector) || document.querySelector(selector);
+        if (waitElement) {
+          console.log(`✅ 元素已出现: ${selector}`);
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      break;
+
+    case 'check':
+      const checkElement = searchContext.querySelector(selector) || document.querySelector(selector);
+      if (!checkElement) throw new Error(`找不到复选框元素: ${selector}`);
+      if (!checkElement.checked) {
+        checkElement.checked = true;
+        checkElement.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`☑️ 子操作-勾选复选框`);
+      }
+      break;
+
+    case 'select':
+      const selectElement = searchContext.querySelector(selector) || document.querySelector(selector);
+      if (!selectElement) throw new Error(`找不到选择元素: ${selector}`);
+      selectElement.value = operation.value || '';
+      selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+      console.log(`📋 子操作-选择选项: ${operation.value}`);
+      break;
+
+    default:
+      throw new Error(`不支持的子操作类型: ${operation.type}`);
   }
 }

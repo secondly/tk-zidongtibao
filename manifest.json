@@ -1,8 +1,8 @@
-{
+﻿{
   "manifest_version": 3,
-  "name": "网页自动操作助手",
-  "version": "1.0",
-  "description": "自动点击页面上的指定元素，执行重复性操作",
+  "name": "Universal Automation Assistant",
+  "version": "2.0.0",
+  "description": "Universal web automation system",
   "permissions": [
     "activeTab",
     "tabs",
@@ -13,7 +13,7 @@
     "<all_urls>"
   ],
   "action": {
-    "default_popup": "popup/popup.html",
+    "default_popup": "plugin-automation-popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -33,5 +33,14 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
-} 
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "universal-automation-engine.js",
+        "workflow-manager.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三层嵌套循环自动化测试Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .main-list {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .list-header {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #dee2e6;
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .list-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s;
+        }
+        
+        .list-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .list-item:last-child {
+            border-bottom: none;
+        }
+        
+        .item-info {
+            flex: 1;
+        }
+        
+        .item-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .item-desc {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .item-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-processing {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .test-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .test-btn:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+        
+        .test-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .modal-header {
+            background: #007bff;
+            color: white;
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .close {
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+            opacity: 0.8;
+        }
+        
+        .close:hover {
+            opacity: 1;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #dee2e6;
+            text-align: right;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+        
+        /* 选择列表样式 */
+        .selection-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        
+        .selection-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .selection-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .selection-item:last-child {
+            border-bottom: none;
+        }
+        
+        .selection-item input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+        
+        .selection-item label {
+            cursor: pointer;
+            user-select: none;
+            flex: 1;
+        }
+        
+        .item-index {
+            background: #e9ecef;
+            color: #495057;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .progress-info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .progress-text {
+            font-weight: bold;
+            color: #0066cc;
+            margin-bottom: 10px;
+        }
+        
+        .progress-bar {
+            background: #f0f0f0;
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, #007bff, #0056b3);
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔄 三层嵌套循环自动化测试Demo</h1>
+        <p>主列表 → 弹窗1（智能等待）→ 弹窗2（区间选择2-6）→ 自动返回</p>
+    </div>
+    
+    <div class="progress-info" id="progressInfo" style="display: none;">
+        <div class="progress-text" id="progressText">准备开始自动化测试...</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+        </div>
+    </div>
+    
+    <div class="main-list">
+        <div class="list-header">
+            📋 主页面数据列表 - 自动化测试目标
+        </div>
+        
+        <div class="list-item" data-item-id="1">
+            <div class="item-info">
+                <div class="item-title">数据项目 #001</div>
+                <div class="item-desc">第一个测试数据项目，包含完整的弹窗流程</div>
+            </div>
+            <div class="item-status status-pending">待处理</div>
+            <button class="test-btn" onclick="openFirstModal(1, '数据项目 #001')">测试按钮</button>
+        </div>
+        
+        <div class="list-item" data-item-id="2">
+            <div class="item-info">
+                <div class="item-title">数据项目 #002</div>
+                <div class="item-desc">第二个测试数据项目，模拟异步加载场景</div>
+            </div>
+            <div class="item-status status-pending">待处理</div>
+            <button class="test-btn" onclick="openFirstModal(2, '数据项目 #002')">测试按钮</button>
+        </div>
+        
+        <div class="list-item" data-item-id="3">
+            <div class="item-info">
+                <div class="item-title">数据项目 #003</div>
+                <div class="item-desc">第三个测试数据项目，包含复杂的选择逻辑</div>
+            </div>
+            <div class="item-status status-pending">待处理</div>
+            <button class="test-btn" onclick="openFirstModal(3, '数据项目 #003')">测试按钮</button>
+        </div>
+        
+        <div class="list-item" data-item-id="4">
+            <div class="item-info">
+                <div class="item-title">数据项目 #004</div>
+                <div class="item-desc">第四个测试数据项目，测试错误处理机制</div>
+            </div>
+            <div class="item-status status-pending">待处理</div>
+            <button class="test-btn" onclick="openFirstModal(4, '数据项目 #004')">测试按钮</button>
+        </div>
+        
+        <div class="list-item" data-item-id="5">
+            <div class="item-info">
+                <div class="item-title">数据项目 #005</div>
+                <div class="item-desc">第五个测试数据项目，验证完整流程</div>
+            </div>
+            <div class="item-status status-pending">待处理</div>
+            <button class="test-btn" onclick="openFirstModal(5, '数据项目 #005')">测试按钮</button>
+        </div>
+    </div>
+    
+    <!-- 第一个弹窗 -->
+    <div id="firstModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="firstModalTitle">数据处理弹窗</h3>
+                <span class="close" onclick="closeFirstModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="firstModalBody">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div>正在加载数据，请稍候...</div>
+                </div>
+            </div>
+            <div class="modal-footer" id="firstModalFooter" style="display: none;">
+                <button class="btn btn-secondary" onclick="closeFirstModal()">取消</button>
+                <button class="btn btn-primary" id="selectCategoryBtn" onclick="openSecondModal()">选择类目按钮</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 第二个弹窗 -->
+    <div id="secondModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">类目选择弹窗</h3>
+                <span class="close" onclick="closeSecondModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="secondModalBody">
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div>正在加载类目列表，请稍候...</div>
+                </div>
+            </div>
+            <div class="modal-footer" id="secondModalFooter" style="display: none;">
+                <button class="btn btn-secondary" onclick="closeSecondModal()">取消</button>
+                <button class="btn btn-success" id="confirmBtn" onclick="confirmSelection()">确定按钮</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentItemId = null;
+        let currentItemTitle = null;
+        let processingCount = 0;
+        let totalItems = 5;
+        
+        // 第一个弹窗相关函数
+        function openFirstModal(itemId, itemTitle) {
+            currentItemId = itemId;
+            currentItemTitle = itemTitle;
+            
+            updateItemStatus(itemId, 'processing', '处理中');
+            
+            document.getElementById('firstModalTitle').textContent = `处理 ${itemTitle}`;
+            document.getElementById('firstModal').style.display = 'block';
+            
+            // 模拟异步加载（1-3秒随机延迟）
+            const loadTime = Math.random() * 2000 + 1000;
+            setTimeout(() => {
+                loadFirstModalContent(itemTitle);
+            }, loadTime);
+        }
+        
+        function loadFirstModalContent(itemTitle) {
+            const modalBody = document.getElementById('firstModalBody');
+            const modalFooter = document.getElementById('firstModalFooter');
+            
+            modalBody.innerHTML = `
+                <h4>📊 ${itemTitle} 详细信息</h4>
+                <p><strong>项目ID：</strong>${currentItemId}</p>
+                <p><strong>状态：</strong>已加载完成</p>
+                <p><strong>创建时间：</strong>${new Date().toLocaleString()}</p>
+                <p><strong>描述：</strong>这是一个测试数据项目，用于验证三层嵌套循环的自动化流程。</p>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-top: 15px;">
+                    <strong>📝 操作说明：</strong><br>
+                    点击下方的"选择类目按钮"将打开第二个弹窗，进行类目选择操作。
+                </div>
+            `;
+            
+            modalFooter.style.display = 'block';
+        }
+        
+        function closeFirstModal() {
+            document.getElementById('firstModal').style.display = 'none';
+            if (currentItemId) {
+                updateItemStatus(currentItemId, 'pending', '待处理');
+            }
+        }
+        
+        // 第二个弹窗相关函数
+        function openSecondModal() {
+            document.getElementById('secondModal').style.display = 'block';
+            
+            // 模拟异步加载（1-2秒随机延迟）
+            const loadTime = Math.random() * 1000 + 1000;
+            setTimeout(() => {
+                loadSecondModalContent();
+            }, loadTime);
+        }
+        
+        function loadSecondModalContent() {
+            const modalBody = document.getElementById('secondModalBody');
+            const modalFooter = document.getElementById('secondModalFooter');
+            
+            // 生成10个选项的多选列表
+            let optionsHtml = '<div class="selection-list">';
+            for (let i = 0; i < 10; i++) {
+                optionsHtml += `
+                    <div class="selection-item">
+                        <input type="checkbox" id="option${i}">
+                        <label for="option${i}">类目选项 ${i + 1} - ${getRandomCategory()}</label>
+                        <span class="item-index">索引 ${i}</span>
+                    </div>
+                `;
+            }
+            optionsHtml += '</div>';
+            
+            modalBody.innerHTML = `
+                <h4>🏷️ 类目多选列表</h4>
+                <p><strong>说明：</strong>请选择需要的类目（自动化测试将选择索引2-6的选项）</p>
+                ${optionsHtml}
+                <div style="background: #e7f3ff; padding: 10px; border-radius: 4px; margin-top: 15px; font-size: 14px;">
+                    <strong>🎯 自动化目标：</strong>勾选索引2-6的选项（类目选项3-7）
+                </div>
+            `;
+            
+            modalFooter.style.display = 'block';
+        }
+        
+        function getRandomCategory() {
+            const categories = [
+                '电子产品', '服装配饰', '家居用品', '运动户外', '美妆护肤',
+                '食品饮料', '图书音像', '母婴用品', '汽车用品', '办公用品'
+            ];
+            return categories[Math.floor(Math.random() * categories.length)];
+        }
+        
+        function closeSecondModal() {
+            document.getElementById('secondModal').style.display = 'none';
+        }
+        
+        function confirmSelection() {
+            const checkedBoxes = document.querySelectorAll('#secondModalBody input[type="checkbox"]:checked');
+            const selectedOptions = Array.from(checkedBoxes).map(cb => cb.nextElementSibling.textContent);
+            
+            // 关闭所有弹窗
+            closeSecondModal();
+            closeFirstModal();
+            
+            // 更新状态为完成
+            updateItemStatus(currentItemId, 'completed', '已完成');
+            
+            // 显示完成信息
+            showCompletionMessage(selectedOptions);
+            
+            processingCount++;
+            updateProgress();
+        }
+        
+        // 辅助函数
+        function updateItemStatus(itemId, status, text) {
+            const item = document.querySelector(`[data-item-id="${itemId}"]`);
+            if (item) {
+                const statusElement = item.querySelector('.item-status');
+                statusElement.className = `item-status status-${status}`;
+                statusElement.textContent = text;
+                
+                const button = item.querySelector('.test-btn');
+                if (status === 'completed') {
+                    button.disabled = true;
+                    button.textContent = '已完成';
+                } else if (status === 'processing') {
+                    button.disabled = true;
+                    button.textContent = '处理中...';
+                } else {
+                    button.disabled = false;
+                    button.textContent = '测试按钮';
+                }
+            }
+        }
+        
+        function showCompletionMessage(selectedOptions) {
+            const message = `✅ ${currentItemTitle} 处理完成！\n已选择：${selectedOptions.join(', ')}`;
+            
+            // 创建临时提示
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #28a745;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 4px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 2000;
+                max-width: 300px;
+                font-size: 14px;
+                line-height: 1.4;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 3000);
+        }
+        
+        function updateProgress() {
+            const progressInfo = document.getElementById('progressInfo');
+            const progressText = document.getElementById('progressText');
+            const progressFill = document.getElementById('progressFill');
+            
+            if (processingCount > 0) {
+                progressInfo.style.display = 'block';
+                const percentage = (processingCount / totalItems) * 100;
+                progressText.textContent = `自动化进度：${processingCount}/${totalItems} 项已完成 (${percentage.toFixed(1)}%)`;
+                progressFill.style.width = `${percentage}%`;
+                
+                if (processingCount === totalItems) {
+                    setTimeout(() => {
+                        progressText.textContent = '🎉 所有项目处理完成！三层嵌套循环测试成功！';
+                        progressFill.style.background = 'linear-gradient(90deg, #28a745, #20c997)';
+                    }, 500);
+                }
+            }
+        }
+        
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const firstModal = document.getElementById('firstModal');
+            const secondModal = document.getElementById('secondModal');
+            
+            if (event.target === firstModal) {
+                closeFirstModal();
+            } else if (event.target === secondModal) {
+                closeSecondModal();
+            }
+        }
+    </script>
+</body>
+</html>

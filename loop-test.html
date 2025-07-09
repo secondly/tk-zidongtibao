@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>循环系统测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 5px;
+        }
+        
+        .simple-loop-items {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        .simple-item {
+            padding: 10px 15px;
+            background-color: #e9ecef;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .simple-item:hover {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .simple-item.clicked {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .parent-loop-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .parent-item {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .parent-item:hover {
+            border-color: #007bff;
+            box-shadow: 0 2px 8px rgba(0,123,255,0.2);
+        }
+        
+        .parent-item.active {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+        
+        .parent-item h3 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        
+        .parent-item p {
+            margin: 5px 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        
+        .sub-actions {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #dee2e6;
+            display: none;
+        }
+        
+        .sub-actions.visible {
+            display: block;
+        }
+        
+        .sub-action {
+            display: inline-block;
+            margin: 5px 5px 5px 0;
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .sub-action:hover {
+            background-color: #0056b3;
+        }
+        
+        .sub-action.completed {
+            background-color: #28a745;
+        }
+        
+        .instructions {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .instructions h3 {
+            color: #0066cc;
+            margin-top: 0;
+        }
+        
+        .config-example {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 通用循环系统测试页面</h1>
+    
+    <div class="instructions">
+        <h3>📋 测试说明</h3>
+        <p><strong>Type A - 父级循环（带子操作）：</strong>点击产品卡片后，会显示子操作按钮，可以配置复杂的操作序列</p>
+        <p><strong>Type B - 简单循环（单一操作）：</strong>对多个按钮执行相同的点击操作</p>
+        <p>使用插件配置循环时，选择对应的循环类型和定位器即可</p>
+    </div>
+    
+    <!-- Type B: 简单循环测试 -->
+    <div class="test-section">
+        <h2>🔘 Type B - 简单循环测试</h2>
+        <p>配置：循环类型=简单循环，定位器=.simple-item，操作类型=点击</p>
+        <div class="config-example">插件配置示例：
+循环类型: 简单循环（单一操作）
+定位策略: CSS选择器
+定位值: .simple-item
+操作类型: 点击
+起始索引: 0
+结束索引: -1</div>
+        
+        <div class="simple-loop-items">
+            <div class="simple-item" onclick="handleSimpleClick(this)">按钮 1</div>
+            <div class="simple-item" onclick="handleSimpleClick(this)">按钮 2</div>
+            <div class="simple-item" onclick="handleSimpleClick(this)">按钮 3</div>
+            <div class="simple-item" onclick="handleSimpleClick(this)">按钮 4</div>
+            <div class="simple-item" onclick="handleSimpleClick(this)">按钮 5</div>
+            <div class="simple-item" onclick="handleSimpleClick(this)">按钮 6</div>
+        </div>
+    </div>
+    
+    <!-- Type A: 父级循环测试 -->
+    <div class="test-section">
+        <h2>🎯 Type A - 父级循环测试</h2>
+        <p>配置：循环类型=父级循环，定位器=.parent-item，子操作可自定义配置</p>
+        <div class="config-example">插件配置示例：
+循环类型: 父级循环（带子操作）
+定位策略: CSS选择器
+定位值: .parent-item
+点击后等待时间: 1000ms
+子操作配置:
+  1. 点击 .sub-action[data-action="like"]
+  2. 等待 500ms
+  3. 点击 .sub-action[data-action="share"]
+  4. 等待 300ms</div>
+        
+        <div class="parent-loop-items">
+            <div class="parent-item" onclick="handleParentClick(this)">
+                <h3>产品 A</h3>
+                <p>价格: ¥199</p>
+                <p>库存: 50件</p>
+                <div class="sub-actions">
+                    <button class="sub-action" data-action="like" onclick="handleSubAction(this, event)">👍 点赞</button>
+                    <button class="sub-action" data-action="share" onclick="handleSubAction(this, event)">📤 分享</button>
+                    <button class="sub-action" data-action="cart" onclick="handleSubAction(this, event)">🛒 加购物车</button>
+                </div>
+            </div>
+            
+            <div class="parent-item" onclick="handleParentClick(this)">
+                <h3>产品 B</h3>
+                <p>价格: ¥299</p>
+                <p>库存: 30件</p>
+                <div class="sub-actions">
+                    <button class="sub-action" data-action="like" onclick="handleSubAction(this, event)">👍 点赞</button>
+                    <button class="sub-action" data-action="share" onclick="handleSubAction(this, event)">📤 分享</button>
+                    <button class="sub-action" data-action="cart" onclick="handleSubAction(this, event)">🛒 加购物车</button>
+                </div>
+            </div>
+            
+            <div class="parent-item" onclick="handleParentClick(this)">
+                <h3>产品 C</h3>
+                <p>价格: ¥399</p>
+                <p>库存: 20件</p>
+                <div class="sub-actions">
+                    <button class="sub-action" data-action="like" onclick="handleSubAction(this, event)">👍 点赞</button>
+                    <button class="sub-action" data-action="share" onclick="handleSubAction(this, event)">📤 分享</button>
+                    <button class="sub-action" data-action="cart" onclick="handleSubAction(this, event)">🛒 加购物车</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 简单循环点击处理
+        function handleSimpleClick(element) {
+            element.classList.add('clicked');
+            element.textContent += ' ✓';
+            console.log('简单循环点击:', element.textContent);
+        }
+        
+        // 父级循环点击处理
+        function handleParentClick(element) {
+            element.classList.add('active');
+            const subActions = element.querySelector('.sub-actions');
+            subActions.classList.add('visible');
+            console.log('父级元素点击:', element.querySelector('h3').textContent);
+        }
+        
+        // 子操作处理
+        function handleSubAction(element, event) {
+            event.stopPropagation();
+            element.classList.add('completed');
+            const action = element.dataset.action;
+            console.log('子操作执行:', action, element.textContent);
+        }
+        
+        // 重置按钮
+        function resetTest() {
+            document.querySelectorAll('.simple-item').forEach(item => {
+                item.classList.remove('clicked');
+                item.textContent = item.textContent.replace(' ✓', '');
+            });
+            
+            document.querySelectorAll('.parent-item').forEach(item => {
+                item.classList.remove('active');
+                item.querySelector('.sub-actions').classList.remove('visible');
+            });
+            
+            document.querySelectorAll('.sub-action').forEach(action => {
+                action.classList.remove('completed');
+            });
+        }
+    </script>
+    
+    <div style="text-align: center; margin-top: 30px;">
+        <button onclick="resetTest()" style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🔄 重置测试</button>
+    </div>
+</body>
+</html>

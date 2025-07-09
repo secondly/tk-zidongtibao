@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通用自动化插件</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 650px;
+            min-height: 500px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 15px;
+        }
+        
+        .workflow-section {
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        
+        .workflow-info {
+            display: flex;
+            gap: 10px;
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid #e9ecef;
+            margin-bottom: 15px;
+        }
+        
+        .workflow-name {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .workflow-stats {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .action-buttons {
+            display: flex;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #229954;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .tools-section {
+            margin-bottom: 20px;
+        }
+        
+        .tool-grid {
+            display: flex;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .tool-btn {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px 8px;
+            cursor: pointer;
+            font-size: 11px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .tool-btn:hover {
+            background: #e9ecef;
+            border-color: #3498db;
+        }
+        
+        .tool-btn .icon {
+            font-size: 16px;
+            margin-bottom: 3px;
+            display: block;
+        }
+        
+        .steps-section {
+            margin-bottom: 20px;
+        }
+        
+        .steps-container {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: white;
+            display: flex;
+        }
+        
+        .step-item {
+            width: 33%;
+            padding: 10px;
+            border-bottom: 1px solid #f8f9fa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .step-item:last-child {
+            border-bottom: none;
+        }
+        
+        .step-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .step-info {
+            flex: 1;
+        }
+        
+        .step-name {
+            font-size: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 2px;
+        }
+        
+        .step-details {
+            font-size: 10px;
+            color: #7f8c8d;
+        }
+        
+        .step-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .step-action-btn {
+            background: none;
+            border: none;
+            color: #7f8c8d;
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 3px;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .step-action-btn:hover {
+            background: #e9ecef;
+            color: #2c3e50;
+        }
+
+        .step-action-btn[data-action="test"] {
+            color: #28a745;
+        }
+
+        .step-action-btn[data-action="test"]:hover {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .step-action-btn[data-action="edit"] {
+            color: #007bff;
+        }
+
+        .step-action-btn[data-action="edit"]:hover {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .step-action-btn[data-action="delete"] {
+            color: #dc3545;
+        }
+
+        .step-action-btn[data-action="delete"]:hover {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .empty-steps {
+            padding: 30px;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 12px;
+        }
+        
+        .execution-section {
+            margin-bottom: 15px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            font-size: 11px;
+            color: #7f8c8d;
+            text-align: center;
+        }
+        
+        .status-message {
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-bottom: 10px;
+            display: none;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .status-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .help-text {
+            font-size: 10px;
+            color: #7f8c8d;
+            margin-top: 2px;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: none;
+        }
+        
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            width: 90%;
+            max-width: 350px;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .modal-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #7f8c8d;
+        }
+        
+        .modal-close:hover {
+            color: #e74c3c;
+        }
+
+        /* 子操作列表样式 */
+        .sub-operations-empty {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px dashed #dee2e6;
+        }
+
+        .sub-operation-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+
+        .sub-operation-info {
+            flex: 1;
+        }
+
+        .sub-operation-type {
+            font-weight: bold;
+            color: #007bff;
+            margin-right: 10px;
+        }
+
+        .sub-operation-detail {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .sub-operation-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-small:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-small.btn-danger {
+            background-color: #dc3545;
+        }
+
+        .btn-small.btn-danger:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <!-- <div class="header">
+        <h1>🤖 通用自动化</h1>
+        <p>智能网页操作助手</p>
+    </div> -->
+    
+    <div class="content">
+        <!-- 当前工作流信息 -->
+        <div class="workflow-section">
+            <div class="section-title">📋 当前工作流</div>
+            <div class="workflow-info" id="workflowInfo">
+                <div class="workflow-name" id="workflowName">未选择工作流</div>
+                <div class="workflow-stats" id="workflowStats">点击"新建"创建工作流</div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-primary" id="newWorkflowBtn">新建</button>
+                <button class="btn btn-secondary" id="loadWorkflowBtn">加载</button>
+                <button class="btn btn-primary" id="saveWorkflowBtn">保存</button>
+                <button class="btn btn-danger" id="clearWorkflowBtn" style="font-size: 12px;">清除</button>
+                <button class="btn btn-success" id="executeBtn" disabled>执行</button>
+                <button class="btn btn-warning" id="resetEngineBtn" title="重置自动化引擎" style="font-size: 12px;">🔄重置</button>
+            </div>
+            <div class="action-buttons" style="margin-top: 10px;">
+                <button class="btn btn-info" id="exportWorkflowBtn" style="font-size: 12px;">📤导出配置</button>
+                <button class="btn btn-info" id="importWorkflowBtn" style="font-size: 12px;">📥导入配置</button>
+                <input type="file" id="importFileInput" accept=".json" style="display: none;">
+            </div>
+        </div>
+        
+        <!-- 操作工具 -->
+        <div class="tools-section">
+            <div class="section-title">🧰 添加操作</div>
+            <div class="tool-grid">
+                <button class="tool-btn" data-step-type="click">
+                    <span class="icon">👆</span>
+                    点击
+                </button>
+                <button class="tool-btn" data-step-type="input">
+                    <span class="icon">⌨️</span>
+                    输入
+                </button>
+                <button class="tool-btn" data-step-type="wait">
+                    <span class="icon">⏱️</span>
+                    等待
+                </button>
+                <button class="tool-btn" data-step-type="smartWait">
+                    <span class="icon">🔍</span>
+                    智能等待
+                </button>
+                <button class="tool-btn" data-step-type="loop">
+                    <span class="icon">🔄</span>
+                    循环
+                </button>
+                <button class="tool-btn" data-step-type="rangeSelect">
+                    <span class="icon">📋</span>
+                    区间选择
+                </button>
+                <button class="tool-btn" data-step-type="nestedLoop">
+                    <span class="icon">🔄🔄🔄</span>
+                    嵌套循环
+                </button>
+            </div>
+        </div>
+        
+        <!-- 步骤列表 -->
+        <div class="steps-section">
+            <div class="section-title">📝 操作步骤</div>
+            <div class="steps-container" id="stepsContainer">
+                <div class="empty-steps">
+                    暂无操作步骤<br>
+                    点击上方工具添加操作
+                </div>
+            </div>
+        </div>
+        
+        <!-- 执行状态 -->
+        <div class="execution-section">
+            <div class="section-title">🚀 执行状态</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">等待执行...</div>
+            <div class="status-message" id="statusMessage"></div>
+        </div>
+    </div>
+    
+    <!-- 步骤编辑模态框 -->
+    <div class="modal-overlay" id="stepModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">编辑步骤</div>
+                <button class="modal-close" id="closeModalBtn">×</button>
+            </div>
+            <div class="modal-content" id="modalContent">
+                <!-- 动态内容 -->
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn btn-primary" id="saveStepBtn" style="flex: 1;">保存</button>
+                <button class="btn btn-secondary" id="cancelStepBtn" style="flex: 1;">取消</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="universal-automation-engine.js"></script>
+    <script src="workflow-manager.js"></script>
+    <script src="plugin-automation-popup.js"></script>
