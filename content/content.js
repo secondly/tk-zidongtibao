@@ -76,6 +76,18 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     return true;
   }
 
+  // 处理定位器测试请求
+  if (request.action === "testLocator") {
+    try {
+      const result = testLocatorElements(request.locator);
+      sendResponse({ success: true, count: result.count });
+    } catch (error) {
+      console.error("测试定位器失败:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
   if (request.action === "findAllElements") {
     findAllElements(request.locator)
       .then((result) => {
@@ -1174,7 +1186,231 @@ async function executeSubOperation(operation, parentElement = null) {
       console.log(`📋 子操作-选择选项: ${operation.value}`);
       break;
 
+    case 'autoLoop':
+      console.log(`🔁 子操作-自循环开始: ${selector}`);
+      await executeSubOperationAutoLoop(operation, parentElement);
+      break;
+
     default:
       throw new Error(`不支持的子操作类型: ${operation.type}`);
   }
+}
+
+// 执行子操作中的自循环
+async function executeSubOperationAutoLoop(operation, parentElement = null) {
+  const selector = operation.locator?.value || operation.locator;
+  console.log(`🔁 开始执行子操作自循环: ${selector}`);
+
+  // 查找所有匹配的元素
+  let elements;
+  if (parentElement) {
+    // 优先在父级元素内查找
+    elements = Array.from(parentElement.querySelectorAll(selector));
+    if (elements.length === 0) {
+      // 如果在父级元素内找不到，尝试全局查找
+      elements = Array.from(document.querySelectorAll(selector));
+      console.log(`🔍 在父级元素内未找到，使用全局查找`);
+    } else {
+      console.log(`🔍 在父级元素内找到 ${elements.length} 个目标`);
+    }
+  } else {
+    elements = Array.from(document.querySelectorAll(selector));
+  }
+
+  if (elements.length === 0) {
+    throw new Error(`自循环未找到匹配元素: ${selector}`);
+  }
+
+  // 计算处理范围
+  const startIndex = operation.startIndex || 0;
+  const endIndex = operation.endIndex === -1 ? elements.length - 1 : (operation.endIndex || elements.length - 1);
+  const actualEndIndex = Math.min(endIndex, elements.length - 1);
+
+  console.log(`📊 自循环找到 ${elements.length} 个元素，处理范围: ${startIndex} - ${actualEndIndex}`);
+
+  // 获取操作类型和配置
+  const actionType = operation.actionType || 'click';
+  const actionDelay = operation.actionDelay || 200;
+  const errorHandling = operation.errorHandling || 'continue';
+
+  // 依次处理每个元素
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (let i = startIndex; i <= actualEndIndex; i++) {
+    console.log(`🎯 自循环处理第 ${i + 1}/${actualEndIndex + 1} 个元素`);
+
+    try {
+      const element = elements[i];
+
+      // 添加视觉高亮效果
+      highlightElement(element, 'processing');
+
+      await executeAutoLoopAction(element, operation, actionType);
+      successCount++;
+
+      // 成功高亮效果
+      highlightElement(element, 'success');
+      console.log(`✅ 第 ${i + 1} 个元素${actionType}操作完成`);
+
+      // 操作间隔
+      if (actionDelay > 0 && i < actualEndIndex) {
+        await new Promise(resolve => setTimeout(resolve, actionDelay));
+      }
+
+      // 清除高亮效果
+      clearElementHighlight(element);
+
+    } catch (error) {
+      errorCount++;
+
+      // 错误高亮效果
+      highlightElement(element, 'error');
+      console.error(`❌ 第 ${i + 1} 个元素操作失败:`, error);
+
+      // 延迟清除错误高亮
+      setTimeout(() => clearElementHighlight(element), 1000);
+
+      if (errorHandling === 'stop') {
+        throw new Error(`自循环在第 ${i + 1} 个元素处停止: ${error.message}`);
+      }
+      // 继续处理下一个元素
+    }
+  }
+
+  console.log(`🎉 自循环执行完成: 成功 ${successCount} 个，失败 ${errorCount} 个`);
+}
+
+// 执行自循环中的单个元素操作
+async function executeAutoLoopAction(element, operation, actionType) {
+  switch (actionType) {
+    case 'click':
+      element.click();
+      break;
+
+    case 'input':
+      const inputText = operation.inputText || '';
+      element.value = inputText;
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      break;
+
+    case 'check':
+      if (element.type === 'checkbox' && !element.checked) {
+        element.checked = true;
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      break;
+
+    case 'uncheck':
+      if (element.type === 'checkbox' && element.checked) {
+        element.checked = false;
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      break;
+
+    case 'hover':
+      element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      break;
+
+    case 'focus':
+      element.focus();
+      break;
+
+    default:
+      throw new Error(`不支持的自循环操作类型: ${actionType}`);
+  }
+}
+
+// 测试定位器元素数量
+function testLocatorElements(locator) {
+  console.log('🔍 测试定位器:', locator);
+
+  try {
+    let elements;
+
+    switch (locator.strategy) {
+      case 'css':
+        elements = document.querySelectorAll(locator.value);
+        break;
+      case 'xpath':
+        const xpathResult = document.evaluate(
+          locator.value,
+          document,
+          null,
+          XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+          null
+        );
+        elements = [];
+        for (let i = 0; i < xpathResult.snapshotLength; i++) {
+          elements.push(xpathResult.snapshotItem(i));
+        }
+        break;
+      case 'id':
+        const idElement = document.getElementById(locator.value);
+        elements = idElement ? [idElement] : [];
+        break;
+      case 'className':
+        elements = document.getElementsByClassName(locator.value);
+        break;
+      default:
+        throw new Error(`不支持的定位策略: ${locator.strategy}`);
+    }
+
+    const count = elements.length;
+    console.log(`✅ 找到 ${count} 个匹配元素`);
+
+    return { count };
+  } catch (error) {
+    console.error('❌ 测试定位器失败:', error);
+    throw error;
+  }
+}
+
+// 高亮元素
+function highlightElement(element, type = 'processing') {
+  if (!element) return;
+
+  // 保存原始样式
+  if (!element._originalStyle) {
+    element._originalStyle = {
+      outline: element.style.outline || '',
+      backgroundColor: element.style.backgroundColor || '',
+      transition: element.style.transition || ''
+    };
+  }
+
+  // 设置高亮样式
+  element.style.transition = 'all 0.3s ease';
+
+  switch (type) {
+    case 'processing':
+      element.style.outline = '3px solid #3498db';
+      element.style.backgroundColor = 'rgba(52, 152, 219, 0.1)';
+      break;
+    case 'success':
+      element.style.outline = '3px solid #27ae60';
+      element.style.backgroundColor = 'rgba(39, 174, 96, 0.1)';
+      break;
+    case 'error':
+      element.style.outline = '3px solid #e74c3c';
+      element.style.backgroundColor = 'rgba(231, 76, 60, 0.1)';
+      break;
+  }
+
+  // 滚动到元素可见
+  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// 清除元素高亮
+function clearElementHighlight(element) {
+  if (!element || !element._originalStyle) return;
+
+  // 恢复原始样式
+  element.style.outline = element._originalStyle.outline;
+  element.style.backgroundColor = element._originalStyle.backgroundColor;
+  element.style.transition = element._originalStyle.transition;
+
+  // 清除保存的样式
+  delete element._originalStyle;
 }

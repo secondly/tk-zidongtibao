@@ -345,6 +345,62 @@
             color: #7f8c8d;
             margin-top: 2px;
         }
+
+        /* 定位器测试相关样式 */
+        .input-with-test {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .input-with-test input {
+            flex: 1;
+        }
+
+        .test-locator-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            white-space: nowrap;
+            transition: background-color 0.2s;
+        }
+
+        .test-locator-btn:hover {
+            background: #2980b9;
+        }
+
+        .test-locator-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .test-result {
+            margin-top: 5px;
+            padding: 5px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .test-result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .test-result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .test-result.empty {
+            display: none;
+        }
         
         .modal-overlay {
             position: fixed;

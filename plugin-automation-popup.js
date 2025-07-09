@@ -631,6 +631,9 @@ function showStepModal(step) {
         setupSubOperationHandlers();
     }
 
+    // 设置定位器测试监听器
+    setupLocatorTestListeners();
+
     modal.style.display = 'block';
 }
 
@@ -731,7 +734,11 @@ function generateStepEditHTML(step) {
                 </div>
                 <div class="form-group">
                     <label>定位值</label>
-                    <input type="text" id="editLocatorValue" value="${step.locator?.value || ''}" placeholder="输入定位值">
+                    <div class="input-with-test">
+                        <input type="text" id="editLocatorValue" value="${step.locator?.value || ''}" placeholder="输入定位值">
+                        <button type="button" class="test-locator-btn" id="testMainLocatorBtn">🔍测试</button>
+                    </div>
+                    <div id="mainLocatorTestResult" class="test-result"></div>
                     <div class="help-text">用于定位页面元素的值</div>
                 </div>
             `;
@@ -757,7 +764,11 @@ function generateStepEditHTML(step) {
                 </div>
                 <div class="form-group">
                     <label>定位值</label>
-                    <input type="text" id="editLocatorValue" value="${(step.locator && step.locator.value) ? step.locator.value : ''}" placeholder="输入定位值">
+                    <div class="input-with-test">
+                        <input type="text" id="editLocatorValue" value="${(step.locator && step.locator.value) ? step.locator.value : ''}" placeholder="输入定位值">
+                        <button type="button" class="test-locator-btn" id="testMainLocatorBtn">🔍测试</button>
+                    </div>
+                    <div id="mainLocatorTestResult" class="test-result"></div>
                     <div class="help-text">用于定位页面元素的值</div>
                 </div>
                 <div class="form-group">
@@ -1520,7 +1531,8 @@ function getSubOperationTypeName(type) {
         'wait': '等待',
         'waitForElement': '等待元素',
         'check': '勾选',
-        'select': '选择'
+        'select': '选择',
+        'autoLoop': '自循环'
     };
     return names[type] || type;
 }
@@ -1549,6 +1561,11 @@ function getSubOperationDetail(op) {
             const selectLocator = (op.locator && op.locator.value) ? op.locator.value : '未配置';
             const selectValue = op.value || '';
             return `${selectLocator} = "${selectValue}"`;
+        case 'autoLoop':
+            const autoLoopLocator = (op.locator && op.locator.value) ? op.locator.value : '未配置';
+            const autoLoopAction = op.actionType || 'click';
+            const autoLoopRange = `[${op.startIndex || 0}-${op.endIndex === -1 ? '全部' : op.endIndex || 0}]`;
+            return `${autoLoopLocator} (${autoLoopAction}) ${autoLoopRange}`;
         default:
             return `${op.type} 操作`;
     }
@@ -1664,9 +1681,10 @@ function showSubOperationModal(subOp, index) {
                 <option value="waitForElement" ${subOp.type === 'waitForElement' ? 'selected' : ''}>等待元素</option>
                 <option value="check" ${subOp.type === 'check' ? 'selected' : ''}>勾选复选框</option>
                 <option value="select" ${subOp.type === 'select' ? 'selected' : ''}>选择选项</option>
+                <option value="autoLoop" ${subOp.type === 'autoLoop' ? 'selected' : ''}>自循环</option>
             </select>
         </div>
-        <div class="form-group" id="subOpLocatorGroup" style="display: ${['click', 'input', 'waitForElement', 'check', 'select'].includes(subOp.type) ? 'block' : 'none'};">
+        <div class="form-group" id="subOpLocatorGroup" style="display: ${['click', 'input', 'waitForElement', 'check', 'select', 'autoLoop'].includes(subOp.type) ? 'block' : 'none'};">
             <label>定位策略</label>
             <select id="subOpLocatorStrategy">
                 <option value="css" ${(subOp.locator && subOp.locator.strategy === 'css') ? 'selected' : ''}>CSS选择器</option>
@@ -1675,9 +1693,13 @@ function showSubOperationModal(subOp, index) {
                 <option value="className" ${(subOp.locator && subOp.locator.strategy === 'className') ? 'selected' : ''}>类名</option>
             </select>
         </div>
-        <div class="form-group" id="subOpLocatorValueGroup" style="display: ${['click', 'input', 'waitForElement', 'check', 'select'].includes(subOp.type) ? 'block' : 'none'};">
+        <div class="form-group" id="subOpLocatorValueGroup" style="display: ${['click', 'input', 'waitForElement', 'check', 'select', 'autoLoop'].includes(subOp.type) ? 'block' : 'none'};">
             <label>定位值</label>
-            <input type="text" id="subOpLocatorValue" value="${(subOp.locator && subOp.locator.value) ? subOp.locator.value : ''}" placeholder="输入定位值">
+            <div class="input-with-test">
+                <input type="text" id="subOpLocatorValue" value="${(subOp.locator && subOp.locator.value) ? subOp.locator.value : ''}" placeholder="输入定位值">
+                <button type="button" class="test-locator-btn" id="testSubOpLocatorBtn">🔍测试</button>
+            </div>
+            <div id="subOpLocatorTestResult" class="test-result"></div>
         </div>
         <div class="form-group" id="subOpTextGroup" style="display: ${subOp.type === 'input' ? 'block' : 'none'};">
             <label>输入文本</label>
@@ -1691,6 +1713,51 @@ function showSubOperationModal(subOp, index) {
             <label>${subOp.type === 'wait' ? '等待时间(毫秒)' : '超时时间(毫秒)'}</label>
             <input type="number" id="subOpDuration" value="${subOp.duration || subOp.timeout || 1000}" min="0">
         </div>
+
+        <!-- 自循环专用配置 -->
+        <div id="autoLoopConfig" style="display: ${subOp.type === 'autoLoop' ? 'block' : 'none'};">
+            <div class="form-group">
+                <label>循环操作类型</label>
+                <select id="subOpAutoLoopActionType">
+                    <option value="click" ${(subOp.actionType || 'click') === 'click' ? 'selected' : ''}>点击</option>
+                    <option value="input" ${subOp.actionType === 'input' ? 'selected' : ''}>输入文本</option>
+                    <option value="check" ${subOp.actionType === 'check' ? 'selected' : ''}>勾选复选框</option>
+                    <option value="uncheck" ${subOp.actionType === 'uncheck' ? 'selected' : ''}>取消勾选</option>
+                    <option value="hover" ${subOp.actionType === 'hover' ? 'selected' : ''}>悬停</option>
+                    <option value="focus" ${subOp.actionType === 'focus' ? 'selected' : ''}>聚焦</option>
+                </select>
+                <div class="help-text">对每个匹配元素执行的操作类型</div>
+            </div>
+            <div class="form-group" id="subOpAutoLoopInputTextGroup" style="display: ${subOp.actionType === 'input' ? 'block' : 'none'};">
+                <label>输入文本</label>
+                <input type="text" id="subOpAutoLoopInputText" value="${subOp.inputText || ''}" placeholder="要输入的文本">
+                <div class="help-text">当操作类型为"输入文本"时使用</div>
+            </div>
+            <div class="form-group">
+                <label>起始索引</label>
+                <input type="number" id="subOpAutoLoopStartIndex" value="${subOp.startIndex || 0}" min="0">
+                <div class="help-text">从第几个元素开始处理（从0开始计数）</div>
+            </div>
+            <div class="form-group">
+                <label>结束索引</label>
+                <input type="number" id="subOpAutoLoopEndIndex" value="${subOp.endIndex !== undefined ? subOp.endIndex : -1}" min="-1">
+                <div class="help-text">处理到第几个元素结束，-1表示处理所有元素</div>
+            </div>
+            <div class="form-group">
+                <label>操作间隔(毫秒)</label>
+                <input type="number" id="subOpAutoLoopActionDelay" value="${subOp.actionDelay || 200}" min="0">
+                <div class="help-text">每次操作之间的等待时间</div>
+            </div>
+            <div class="form-group">
+                <label>错误处理</label>
+                <select id="subOpAutoLoopErrorHandling">
+                    <option value="continue" ${(subOp.errorHandling || 'continue') === 'continue' ? 'selected' : ''}>继续执行</option>
+                    <option value="stop" ${subOp.errorHandling === 'stop' ? 'selected' : ''}>停止执行</option>
+                </select>
+                <div class="help-text">当某个元素操作失败时的处理策略</div>
+            </div>
+        </div>
+
         <div class="form-group">
             <label>延迟时间(毫秒)</label>
             <input type="number" id="subOpDelay" value="${subOp.delay || 0}" min="0">
@@ -1701,19 +1768,38 @@ function showSubOperationModal(subOp, index) {
     // 添加类型变化监听
     document.getElementById('subOpType').addEventListener('change', function() {
         const type = this.value;
-        const needsLocator = ['click', 'input', 'waitForElement', 'check', 'select'].includes(type);
+        const needsLocator = ['click', 'input', 'waitForElement', 'check', 'select', 'autoLoop'].includes(type);
 
         document.getElementById('subOpLocatorGroup').style.display = needsLocator ? 'block' : 'none';
         document.getElementById('subOpLocatorValueGroup').style.display = needsLocator ? 'block' : 'none';
         document.getElementById('subOpTextGroup').style.display = type === 'input' ? 'block' : 'none';
         document.getElementById('subOpValueGroup').style.display = type === 'select' ? 'block' : 'none';
         document.getElementById('subOpDurationGroup').style.display = ['wait', 'waitForElement'].includes(type) ? 'block' : 'none';
+        document.getElementById('autoLoopConfig').style.display = type === 'autoLoop' ? 'block' : 'none';
+
+        // 清除测试结果
+        const testResult = document.getElementById('subOpLocatorTestResult');
+        if (testResult) {
+            testResult.innerHTML = '';
+        }
 
         const durationLabel = document.querySelector('#subOpDurationGroup label');
         if (durationLabel) {
             durationLabel.textContent = type === 'wait' ? '等待时间(毫秒)' : '超时时间(毫秒)';
         }
     });
+
+    // 添加自循环操作类型变化监听
+    const autoLoopActionTypeSelect = document.getElementById('subOpAutoLoopActionType');
+    if (autoLoopActionTypeSelect) {
+        autoLoopActionTypeSelect.addEventListener('change', function() {
+            const actionType = this.value;
+            const inputTextGroup = document.getElementById('subOpAutoLoopInputTextGroup');
+            if (inputTextGroup) {
+                inputTextGroup.style.display = actionType === 'input' ? 'block' : 'none';
+            }
+        });
+    }
 
     // 直接替换父级按钮的功能和文本
     const saveStepBtn = document.getElementById('saveStepBtn');
@@ -1773,6 +1859,9 @@ function showSubOperationModal(subOp, index) {
 
         console.log('🔧 已替换按钮功能为子操作专用');
     }
+
+    // 设置定位器测试监听器
+    setupLocatorTestListeners();
 
     modal.style.display = 'block';
 }
@@ -1862,7 +1951,7 @@ function saveSubOperation(index) {
         console.log('🔍 收集子操作数据:', { type });
 
         // 根据类型收集数据
-        if (['click', 'input', 'waitForElement', 'check', 'select'].includes(type)) {
+        if (['click', 'input', 'waitForElement', 'check', 'select', 'autoLoop'].includes(type)) {
             const strategyElement = document.getElementById('subOpLocatorStrategy');
             const valueElement = document.getElementById('subOpLocatorValue');
 
@@ -1901,6 +1990,44 @@ function saveSubOperation(index) {
                     updates.timeout = duration;
                 }
             }
+        }
+
+        // 自循环特定配置
+        if (type === 'autoLoop') {
+            const actionTypeElement = document.getElementById('subOpAutoLoopActionType');
+            const inputTextElement = document.getElementById('subOpAutoLoopInputText');
+            const startIndexElement = document.getElementById('subOpAutoLoopStartIndex');
+            const endIndexElement = document.getElementById('subOpAutoLoopEndIndex');
+            const actionDelayElement = document.getElementById('subOpAutoLoopActionDelay');
+            const errorHandlingElement = document.getElementById('subOpAutoLoopErrorHandling');
+
+            if (actionTypeElement) {
+                updates.actionType = actionTypeElement.value;
+            }
+            if (inputTextElement) {
+                updates.inputText = inputTextElement.value;
+            }
+            if (startIndexElement) {
+                updates.startIndex = parseInt(startIndexElement.value);
+            }
+            if (endIndexElement) {
+                updates.endIndex = parseInt(endIndexElement.value);
+            }
+            if (actionDelayElement) {
+                updates.actionDelay = parseInt(actionDelayElement.value);
+            }
+            if (errorHandlingElement) {
+                updates.errorHandling = errorHandlingElement.value;
+            }
+
+            console.log('🔍 自循环配置数据:', {
+                actionType: updates.actionType,
+                inputText: updates.inputText,
+                startIndex: updates.startIndex,
+                endIndex: updates.endIndex,
+                actionDelay: updates.actionDelay,
+                errorHandling: updates.errorHandling
+            });
         }
 
         const delayElement = document.getElementById('subOpDelay');
@@ -1950,6 +2077,176 @@ function saveSubOperation(index) {
 
         // 发生错误时不要关闭模态框，只显示错误信息
         // 用户可以修正错误后重新保存
+    }
+}
+
+// ==================== 定位器测试功能 ====================
+
+// 测试主操作定位器
+async function testMainLocator() {
+    const strategyElement = document.getElementById('editLocatorStrategy');
+    const valueElement = document.getElementById('editLocatorValue');
+    const resultElement = document.getElementById('mainLocatorTestResult');
+    const testBtn = document.getElementById('testMainLocatorBtn');
+
+    if (!strategyElement || !valueElement || !resultElement) {
+        console.error('❌ 找不到必要的元素');
+        return;
+    }
+
+    const strategy = strategyElement.value;
+    const value = valueElement.value.trim();
+
+    if (!value) {
+        showTestResult(resultElement, '请输入定位值', 'error');
+        return;
+    }
+
+    // 禁用按钮并显示加载状态
+    testBtn.disabled = true;
+    testBtn.textContent = '🔄测试中...';
+
+    try {
+        // 发送消息到content script进行测试
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        const response = await chrome.tabs.sendMessage(tab.id, {
+            action: 'testLocator',
+            locator: { strategy, value }
+        });
+
+        if (response && response.success) {
+            const count = response.count;
+            if (count === 0) {
+                showTestResult(resultElement, '未找到匹配元素', 'error');
+            } else {
+                showTestResult(resultElement, `找到 ${count} 个匹配元素`, 'success');
+            }
+        } else {
+            showTestResult(resultElement, response?.error || '测试失败', 'error');
+        }
+    } catch (error) {
+        console.error('❌ 测试定位器失败:', error);
+        showTestResult(resultElement, '测试失败：' + error.message, 'error');
+    } finally {
+        // 恢复按钮状态
+        testBtn.disabled = false;
+        testBtn.textContent = '🔍测试';
+    }
+}
+
+// 测试子操作定位器
+async function testSubOpLocator() {
+    const strategyElement = document.getElementById('subOpLocatorStrategy');
+    const valueElement = document.getElementById('subOpLocatorValue');
+    const resultElement = document.getElementById('subOpLocatorTestResult');
+    const testBtn = document.getElementById('testSubOpLocatorBtn');
+
+    if (!strategyElement || !valueElement || !resultElement) {
+        console.error('❌ 找不到必要的元素');
+        return;
+    }
+
+    const strategy = strategyElement.value;
+    const value = valueElement.value.trim();
+
+    if (!value) {
+        showTestResult(resultElement, '请输入定位值', 'error');
+        return;
+    }
+
+    // 禁用按钮并显示加载状态
+    testBtn.disabled = true;
+    testBtn.textContent = '🔄测试中...';
+
+    try {
+        // 发送消息到content script进行测试
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        const response = await chrome.tabs.sendMessage(tab.id, {
+            action: 'testLocator',
+            locator: { strategy, value }
+        });
+
+        if (response && response.success) {
+            const count = response.count;
+            if (count === 0) {
+                showTestResult(resultElement, '未找到匹配元素', 'error');
+            } else {
+                showTestResult(resultElement, `找到 ${count} 个匹配元素`, 'success');
+            }
+        } else {
+            showTestResult(resultElement, response?.error || '测试失败', 'error');
+        }
+    } catch (error) {
+        console.error('❌ 测试定位器失败:', error);
+        showTestResult(resultElement, '测试失败：' + error.message, 'error');
+    } finally {
+        // 恢复按钮状态
+        testBtn.disabled = false;
+        testBtn.textContent = '🔍测试';
+    }
+}
+
+// 显示测试结果
+function showTestResult(resultElement, message, type) {
+    resultElement.textContent = message;
+    resultElement.className = `test-result ${type}`;
+}
+
+// 清除测试结果
+function clearTestResult(resultElementId) {
+    const resultElement = document.getElementById(resultElementId);
+    if (resultElement) {
+        resultElement.textContent = '';
+        resultElement.className = 'test-result empty';
+    }
+}
+
+// 设置定位器测试监听器
+function setupLocatorTestListeners() {
+    // 主操作定位器测试按钮监听
+    const mainTestBtn = document.getElementById('testMainLocatorBtn');
+    if (mainTestBtn) {
+        mainTestBtn.addEventListener('click', testMainLocator);
+    }
+
+    // 子操作定位器测试按钮监听
+    const subOpTestBtn = document.getElementById('testSubOpLocatorBtn');
+    if (subOpTestBtn) {
+        subOpTestBtn.addEventListener('click', testSubOpLocator);
+    }
+
+    // 主操作定位器输入框监听
+    const mainLocatorValue = document.getElementById('editLocatorValue');
+    const mainLocatorStrategy = document.getElementById('editLocatorStrategy');
+
+    if (mainLocatorValue) {
+        mainLocatorValue.addEventListener('input', () => {
+            clearTestResult('mainLocatorTestResult');
+        });
+    }
+
+    if (mainLocatorStrategy) {
+        mainLocatorStrategy.addEventListener('change', () => {
+            clearTestResult('mainLocatorTestResult');
+        });
+    }
+
+    // 子操作定位器输入框监听
+    const subOpLocatorValue = document.getElementById('subOpLocatorValue');
+    const subOpLocatorStrategy = document.getElementById('subOpLocatorStrategy');
+
+    if (subOpLocatorValue) {
+        subOpLocatorValue.addEventListener('input', () => {
+            clearTestResult('subOpLocatorTestResult');
+        });
+    }
+
+    if (subOpLocatorStrategy) {
+        subOpLocatorStrategy.addEventListener('change', () => {
+            clearTestResult('subOpLocatorTestResult');
+        });
     }
 }
 
