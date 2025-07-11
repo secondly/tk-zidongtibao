@@ -650,6 +650,20 @@ class UniversalAutomationEngine {
             case 'tagName':
                 element = document.getElementsByTagName(locator.value)[0];
                 break;
+            case 'text':
+                // 精确文本匹配，使用遍历方式避免XPath转义问题
+                const textElements = Array.from(document.querySelectorAll('*')).filter(el =>
+                    el.textContent && el.textContent.trim() === locator.value.trim()
+                );
+                element = textElements[0] || null;
+                break;
+            case 'contains':
+                // 包含文本匹配，使用遍历方式避免XPath转义问题
+                const containsElements = Array.from(document.querySelectorAll('*')).filter(el =>
+                    el.textContent && el.textContent.includes(locator.value)
+                );
+                element = containsElements[0] || null;
+                break;
             default:
                 throw new Error(`不支持的定位策略: ${locator.strategy}`);
         }
@@ -686,6 +700,18 @@ class UniversalAutomationEngine {
                 break;
             case 'tagName':
                 elements = Array.from(document.getElementsByTagName(locator.value));
+                break;
+            case 'text':
+                // 精确文本匹配，使用遍历方式避免XPath转义问题
+                elements = Array.from(document.querySelectorAll('*')).filter(el =>
+                    el.textContent && el.textContent.trim() === locator.value.trim()
+                );
+                break;
+            case 'contains':
+                // 包含文本匹配，使用遍历方式避免XPath转义问题
+                elements = Array.from(document.querySelectorAll('*')).filter(el =>
+                    el.textContent && el.textContent.includes(locator.value)
+                );
                 break;
             default:
                 throw new Error(`不支持的定位策略: ${locator.strategy}`);
@@ -1023,8 +1049,8 @@ class UniversalAutomationEngine {
         switch (operation.type) {
             case 'click':
                 let clickElement;
-                if (parentElement) {
-                    // 优先在父级元素内查找
+                if (parentElement && operation.locator.strategy === 'css') {
+                    // 只有CSS选择器才能在父级元素内查找
                     clickElement = parentElement.querySelector(operation.locator.value);
                     if (!clickElement) {
                         // 如果在父级元素内找不到，尝试全局查找
@@ -1034,6 +1060,7 @@ class UniversalAutomationEngine {
                         this.log(`🔍 在父级元素内找到目标`, 'info');
                     }
                 } else {
+                    // 对于非CSS选择器或没有父级元素的情况，直接全局查找
                     clickElement = await this.findElement(operation.locator);
                 }
                 await this.clickElement(clickElement);
@@ -1042,8 +1069,12 @@ class UniversalAutomationEngine {
 
             case 'input':
                 let inputElement;
-                if (parentElement) {
-                    inputElement = parentElement.querySelector(operation.locator.value) || await this.findElement(operation.locator);
+                if (parentElement && operation.locator.strategy === 'css') {
+                    // 只有CSS选择器才能在父级元素内查找
+                    inputElement = parentElement.querySelector(operation.locator.value);
+                    if (!inputElement) {
+                        inputElement = await this.findElement(operation.locator);
+                    }
                 } else {
                     inputElement = await this.findElement(operation.locator);
                 }
@@ -1066,8 +1097,12 @@ class UniversalAutomationEngine {
 
             case 'check':
                 let checkElement;
-                if (parentElement) {
-                    checkElement = parentElement.querySelector(operation.locator.value) || await this.findElement(operation.locator);
+                if (parentElement && operation.locator.strategy === 'css') {
+                    // 只有CSS选择器才能在父级元素内查找
+                    checkElement = parentElement.querySelector(operation.locator.value);
+                    if (!checkElement) {
+                        checkElement = await this.findElement(operation.locator);
+                    }
                 } else {
                     checkElement = await this.findElement(operation.locator);
                 }
@@ -1080,8 +1115,12 @@ class UniversalAutomationEngine {
 
             case 'select':
                 let selectElement;
-                if (parentElement) {
-                    selectElement = parentElement.querySelector(operation.locator.value) || await this.findElement(operation.locator);
+                if (parentElement && operation.locator.strategy === 'css') {
+                    // 只有CSS选择器才能在父级元素内查找
+                    selectElement = parentElement.querySelector(operation.locator.value);
+                    if (!selectElement) {
+                        selectElement = await this.findElement(operation.locator);
+                    }
                 } else {
                     selectElement = await this.findElement(operation.locator);
                 }
@@ -1109,8 +1148,8 @@ class UniversalAutomationEngine {
 
         // 查找所有匹配的元素
         let elements;
-        if (parentElement) {
-            // 优先在父级元素内查找
+        if (parentElement && operation.locator.strategy === 'css') {
+            // 只有CSS选择器才能在父级元素内查找
             elements = Array.from(parentElement.querySelectorAll(operation.locator.value));
             if (elements.length === 0) {
                 // 如果在父级元素内找不到，尝试全局查找
@@ -1120,6 +1159,7 @@ class UniversalAutomationEngine {
                 this.log(`🔍 在父级元素内找到 ${elements.length} 个目标`, 'info');
             }
         } else {
+            // 对于非CSS选择器或没有父级元素的情况，直接全局查找
             elements = await this.findElements(operation.locator);
         }
 
@@ -1354,6 +1394,26 @@ class UniversalAutomationEngine {
                 ...progressData
             });
         }
+    }
+
+    /**
+     * 转义XPath字符串中的特殊字符
+     * @param {string} str - 输入字符串
+     * @returns {string} - 转义后的字符串
+     */
+    escapeXPathString(str) {
+        if (str.includes('"') && str.includes("'")) {
+            // 处理同时包含单引号和双引号的情况
+            let parts = str.split('"');
+            return `concat("${parts.join('", \'"\', "')}")`;
+        }
+
+        // 使用不存在于字符串中的引号类型
+        if (str.includes('"')) {
+            return `'${str}'`;
+        }
+
+        return `"${str}"`;
     }
 } // 结束类定义
 

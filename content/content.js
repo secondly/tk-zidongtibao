@@ -458,9 +458,6 @@ async function findElementByStrategy(strategy, value, timeout = 5000) {
     case "id":
       return await findElement("id", value, timeout);
 
-    case "class":
-      return await findElement("css", `.${value}`, timeout);
-
     case "css":
       return await findElement("css", value, timeout);
 
@@ -472,17 +469,6 @@ async function findElementByStrategy(strategy, value, timeout = 5000) {
 
     case "contains":
       return await findElementContainingText(value, ["*"], timeout);
-
-    case "all":
-      // 对于查找所有元素，仍返回第一个元素，但会发出警告
-      console.warn(
-        "使用findElementByStrategy查找'all'策略，将只返回第一个元素"
-      );
-      const elements = await findElementsByStrategy(strategy, value, timeout);
-      if (elements.length === 0) {
-        throw new Error(`未找到匹配元素 ${strategy}="${value}"`);
-      }
-      return elements[0];
 
     default:
       throw new Error(`不支持的定位策略: ${strategy}`);
@@ -499,7 +485,7 @@ async function findElementsByStrategy(strategy, value, timeout = 5000) {
   console.log(`尝试使用${strategy}策略查找所有匹配元素: ${value}`);
 
   // 对于基本选择器，尝试立即查找而不使用轮询
-  if (["id", "class", "css", "xpath", "all"].includes(strategy)) {
+  if (["id", "css", "xpath"].includes(strategy)) {
     try {
       // 对于基本的DOM选择器，直接尝试一次查询
       let elements = await performSingleElementSearch(strategy, value);
@@ -572,10 +558,6 @@ async function performSingleElementSearch(strategy, value) {
       elements = idElement ? [idElement] : [];
       break;
 
-    case "class":
-      elements = Array.from(document.getElementsByClassName(value));
-      break;
-
     case "css":
       elements = Array.from(document.querySelectorAll(value));
       break;
@@ -596,44 +578,17 @@ async function performSingleElementSearch(strategy, value) {
       break;
 
     case "text":
-      // 优化文本完全匹配搜索，使用XPath而非遍历所有元素
-      const textXPath = `//*[text()="${escapeXPathString(value)}"]`;
-      const textResult = document.evaluate(
-        textXPath,
-        document,
-        null,
-        XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-        null
+      // 精确文本匹配，使用遍历方式避免XPath转义问题
+      elements = Array.from(document.querySelectorAll('*')).filter(el =>
+        el.textContent && el.textContent.trim() === value.trim()
       );
-
-      elements = [];
-      for (let i = 0; i < textResult.snapshotLength; i++) {
-        elements.push(textResult.snapshotItem(i));
-      }
       break;
 
     case "contains":
-      // 优化包含文本搜索，使用XPath而非遍历所有元素
-      const containsXPath = `//*[contains(text(),"${escapeXPathString(
-        value
-      )}")]`;
-      const containsResult = document.evaluate(
-        containsXPath,
-        document,
-        null,
-        XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-        null
+      // 包含文本匹配，使用遍历方式避免XPath转义问题
+      elements = Array.from(document.querySelectorAll('*')).filter(el =>
+        el.textContent && el.textContent.includes(value)
       );
-
-      elements = [];
-      for (let i = 0; i < containsResult.snapshotLength; i++) {
-        elements.push(containsResult.snapshotItem(i));
-      }
-      break;
-
-    case "all":
-      // "all"策略下，默认使用CSS选择器查找所有匹配元素
-      elements = Array.from(document.querySelectorAll(value));
       break;
 
     default:
@@ -1204,20 +1159,19 @@ async function executeClickStep(step) {
     await window.simplifiedExecutionControl.checkPause();
   }
 
-  const selector = step.locator?.value || step.locator;
-  if (!selector) {
+  if (!step.locator) {
     throw new Error('缺少定位器');
   }
 
-  console.log('🔧 [DEBUG] 查找元素:', selector);
-  const element = document.querySelector(selector);
+  console.log('🔧 [DEBUG] 查找元素:', step.locator);
+  const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
   if (!element) {
-    throw new Error(`找不到元素: ${selector}`);
+    throw new Error(`找不到元素: ${step.locator.strategy}=${step.locator.value}`);
   }
 
   console.log('🔧 [DEBUG] 准备点击元素');
   element.click();
-  console.log(`✅ 点击元素: ${selector}`);
+  console.log(`✅ 点击元素: ${step.locator.value}`);
 }
 
 async function executeInputStep(step) {
@@ -1228,17 +1182,16 @@ async function executeInputStep(step) {
     await window.simplifiedExecutionControl.checkPause();
   }
 
-  const selector = step.locator?.value || step.locator;
   const text = step.text || step.inputText || '';
 
-  if (!selector) {
+  if (!step.locator) {
     throw new Error('缺少定位器');
   }
 
-  console.log('🔧 [DEBUG] 查找输入元素:', selector);
-  const element = document.querySelector(selector);
+  console.log('🔧 [DEBUG] 查找输入元素:', step.locator);
+  const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
   if (!element) {
-    throw new Error(`找不到元素: ${selector}`);
+    throw new Error(`找不到元素: ${step.locator.strategy}=${step.locator.value}`);
   }
 
   console.log('🔧 [DEBUG] 准备输入文本:', text);
@@ -1272,14 +1225,13 @@ async function executeWaitStep(step) {
 }
 
 async function executeLoopStep(step) {
-  const selector = step.locator?.value || step.locator;
-  if (!selector) {
+  if (!step.locator) {
     throw new Error('缺少循环定位器');
   }
 
-  const elements = document.querySelectorAll(selector);
+  const elements = await findElementsByStrategy(step.locator.strategy, step.locator.value);
   if (elements.length === 0) {
-    throw new Error(`找不到循环元素: ${selector}`);
+    throw new Error(`找不到循环元素: ${step.locator.strategy}=${step.locator.value}`);
   }
 
   const startIndex = step.startIndex || 0;
@@ -1440,33 +1392,40 @@ async function executeParentLoopAction(element, step) {
 }
 
 async function executeSubOperation(operation, parentElement = null) {
-  const selector = operation.locator?.value || operation.locator;
-
-  // 如果有父级元素上下文，优先在父级元素内查找，否则全局查找
-  const searchContext = parentElement || document;
-
-  console.log(`🔍 在${parentElement ? '父级元素内' : '全局'}查找: ${selector}`);
+  console.log(`🔍 执行子操作: ${operation.type}`, operation.locator);
 
   switch (operation.type) {
     case 'click':
-      const clickElement = searchContext.querySelector(selector);
-      if (!clickElement) {
-        // 如果在父级元素内找不到，尝试全局查找
-        const globalElement = document.querySelector(selector);
-        if (!globalElement) {
-          throw new Error(`找不到点击元素: ${selector}`);
+      let clickElement;
+      if (parentElement && operation.locator?.strategy === 'css') {
+        // 只有CSS选择器才能在父级元素内查找
+        clickElement = parentElement.querySelector(operation.locator.value);
+        if (!clickElement) {
+          // 如果在父级元素内找不到，尝试全局查找
+          clickElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+          console.log(`🔍 在父级元素内未找到，使用全局查找`);
+        } else {
+          console.log(`🔍 在父级元素内找到目标`);
         }
-        globalElement.click();
-        console.log(`👆 子操作-点击(全局): ${selector}`);
       } else {
-        clickElement.click();
-        console.log(`👆 子操作-点击(父级内): ${selector}`);
+        // 对于非CSS选择器或没有父级元素的情况，直接全局查找
+        clickElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
       }
+      clickElement.click();
+      console.log(`👆 子操作-点击: ${operation.locator.value}`);
       break;
 
     case 'input':
-      const inputElement = searchContext.querySelector(selector) || document.querySelector(selector);
-      if (!inputElement) throw new Error(`找不到输入元素: ${selector}`);
+      let inputElement;
+      if (parentElement && operation.locator?.strategy === 'css') {
+        // 只有CSS选择器才能在父级元素内查找
+        inputElement = parentElement.querySelector(operation.locator.value);
+        if (!inputElement) {
+          inputElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+        }
+      } else {
+        inputElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+      }
       inputElement.value = operation.text || '';
       inputElement.dispatchEvent(new Event('input', { bubbles: true }));
       inputElement.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1480,22 +1439,33 @@ async function executeSubOperation(operation, parentElement = null) {
       break;
 
     case 'waitForElement':
-      console.log(`🔍 子操作-等待元素: ${selector}`);
+      console.log(`🔍 子操作-等待元素: ${operation.locator.value}`);
       const timeout = operation.timeout || 10000;
       const startTime = Date.now();
       while (Date.now() - startTime < timeout) {
-        const waitElement = searchContext.querySelector(selector) || document.querySelector(selector);
-        if (waitElement) {
-          console.log(`✅ 元素已出现: ${selector}`);
-          break;
+        try {
+          const waitElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value, 100);
+          if (waitElement) {
+            console.log(`✅ 元素已出现: ${operation.locator.value}`);
+            break;
+          }
+        } catch (error) {
+          // 继续等待
         }
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       break;
 
     case 'check':
-      const checkElement = searchContext.querySelector(selector) || document.querySelector(selector);
-      if (!checkElement) throw new Error(`找不到复选框元素: ${selector}`);
+      let checkElement;
+      if (parentElement && operation.locator?.strategy === 'css') {
+        checkElement = parentElement.querySelector(operation.locator.value);
+        if (!checkElement) {
+          checkElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+        }
+      } else {
+        checkElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+      }
       if (!checkElement.checked) {
         checkElement.checked = true;
         checkElement.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1504,15 +1474,22 @@ async function executeSubOperation(operation, parentElement = null) {
       break;
 
     case 'select':
-      const selectElement = searchContext.querySelector(selector) || document.querySelector(selector);
-      if (!selectElement) throw new Error(`找不到选择元素: ${selector}`);
+      let selectElement;
+      if (parentElement && operation.locator?.strategy === 'css') {
+        selectElement = parentElement.querySelector(operation.locator.value);
+        if (!selectElement) {
+          selectElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+        }
+      } else {
+        selectElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+      }
       selectElement.value = operation.value || '';
       selectElement.dispatchEvent(new Event('change', { bubbles: true }));
       console.log(`📋 子操作-选择选项: ${operation.value}`);
       break;
 
     case 'autoLoop':
-      console.log(`🔁 子操作-自循环开始: ${selector}`);
+      console.log(`🔁 子操作-自循环开始: ${operation.locator.value}`);
       await executeSubOperationAutoLoop(operation, parentElement);
       break;
 
@@ -1523,23 +1500,23 @@ async function executeSubOperation(operation, parentElement = null) {
 
 // 执行子操作中的自循环
 async function executeSubOperationAutoLoop(operation, parentElement = null) {
-  const selector = operation.locator?.value || operation.locator;
-  console.log(`🔁 开始执行子操作自循环: ${selector}`);
+  console.log(`🔁 开始执行子操作自循环: ${operation.locator.value}`);
 
   // 查找所有匹配的元素
   let elements;
-  if (parentElement) {
-    // 优先在父级元素内查找
-    elements = Array.from(parentElement.querySelectorAll(selector));
+  if (parentElement && operation.locator?.strategy === 'css') {
+    // 只有CSS选择器才能在父级元素内查找
+    elements = Array.from(parentElement.querySelectorAll(operation.locator.value));
     if (elements.length === 0) {
       // 如果在父级元素内找不到，尝试全局查找
-      elements = Array.from(document.querySelectorAll(selector));
+      elements = await findElementsByStrategy(operation.locator.strategy, operation.locator.value);
       console.log(`🔍 在父级元素内未找到，使用全局查找`);
     } else {
       console.log(`🔍 在父级元素内找到 ${elements.length} 个目标`);
     }
   } else {
-    elements = Array.from(document.querySelectorAll(selector));
+    // 对于非CSS选择器或没有父级元素的情况，直接全局查找
+    elements = await findElementsByStrategy(operation.locator.strategy, operation.locator.value);
   }
 
   if (elements.length === 0) {
@@ -1677,6 +1654,21 @@ function testLocatorElements(locator) {
         break;
       case 'className':
         elements = document.getElementsByClassName(locator.value);
+        break;
+      case 'tagName':
+        elements = document.getElementsByTagName(locator.value);
+        break;
+      case 'text':
+        // 精确文本匹配，使用遍历方式避免XPath转义问题
+        elements = Array.from(document.querySelectorAll('*')).filter(el =>
+          el.textContent && el.textContent.trim() === locator.value.trim()
+        );
+        break;
+      case 'contains':
+        // 包含文本匹配，使用遍历方式避免XPath转义问题
+        elements = Array.from(document.querySelectorAll('*')).filter(el =>
+          el.textContent && el.textContent.includes(locator.value)
+        );
         break;
       default:
         throw new Error(`不支持的定位策略: ${locator.strategy}`);

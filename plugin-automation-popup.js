@@ -741,7 +741,7 @@ function generateStepEditHTML(step) {
     let html = `
         <div class="form-group">
             <label>步骤名称</label>
-            <input type="text" id="editStepName" value="${step.name}" placeholder="输入步骤名称">
+            <input type="text" id="editStepName" value="${escapeHtmlAttribute(step.name)}" placeholder="输入步骤名称">
         </div>
     `;
 
@@ -755,16 +755,18 @@ function generateStepEditHTML(step) {
                 <div class="form-group">
                     <label>定位策略</label>
                     <select id="editLocatorStrategy">
-                        <option value="css" ${step.locator?.strategy === 'css' ? 'selected' : ''}>CSS选择器</option>
-                        <option value="xpath" ${step.locator?.strategy === 'xpath' ? 'selected' : ''}>XPath</option>
-                        <option value="id" ${step.locator?.strategy === 'id' ? 'selected' : ''}>ID</option>
-                        <option value="className" ${step.locator?.strategy === 'className' ? 'selected' : ''}>类名</option>
+                        <option value="css" ${step.locator?.strategy === 'css' ? 'selected' : ''}>CSS选择器 [示例: .btn-primary, #submit-btn]</option>
+                        <option value="xpath" ${step.locator?.strategy === 'xpath' ? 'selected' : ''}>XPath表达式 [示例: //div[@class='container']//button]</option>
+                        <option value="id" ${step.locator?.strategy === 'id' ? 'selected' : ''}>ID选择器 [示例: submit-btn]</option>
+                        <option value="tagName" ${step.locator?.strategy === 'tagName' ? 'selected' : ''}>标签名选择器 [示例: button, input]</option>
+                        <option value="text" ${step.locator?.strategy === 'text' ? 'selected' : ''}>精确文本匹配 [示例: 提交表单]</option>
+                        <option value="contains" ${step.locator?.strategy === 'contains' ? 'selected' : ''}>包含文本匹配 [示例: 提交]</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>定位值</label>
                     <div class="input-with-test">
-                        <input type="text" id="editLocatorValue" value="${step.locator?.value || ''}" placeholder="输入定位值">
+                        <input type="text" id="editLocatorValue" value="${escapeHtmlAttribute(step.locator?.value || '')}" placeholder="输入定位值">
                         <button type="button" class="test-locator-btn" id="testMainLocatorBtn">🔍测试</button>
                     </div>
                     <div id="mainLocatorTestResult" class="test-result"></div>
@@ -785,16 +787,19 @@ function generateStepEditHTML(step) {
                 <div class="form-group">
                     <label>定位策略</label>
                     <select id="editLocatorStrategy">
-                        <option value="css" ${(step.locator && step.locator.strategy === 'css') ? 'selected' : ''}>CSS选择器</option>
-                        <option value="xpath" ${(step.locator && step.locator.strategy === 'xpath') ? 'selected' : ''}>XPath</option>
-                        <option value="id" ${(step.locator && step.locator.strategy === 'id') ? 'selected' : ''}>ID</option>
-                        <option value="className" ${(step.locator && step.locator.strategy === 'className') ? 'selected' : ''}>类名</option>
+                        <option value="css" ${(step.locator && step.locator.strategy === 'css') ? 'selected' : ''}>CSS选择器 [示例: .btn-primary, #submit-btn]</option>
+                        <option value="xpath" ${(step.locator && step.locator.strategy === 'xpath') ? 'selected' : ''}>XPath表达式 [示例: //div[@class='container']//button]</option>
+                        <option value="id" ${(step.locator && step.locator.strategy === 'id') ? 'selected' : ''}>ID选择器 [示例: submit-btn]</option>
+                        <option value="className" ${(step.locator && step.locator.strategy === 'className') ? 'selected' : ''}>类名选择器 [示例: btn-primary]</option>
+                        <option value="tagName" ${(step.locator && step.locator.strategy === 'tagName') ? 'selected' : ''}>标签名选择器 [示例: button, input]</option>
+                        <option value="text" ${(step.locator && step.locator.strategy === 'text') ? 'selected' : ''}>精确文本匹配 [示例: 提交表单]</option>
+                        <option value="contains" ${(step.locator && step.locator.strategy === 'contains') ? 'selected' : ''}>包含文本匹配 [示例: 提交]</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>定位值</label>
                     <div class="input-with-test">
-                        <input type="text" id="editLocatorValue" value="${(step.locator && step.locator.value) ? step.locator.value : ''}" placeholder="输入定位值">
+                        <input type="text" id="editLocatorValue" value="${escapeHtmlAttribute((step.locator && step.locator.value) ? step.locator.value : '')}" placeholder="输入定位值">
                         <button type="button" class="test-locator-btn" id="testMainLocatorBtn">🔍测试</button>
                     </div>
                     <div id="mainLocatorTestResult" class="test-result"></div>
@@ -821,7 +826,7 @@ function generateStepEditHTML(step) {
                     </div>
                     <div class="form-group" id="inputTextGroup" style="display: ${step.actionType === 'input' ? 'block' : 'none'};">
                         <label>输入文本</label>
-                        <input type="text" id="editInputText" value="${step.inputText || ''}" placeholder="要输入的文本">
+                        <input type="text" id="editInputText" value="${escapeHtmlAttribute(step.inputText || '')}" placeholder="要输入的文本">
                     </div>
                     <div class="form-group">
                         <label>操作间隔(毫秒)</label>
@@ -865,7 +870,7 @@ function generateStepEditHTML(step) {
             html += `
                 <div class="form-group">
                     <label>输入文本</label>
-                    <input type="text" id="editInputText" value="${step.text || ''}" placeholder="要输入的文本">
+                    <input type="text" id="editInputText" value="${escapeHtmlAttribute(step.text || '')}" placeholder="要输入的文本">
                 </div>
             `;
             break;
@@ -885,7 +890,7 @@ function generateStepEditHTML(step) {
                 </div>
                 <div class="form-group">
                     <label>等待描述</label>
-                    <input type="text" id="editSmartWaitDescription" value="${step.description || ''}" placeholder="等待的描述">
+                    <input type="text" id="editSmartWaitDescription" value="${escapeHtmlAttribute(step.description || '')}" placeholder="等待的描述">
                 </div>
             `;
             break;
@@ -1814,27 +1819,30 @@ function showSubOperationModal(subOp, index) {
         <div class="form-group" id="subOpLocatorGroup" style="display: ${['click', 'input', 'waitForElement', 'check', 'select', 'autoLoop'].includes(subOp.type) ? 'block' : 'none'};">
             <label>定位策略</label>
             <select id="subOpLocatorStrategy">
-                <option value="css" ${(subOp.locator && subOp.locator.strategy === 'css') ? 'selected' : ''}>CSS选择器</option>
-                <option value="xpath" ${(subOp.locator && subOp.locator.strategy === 'xpath') ? 'selected' : ''}>XPath</option>
-                <option value="id" ${(subOp.locator && subOp.locator.strategy === 'id') ? 'selected' : ''}>ID</option>
-                <option value="className" ${(subOp.locator && subOp.locator.strategy === 'className') ? 'selected' : ''}>类名</option>
+                <option value="css" ${(subOp.locator && subOp.locator.strategy === 'css') ? 'selected' : ''}>CSS选择器 [示例: .btn-primary, #submit-btn]</option>
+                <option value="xpath" ${(subOp.locator && subOp.locator.strategy === 'xpath') ? 'selected' : ''}>XPath表达式 [示例: //div[@class='container']//button]</option>
+                <option value="id" ${(subOp.locator && subOp.locator.strategy === 'id') ? 'selected' : ''}>ID选择器 [示例: submit-btn]</option>
+                <option value="className" ${(subOp.locator && subOp.locator.strategy === 'className') ? 'selected' : ''}>类名选择器 [示例: btn-primary]</option>
+                <option value="tagName" ${(subOp.locator && subOp.locator.strategy === 'tagName') ? 'selected' : ''}>标签名选择器 [示例: button, input]</option>
+                <option value="text" ${(subOp.locator && subOp.locator.strategy === 'text') ? 'selected' : ''}>精确文本匹配 [示例: 提交表单]</option>
+                <option value="contains" ${(subOp.locator && subOp.locator.strategy === 'contains') ? 'selected' : ''}>包含文本匹配 [示例: 提交]</option>
             </select>
         </div>
         <div class="form-group" id="subOpLocatorValueGroup" style="display: ${['click', 'input', 'waitForElement', 'check', 'select', 'autoLoop'].includes(subOp.type) ? 'block' : 'none'};">
             <label>定位值</label>
             <div class="input-with-test">
-                <input type="text" id="subOpLocatorValue" value="${(subOp.locator && subOp.locator.value) ? subOp.locator.value : ''}" placeholder="输入定位值">
+                <input type="text" id="subOpLocatorValue" value="${escapeHtmlAttribute((subOp.locator && subOp.locator.value) ? subOp.locator.value : '')}" placeholder="输入定位值">
                 <button type="button" class="test-locator-btn" id="testSubOpLocatorBtn">🔍测试</button>
             </div>
             <div id="subOpLocatorTestResult" class="test-result"></div>
         </div>
         <div class="form-group" id="subOpTextGroup" style="display: ${subOp.type === 'input' ? 'block' : 'none'};">
             <label>输入文本</label>
-            <input type="text" id="subOpText" value="${subOp.text || ''}" placeholder="要输入的文本">
+            <input type="text" id="subOpText" value="${escapeHtmlAttribute(subOp.text || '')}" placeholder="要输入的文本">
         </div>
         <div class="form-group" id="subOpValueGroup" style="display: ${subOp.type === 'select' ? 'block' : 'none'};">
             <label>选择值</label>
-            <input type="text" id="subOpValue" value="${subOp.value || ''}" placeholder="选择的值">
+            <input type="text" id="subOpValue" value="${escapeHtmlAttribute(subOp.value || '')}" placeholder="选择的值">
         </div>
         <div class="form-group" id="subOpDurationGroup" style="display: ${['wait', 'waitForElement'].includes(subOp.type) ? 'block' : 'none'};">
             <label>${subOp.type === 'wait' ? '等待时间(毫秒)' : '超时时间(毫秒)'}</label>
@@ -1857,7 +1865,7 @@ function showSubOperationModal(subOp, index) {
             </div>
             <div class="form-group" id="subOpAutoLoopInputTextGroup" style="display: ${subOp.actionType === 'input' ? 'block' : 'none'};">
                 <label>输入文本</label>
-                <input type="text" id="subOpAutoLoopInputText" value="${subOp.inputText || ''}" placeholder="要输入的文本">
+                <input type="text" id="subOpAutoLoopInputText" value="${escapeHtmlAttribute(subOp.inputText || '')}" placeholder="要输入的文本">
                 <div class="help-text">当操作类型为"输入文本"时使用</div>
             </div>
             <div class="form-group">
@@ -2619,10 +2627,13 @@ function getStepTypeDescription(type) {
 // 获取定位策略的中文描述
 function getLocatorStrategyDescription(strategy) {
     const descriptions = {
-        'css': 'CSS选择器 - 使用CSS语法定位元素',
-        'xpath': 'XPath表达式 - 使用XPath语法定位元素',
-        'id': 'ID选择器 - 通过元素ID定位',
-        'className': '类名选择器 - 通过CSS类名定位'
+        'css': 'CSS选择器 - 使用CSS语法定位元素，示例: .btn-primary, #submit-btn',
+        'xpath': 'XPath表达式 - 使用XPath语法定位元素，示例: //div[@class=\'container\']//button',
+        'id': 'ID选择器 - 通过元素ID定位，示例: submit-btn',
+        'className': '类名选择器 - 通过CSS类名定位，示例: btn-primary',
+        'tagName': '标签名选择器 - 通过HTML标签名定位元素，示例: button, input',
+        'text': '精确文本匹配 - 通过元素的精确文本内容定位，示例: 提交表单',
+        'contains': '包含文本匹配 - 通过元素包含的文本内容定位，示例: 提交'
     };
     return descriptions[strategy] || '未知定位策略';
 }
@@ -2788,4 +2799,15 @@ function parseAnnotatedWorkflowData(annotatedData) {
     }
 
     return workflow;
+}
+
+// HTML属性值转义函数
+function escapeHtmlAttribute(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
