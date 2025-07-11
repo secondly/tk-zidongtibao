@@ -517,6 +517,82 @@
         .btn-small.btn-danger:hover {
             background-color: #c82333;
         }
+
+        /* 详细进度显示样式 */
+        .detailed-progress {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+
+        .progress-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 5px 0;
+            padding: 3px 0;
+        }
+
+        .progress-label {
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .progress-value {
+            font-size: 12px;
+            color: #495057;
+            font-weight: bold;
+        }
+
+        .overall-progress {
+            margin-bottom: 5px;
+        }
+
+        /* 暂停按钮样式 */
+        #pauseResumeBtn {
+            min-width: 70px;
+        }
+
+        #pauseResumeBtn.paused {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+
+        #pauseResumeBtn.paused:hover {
+            background-color: #218838;
+            border-color: #1e7e34;
+        }
+
+        /* 执行状态指示器 */
+        .execution-status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .execution-status-indicator.running {
+            background-color: #28a745;
+            animation: pulse 1.5s infinite;
+        }
+
+        .execution-status-indicator.paused {
+            background-color: #ffc107;
+        }
+
+        .execution-status-indicator.stopped {
+            background-color: #6c757d;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -540,6 +616,7 @@
                 <button class="btn btn-primary" id="saveWorkflowBtn">保存</button>
                 <button class="btn btn-danger" id="clearWorkflowBtn" style="font-size: 12px;">清除</button>
                 <button class="btn btn-success" id="executeBtn" disabled>执行</button>
+                <button class="btn btn-warning" id="pauseResumeBtn" disabled style="display: none;">⏸️ 暂停</button>
                 <button class="btn btn-warning" id="resetEngineBtn" title="重置自动化引擎" style="font-size: 12px;">🔄重置</button>
             </div>
             <div class="action-buttons" style="margin-top: 10px;">
@@ -591,10 +668,43 @@
         <!-- 执行状态 -->
         <div class="execution-section">
             <div class="section-title">🚀 执行状态</div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
+
+            <!-- 总体进度 -->
+            <div class="overall-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="overallProgressFill"></div>
+                </div>
+                <div class="progress-text" id="overallProgressText">等待执行...</div>
             </div>
-            <div class="progress-text" id="progressText">等待执行...</div>
+
+            <!-- 详细进度信息 -->
+            <div class="detailed-progress" id="detailedProgress" style="display: none;">
+                <!-- 主循环进度 -->
+                <div class="progress-item">
+                    <div class="progress-label">主循环进度:</div>
+                    <div class="progress-value" id="mainLoopProgress">-</div>
+                </div>
+
+                <!-- 子操作进度 -->
+                <div class="progress-item" id="subOperationProgressItem" style="display: none;">
+                    <div class="progress-label">子操作进度:</div>
+                    <div class="progress-value" id="subOperationProgress">-</div>
+                </div>
+
+                <!-- 当前操作描述 -->
+                <div class="progress-item">
+                    <div class="progress-label">当前操作:</div>
+                    <div class="progress-value" id="currentOperation">-</div>
+                </div>
+
+                <!-- 执行时间 -->
+                <div class="progress-item">
+                    <div class="progress-label">执行时间:</div>
+                    <div class="progress-value" id="executionTime">00:00</div>
+                </div>
+            </div>
+
+            <!-- 状态消息 -->
             <div class="status-message" id="statusMessage"></div>
         </div>
     </div>

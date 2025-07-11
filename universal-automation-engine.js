@@ -11,6 +11,9 @@ console.log('🔄 开始定义 UniversalAutomationEngine 类...');
 class UniversalAutomationEngine {
     constructor() {
         this.isRunning = false;
+        this.isPaused = false;
+        this.pausePromise = null;
+        this.pauseResolve = null;
         this.currentExecution = null;
         this.onProgress = null;
         this.onComplete = null;
@@ -22,8 +25,85 @@ class UniversalAutomationEngine {
             successCount: 0,
             errorCount: 0,
             startTime: null,
-            endTime: null
+            endTime: null,
+            currentMainLoop: 0,
+            totalMainLoops: 0,
+            currentSubOperation: 0,
+            totalSubOperations: 0,
+            currentOperation: '等待执行...'
         };
+    }
+
+    /**
+     * 暂停执行
+     */
+    pause() {
+        console.log('🔧 [DEBUG] 高级引擎 pause() 被调用');
+        console.log('🔧 [DEBUG] 高级引擎当前状态:', {
+            isRunning: this.isRunning,
+            isPaused: this.isPaused
+        });
+        if (this.isRunning && !this.isPaused) {
+            this.isPaused = true;
+            console.log('🔧 [DEBUG] 高级引擎暂停状态设置为:', this.isPaused);
+            this.log('⏸️ 执行已暂停', 'warning');
+            this.updateProgress({
+                isPaused: true,
+                currentOperation: '执行已暂停'
+            });
+            console.log('🔧 [DEBUG] 高级引擎暂停设置完成');
+        } else {
+            console.log('🔧 [DEBUG] 高级引擎暂停条件不满足，跳过暂停');
+        }
+    }
+
+    /**
+     * 继续执行
+     */
+    resume() {
+        console.log('🔧 [DEBUG] 高级引擎 resume() 被调用');
+        console.log('🔧 [DEBUG] 高级引擎当前状态:', {
+            isRunning: this.isRunning,
+            isPaused: this.isPaused
+        });
+        if (this.isRunning && this.isPaused) {
+            this.isPaused = false;
+            console.log('🔧 [DEBUG] 高级引擎暂停状态设置为:', this.isPaused);
+            this.log('▶️ 继续执行', 'info');
+            this.updateProgress({
+                isPaused: false,
+                currentOperation: '继续执行中...'
+            });
+            if (this.pauseResolve) {
+                console.log('🔧 [DEBUG] 高级引擎解决暂停Promise');
+                this.pauseResolve();
+                this.pauseResolve = null;
+                this.pausePromise = null;
+                console.log('🔧 [DEBUG] 高级引擎暂停Promise已清理');
+            }
+            console.log('🔧 [DEBUG] 高级引擎继续设置完成');
+        } else {
+            console.log('🔧 [DEBUG] 高级引擎继续条件不满足，跳过继续');
+        }
+    }
+
+    /**
+     * 检查是否需要暂停，如果需要则等待继续
+     */
+    async checkPause() {
+        console.log('🔧 [DEBUG] 高级引擎 checkPause 被调用，当前暂停状态:', this.isPaused);
+        if (this.isPaused) {
+            console.log('🔧 [DEBUG] 高级引擎检测到暂停状态，开始等待...');
+            if (!this.pausePromise) {
+                console.log('🔧 [DEBUG] 高级引擎创建新的暂停Promise');
+                this.pausePromise = new Promise(resolve => {
+                    this.pauseResolve = resolve;
+                });
+            }
+            console.log('🔧 [DEBUG] 高级引擎等待暂停Promise解决...');
+            await this.pausePromise;
+            console.log('🔧 [DEBUG] 高级引擎暂停Promise已解决，继续执行');
+        }
     }
 
     /**
@@ -36,6 +116,7 @@ class UniversalAutomationEngine {
         }
 
         this.isRunning = true;
+        this.isPaused = false;
         this.resetStats();
         this.executionStats.startTime = new Date();
 
@@ -46,6 +127,16 @@ class UniversalAutomationEngine {
             // 计算总步骤数
             this.executionStats.totalSteps = this.calculateTotalSteps(workflow.steps);
             this.log(`📊 预计执行 ${this.executionStats.totalSteps} 个步骤`, 'info');
+
+            // 初始化进度
+            this.updateProgress({
+                isRunning: true,
+                isPaused: false,
+                startTime: this.executionStats.startTime,
+                totalSteps: this.executionStats.totalSteps,
+                completedSteps: 0,
+                currentOperation: '开始执行工作流...'
+            });
 
             // 执行工作流步骤
             await this.executeSteps(workflow.steps, []);
@@ -69,6 +160,16 @@ class UniversalAutomationEngine {
             }
         } finally {
             this.isRunning = false;
+            this.isPaused = false;
+            this.pausePromise = null;
+            this.pauseResolve = null;
+
+            // 更新最终状态
+            this.updateProgress({
+                isRunning: false,
+                isPaused: false,
+                currentOperation: '执行完成'
+            });
         }
     }
 
@@ -91,12 +192,26 @@ class UniversalAutomationEngine {
                 throw new Error('执行已被停止');
             }
 
+            // 检查是否需要暂停
+            await this.checkPause();
+
             const step = steps[i];
             const stepContext = [...loopContext, i];
-            
+
+            // 更新当前操作
+            this.updateProgress({
+                currentOperation: `执行步骤: ${step.name || step.type}`
+            });
+
             try {
                 await this.executeStep(step, stepContext);
                 this.executionStats.successCount++;
+                this.executionStats.completedSteps++;
+
+                // 更新进度
+                this.updateProgress({
+                    completedSteps: this.executionStats.completedSteps
+                });
             } catch (error) {
                 this.executionStats.errorCount++;
                 this.log(`❌ 步骤执行失败: ${error.message}`, 'error');
@@ -122,7 +237,10 @@ class UniversalAutomationEngine {
      * @param {Array} context - 执行上下文
      */
     async executeStep(step, context) {
-        const stepName = step.name || `步骤${context.join('.')}`; 
+        // 在执行每个步骤前检查暂停状态
+        await this.checkPause();
+
+        const stepName = step.name || `步骤${context.join('.')}`;
         this.log(`🎯 执行 ${stepName}: ${step.type}`, 'info');
 
         switch (step.type) {
@@ -159,7 +277,15 @@ class UniversalAutomationEngine {
      * 执行点击步骤
      */
     async executeClickStep(step) {
+        console.log('🔧 [DEBUG] 高级引擎 executeClickStep 开始执行');
+
+        // 在执行具体操作前检查暂停状态
+        await this.checkPause();
+
+        console.log('🔧 [DEBUG] 高级引擎查找元素:', step.locator.value);
         const element = await this.findElement(step.locator);
+
+        console.log('🔧 [DEBUG] 高级引擎准备点击元素');
         await this.clickElement(element);
         this.log(`👆 已点击元素: ${step.locator.value}`, 'success');
     }
@@ -168,19 +294,26 @@ class UniversalAutomationEngine {
      * 执行输入步骤
      */
     async executeInputStep(step) {
+        console.log('🔧 [DEBUG] 高级引擎 executeInputStep 开始执行');
+
+        // 在执行具体操作前检查暂停状态
+        await this.checkPause();
+
+        console.log('🔧 [DEBUG] 高级引擎查找输入元素:', step.locator.value);
         const element = await this.findElement(step.locator);
-        
+
         // 清空现有内容
         if (step.clearFirst) {
             element.value = '';
             element.dispatchEvent(new Event('input', { bubbles: true }));
         }
 
+        console.log('🔧 [DEBUG] 高级引擎准备输入文本:', step.text);
         // 输入文本
         element.value = step.text;
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
-        
+
         this.log(`⌨️ 已输入文本: "${step.text}"`, 'success');
     }
 
@@ -188,26 +321,41 @@ class UniversalAutomationEngine {
      * 执行等待步骤
      */
     async executeWaitStep(step) {
+        console.log('🔧 [DEBUG] 高级引擎 executeWaitStep 开始执行');
+
+        // 在执行具体操作前检查暂停状态
+        await this.checkPause();
+
         const duration = step.duration || 1000;
         this.log(`⏱️ 等待 ${duration}ms`, 'info');
-        await this.sleep(duration);
+
+        // 使用支持暂停的等待方法
+        await this.sleepWithPauseCheck(duration);
     }
 
     /**
      * 执行智能等待步骤
      */
     async executeSmartWaitStep(step) {
+        console.log('🔧 [DEBUG] 高级引擎 executeSmartWaitStep 开始执行');
+
+        // 在执行具体操作前检查暂停状态
+        await this.checkPause();
+
         const timeout = step.timeout || 10000;
         const interval = step.interval || 500;
         const description = step.description || '元素出现';
-        
+
         this.log(`🔍 智能等待: ${description} (最大${timeout/1000}秒)`, 'info');
-        
+
         const startTime = Date.now();
         while (Date.now() - startTime < timeout) {
             if (!this.isRunning) {
                 throw new Error('执行已被停止');
             }
+
+            // 在等待循环中检查暂停状态
+            await this.checkPause();
 
             try {
                 const element = await this.findElement(step.locator);
@@ -219,7 +367,7 @@ class UniversalAutomationEngine {
                 // 继续等待
             }
 
-            await this.sleep(interval);
+            await this.sleepWithPauseCheck(interval);
         }
 
         throw new Error(`${description} - 等待超时 (${timeout/1000}秒)`);
@@ -247,13 +395,30 @@ class UniversalAutomationEngine {
 
         this.log(`📊 找到 ${elements.length} 个元素，处理范围: ${startIndex} - ${actualEndIndex}`, 'info');
 
+        // 更新主循环总数
+        const totalMainLoops = actualEndIndex - startIndex + 1;
+        this.updateProgress({
+            totalMainLoops: totalMainLoops,
+            currentMainLoop: 0
+        });
+
         // 执行循环
         for (let i = startIndex; i <= actualEndIndex; i++) {
             if (!this.isRunning) {
                 throw new Error('执行已被停止');
             }
 
-            this.log(`🎯 处理第 ${i + 1} 个元素`, 'info');
+            // 检查是否需要暂停
+            await this.checkPause();
+
+            const currentLoop = i - startIndex + 1;
+            this.log(`🎯 处理第 ${i + 1} 个元素 (${currentLoop}/${totalMainLoops})`, 'info');
+
+            // 更新主循环进度
+            this.updateProgress({
+                currentMainLoop: currentLoop,
+                currentOperation: `处理第 ${currentLoop}/${totalMainLoops} 个主循环元素`
+            });
 
             try {
                 const element = elements[i];
@@ -641,6 +806,21 @@ class UniversalAutomationEngine {
     }
 
     /**
+     * 支持暂停检查的延迟函数
+     */
+    async sleepWithPauseCheck(ms) {
+        console.log(`🔧 [DEBUG] 高级引擎开始等待 ${ms}ms（支持暂停）`);
+        const startTime = Date.now();
+        while (Date.now() - startTime < ms) {
+            // 每100ms检查一次暂停状态
+            await this.checkPause();
+            const remainingTime = ms - (Date.now() - startTime);
+            await this.sleep(Math.min(100, remainingTime));
+        }
+        console.log(`🔧 [DEBUG] 高级引擎等待完成`);
+    }
+
+    /**
      * 执行单个操作 (兼容性方法)
      */
     async performAction(config) {
@@ -770,14 +950,34 @@ class UniversalAutomationEngine {
             if (step.subOperations && step.subOperations.length > 0) {
                 this.log(`🔧 开始执行 ${step.subOperations.length} 个子操作`, 'info');
 
+                // 更新子操作总数
+                this.updateProgress({
+                    totalSubOperations: step.subOperations.length,
+                    currentSubOperation: 0
+                });
+
                 for (let i = 0; i < step.subOperations.length; i++) {
+                    if (!this.isRunning) {
+                        throw new Error('执行已被停止');
+                    }
+
+                    // 检查是否需要暂停
+                    await this.checkPause();
+
                     const subOp = step.subOperations[i];
-                    this.log(`🎯 执行子操作 ${i + 1}: ${subOp.name || subOp.type}`, 'info');
+                    const currentSubOp = i + 1;
+                    this.log(`🎯 执行子操作 ${currentSubOp}: ${subOp.name || subOp.type}`, 'info');
+
+                    // 更新子操作进度
+                    this.updateProgress({
+                        currentSubOperation: currentSubOp,
+                        currentOperation: `执行子操作 ${currentSubOp}/${step.subOperations.length}: ${subOp.name || subOp.type}`
+                    });
 
                     try {
                         await this.executeSubOperation(subOp, element);
                     } catch (error) {
-                        this.log(`❌ 子操作 ${i + 1} 失败: ${error.message}`, 'error');
+                        this.log(`❌ 子操作 ${currentSubOp} 失败: ${error.message}`, 'error');
                         if (step.errorHandling === 'stop') {
                             throw error;
                         }
@@ -788,6 +988,12 @@ class UniversalAutomationEngine {
                         await this.sleep(subOp.delay);
                     }
                 }
+
+                // 清除子操作进度
+                this.updateProgress({
+                    totalSubOperations: 0,
+                    currentSubOperation: 0
+                });
 
                 this.log(`✅ 所有子操作执行完成`, 'success');
             }
@@ -809,6 +1015,9 @@ class UniversalAutomationEngine {
      * 支持各种类型的自动化操作
      */
     async executeSubOperation(operation, parentElement = null) {
+        // 在执行每个子操作前检查暂停状态
+        await this.checkPause();
+
         this.log(`🔍 执行子操作: ${operation.type} - ${operation.locator?.value || '无定位器'}`, 'info');
 
         switch (operation.type) {
@@ -938,6 +1147,9 @@ class UniversalAutomationEngine {
             if (!this.isRunning) {
                 throw new Error('执行已被停止');
             }
+
+            // 检查是否需要暂停
+            await this.checkPause();
 
             this.log(`🎯 自循环处理第 ${i + 1}/${actualEndIndex + 1} 个元素`, 'info');
 
@@ -1126,6 +1338,22 @@ class UniversalAutomationEngine {
         // 清除标记和保存的样式
         delete element._executionOriginalStyle;
         delete element._isExecutionHighlighted;
+    }
+
+    /**
+     * 更新执行进度
+     */
+    updateProgress(progressData) {
+        // 更新内部统计
+        Object.assign(this.executionStats, progressData);
+
+        // 调用进度回调
+        if (this.onProgress) {
+            this.onProgress({
+                ...this.executionStats,
+                ...progressData
+            });
+        }
     }
 } // 结束类定义
 

@@ -100,6 +100,67 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     return true;
   }
 
+  // 处理暂停执行请求
+  if (request.action === "pauseExecution") {
+    console.log('🔧 [DEBUG] Content script 收到暂停请求');
+    console.log('🔧 [DEBUG] 当前引擎状态:', {
+      hasAutomationEngine: !!window.automationEngine,
+      hasSimplifiedControl: !!window.simplifiedExecutionControl,
+      automationEngineRunning: window.automationEngine ? window.automationEngine.isRunning : false,
+      automationEnginePaused: window.automationEngine ? window.automationEngine.isPaused : false,
+      simplifiedControlPaused: window.simplifiedExecutionControl ? window.simplifiedExecutionControl.isPaused : false
+    });
+
+    try {
+      if (window.automationEngine && window.automationEngine.isRunning) {
+        console.log('🔧 [DEBUG] 使用高级引擎暂停（引擎正在运行）');
+        // 高级引擎模式
+        window.automationEngine.pause();
+        console.log('🔧 [DEBUG] 高级引擎暂停调用完成');
+        sendResponse({ success: true, mode: 'advanced' });
+      } else if (window.simplifiedExecutionControl) {
+        console.log('🔧 [DEBUG] 使用简化模式暂停');
+        // 简化模式
+        window.simplifiedExecutionControl.pause();
+        console.log('🔧 [DEBUG] 简化模式暂停调用完成');
+        sendResponse({ success: true, mode: 'simplified' });
+      } else {
+        console.log('❌ [DEBUG] 没有可用的执行引擎或引擎未运行');
+        console.log('🔧 [DEBUG] 详细状态:', {
+          hasEngine: !!window.automationEngine,
+          engineRunning: window.automationEngine ? window.automationEngine.isRunning : 'N/A',
+          hasSimplified: !!window.simplifiedExecutionControl
+        });
+        sendResponse({ success: false, error: "自动化引擎未初始化或未运行" });
+      }
+    } catch (error) {
+      console.error("❌ 暂停执行失败:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
+  // 处理继续执行请求
+  if (request.action === "resumeExecution") {
+    try {
+      if (window.automationEngine) {
+        // 高级引擎模式
+        window.automationEngine.resume();
+        sendResponse({ success: true });
+      } else if (window.simplifiedExecutionControl) {
+        // 简化模式
+        window.simplifiedExecutionControl.resume();
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: "自动化引擎未初始化" });
+      }
+    } catch (error) {
+      console.error("继续执行失败:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
   if (request.action === "findAllElements") {
     findAllElements(request.locator)
       .then((result) => {
@@ -849,12 +910,149 @@ async function executeUniversalWorkflow(workflow) {
   try {
     console.log('🚀 开始执行通用自动化工作流:', workflow.name);
 
-    // 直接执行工作流，跳过引擎加载
-    console.log('🚀 开始执行工作流...');
+    // 尝试加载引擎，如果失败则使用简化执行
+    let useAdvancedEngine = false;
+    try {
+      await loadUniversalAutomationEngine();
+      useAdvancedEngine = true;
+      console.log('✅ 使用高级自动化引擎');
+    } catch (error) {
+      console.log('⚠️ 引擎加载失败，使用简化执行模式:', error.message);
+      useAdvancedEngine = false;
+    }
 
-    // 使用简单的步骤执行
-    for (const step of workflow.steps) {
-      console.log(`🎯 执行步骤: ${step.name} (${step.type})`);
+    if (useAdvancedEngine && window.UniversalAutomationEngine) {
+      // 使用高级引擎
+      if (!window.automationEngine) {
+        window.automationEngine = new window.UniversalAutomationEngine();
+
+        // 设置进度回调
+        window.automationEngine.onProgress = (progress) => {
+          console.log('📊 执行进度更新:', progress);
+          chrome.runtime.sendMessage({
+            action: 'executionProgress',
+            data: progress
+          });
+        };
+
+        // 设置完成回调
+        window.automationEngine.onComplete = (stats) => {
+          console.log('✅ 执行完成:', stats);
+          chrome.runtime.sendMessage({
+            action: 'executionComplete',
+            data: stats
+          });
+        };
+
+        // 设置错误回调
+        window.automationEngine.onError = (error) => {
+          console.error('❌ 执行错误:', error);
+          chrome.runtime.sendMessage({
+            action: 'executionError',
+            data: { error: error.message }
+          });
+        };
+      }
+
+      // 执行工作流
+      const result = await window.automationEngine.execute(workflow);
+      console.log('✅ 工作流执行完成');
+      return { success: true, result };
+    } else {
+      // 使用简化执行模式
+      console.log('🔄 使用简化执行模式');
+      return await executeSimplifiedWorkflow(workflow);
+    }
+
+  } catch (error) {
+    console.error('❌ 通用工作流执行失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 简化执行模式 - 当高级引擎加载失败时使用
+ */
+async function executeSimplifiedWorkflow(workflow) {
+  console.log('🔄 开始简化执行模式');
+
+  let completedSteps = 0;
+  const totalSteps = workflow.steps.length;
+
+  // 创建简化模式的执行控制对象
+  window.simplifiedExecutionControl = {
+    isPaused: false,
+    pausePromise: null,
+    pauseResolve: null,
+
+    pause() {
+      console.log('🔧 [DEBUG] 简化模式 pause() 被调用');
+      this.isPaused = true;
+      console.log('🔧 [DEBUG] 简化模式暂停状态设置为:', this.isPaused);
+      console.log('⏸️ 简化模式执行已暂停');
+    },
+
+    resume() {
+      this.isPaused = false;
+      console.log('▶️ 简化模式继续执行');
+      if (this.pauseResolve) {
+        this.pauseResolve();
+        this.pauseResolve = null;
+        this.pausePromise = null;
+      }
+    },
+
+    async checkPause() {
+      console.log('🔧 [DEBUG] checkPause 被调用，当前暂停状态:', this.isPaused);
+      if (this.isPaused) {
+        console.log('🔧 [DEBUG] 检测到暂停状态，开始等待...');
+        if (!this.pausePromise) {
+          console.log('🔧 [DEBUG] 创建新的暂停Promise');
+          this.pausePromise = new Promise(resolve => {
+            this.pauseResolve = resolve;
+          });
+        }
+        console.log('🔧 [DEBUG] 等待暂停Promise解决...');
+        await this.pausePromise;
+        console.log('🔧 [DEBUG] 暂停Promise已解决，继续执行');
+      }
+    }
+  };
+
+  // 暂停检查函数
+  const checkPause = () => window.simplifiedExecutionControl.checkPause();
+
+  // 发送初始进度
+  chrome.runtime.sendMessage({
+    action: 'executionProgress',
+    data: {
+      isRunning: true,
+      isPaused: false,
+      startTime: Date.now(),
+      totalSteps: totalSteps,
+      completedSteps: 0,
+      currentOperation: '开始执行工作流...'
+    }
+  });
+
+  try {
+    for (let i = 0; i < workflow.steps.length; i++) {
+      console.log(`🔧 [DEBUG] 准备执行步骤 ${i + 1}/${totalSteps}`);
+      // 检查是否需要暂停
+      await checkPause();
+      console.log(`🔧 [DEBUG] 暂停检查完成，继续执行步骤 ${i + 1}`);
+
+      const step = workflow.steps[i];
+      console.log(`🎯 执行步骤 ${i + 1}/${totalSteps}: ${step.name} (${step.type})`);
+
+      // 更新进度
+      chrome.runtime.sendMessage({
+        action: 'executionProgress',
+        data: {
+          completedSteps: i,
+          currentOperation: `执行步骤: ${step.name || step.type}`
+        }
+      });
 
       switch (step.type) {
         case 'click':
@@ -873,16 +1071,55 @@ async function executeUniversalWorkflow(workflow) {
           console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
       }
 
-      // 步骤间等待
-      await new Promise(resolve => setTimeout(resolve, 200));
+      completedSteps++;
+
+      // 更新完成进度
+      chrome.runtime.sendMessage({
+        action: 'executionProgress',
+        data: {
+          completedSteps: completedSteps
+        }
+      });
+
+      // 步骤间等待（支持暂停）
+      console.log('🔧 [DEBUG] 步骤间等待开始');
+      const waitDuration = 200;
+      const waitStartTime = Date.now();
+      while (Date.now() - waitStartTime < waitDuration) {
+        // 在等待期间检查暂停状态
+        await checkPause();
+        await new Promise(resolve => setTimeout(resolve, Math.min(50, waitDuration - (Date.now() - waitStartTime))));
+      }
+      console.log('🔧 [DEBUG] 步骤间等待完成');
     }
 
-    console.log('✅ 工作流执行完成');
+    // 发送完成消息
+    chrome.runtime.sendMessage({
+      action: 'executionComplete',
+      data: {
+        successCount: completedSteps,
+        errorCount: 0,
+        totalSteps: totalSteps
+      }
+    });
+
+    console.log('✅ 简化模式工作流执行完成');
     return { success: true, message: '工作流执行完成' };
 
   } catch (error) {
-    console.error('❌ 通用工作流执行失败:', error);
+    console.error('❌ 简化模式执行失败:', error);
+
+    // 发送错误消息
+    chrome.runtime.sendMessage({
+      action: 'executionError',
+      data: { error: error.message }
+    });
+
     throw error;
+  } finally {
+    // 清理简化执行控制对象
+    window.simplifiedExecutionControl = null;
+    console.log('🧹 简化模式执行控制已清理');
   }
 }
 
@@ -938,11 +1175,11 @@ async function loadUniversalAutomationEngine() {
 
     window.addEventListener('message', messageHandler);
 
-    // 设置超时
+    // 设置超时 - 减少到3秒
     setTimeout(() => {
       window.removeEventListener('message', messageHandler);
       reject(new Error('引擎加载超时'));
-    }, 10000);
+    }, 3000);
 
     script.onload = () => {
       console.log('📦 引擎脚本文件已加载，等待初始化...');
@@ -960,21 +1197,37 @@ async function loadUniversalAutomationEngine() {
 
 // 简单的步骤执行函数
 async function executeClickStep(step) {
+  console.log('🔧 [DEBUG] executeClickStep 开始执行');
+
+  // 在执行具体操作前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
   const selector = step.locator?.value || step.locator;
   if (!selector) {
     throw new Error('缺少定位器');
   }
 
+  console.log('🔧 [DEBUG] 查找元素:', selector);
   const element = document.querySelector(selector);
   if (!element) {
     throw new Error(`找不到元素: ${selector}`);
   }
 
+  console.log('🔧 [DEBUG] 准备点击元素');
   element.click();
   console.log(`✅ 点击元素: ${selector}`);
 }
 
 async function executeInputStep(step) {
+  console.log('🔧 [DEBUG] executeInputStep 开始执行');
+
+  // 在执行具体操作前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
   const selector = step.locator?.value || step.locator;
   const text = step.text || step.inputText || '';
 
@@ -982,20 +1235,39 @@ async function executeInputStep(step) {
     throw new Error('缺少定位器');
   }
 
+  console.log('🔧 [DEBUG] 查找输入元素:', selector);
   const element = document.querySelector(selector);
   if (!element) {
     throw new Error(`找不到元素: ${selector}`);
   }
 
+  console.log('🔧 [DEBUG] 准备输入文本:', text);
   element.value = text;
   element.dispatchEvent(new Event('input', { bubbles: true }));
   console.log(`✅ 输入文本: ${selector} = "${text}"`);
 }
 
 async function executeWaitStep(step) {
+  console.log('🔧 [DEBUG] executeWaitStep 开始执行');
+
+  // 在执行具体操作前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
   const duration = step.duration || step.waitTime || 1000;
   console.log(`⏳ 等待 ${duration}ms`);
-  await new Promise(resolve => setTimeout(resolve, duration));
+
+  // 在等待过程中也要支持暂停
+  const startTime = Date.now();
+  while (Date.now() - startTime < duration) {
+    // 每100ms检查一次暂停状态
+    if (window.simplifiedExecutionControl) {
+      await window.simplifiedExecutionControl.checkPause();
+    }
+    await new Promise(resolve => setTimeout(resolve, Math.min(100, duration - (Date.now() - startTime))));
+  }
+
   console.log(`✅ 等待完成`);
 }
 
@@ -1017,6 +1289,13 @@ async function executeLoopStep(step) {
   console.log(`🔄 开始执行${step.loopType === 'simpleLoop' ? '简单' : '父级'}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`);
 
   for (let i = startIndex; i <= actualEndIndex; i++) {
+    console.log(`🔧 [DEBUG] 循环第 ${i + 1} 个元素前检查暂停状态`);
+
+    // 在每个循环迭代前检查暂停状态
+    if (window.simplifiedExecutionControl) {
+      await window.simplifiedExecutionControl.checkPause();
+    }
+
     const element = elements[i];
     console.log(`🎯 处理第 ${i + 1} 个元素`);
 
@@ -1029,9 +1308,18 @@ async function executeLoopStep(step) {
         await executeParentLoopAction(element, step);
       }
 
-      // 循环间隔
+      // 循环间隔（支持暂停）
       if (step.loopDelay) {
-        await new Promise(resolve => setTimeout(resolve, step.loopDelay));
+        console.log(`🔧 [DEBUG] 循环延迟开始: ${step.loopDelay}ms`);
+        const delayStartTime = Date.now();
+        while (Date.now() - delayStartTime < step.loopDelay) {
+          // 在延迟期间检查暂停状态
+          if (window.simplifiedExecutionControl) {
+            await window.simplifiedExecutionControl.checkPause();
+          }
+          await new Promise(resolve => setTimeout(resolve, Math.min(100, step.loopDelay - (Date.now() - delayStartTime))));
+        }
+        console.log(`🔧 [DEBUG] 循环延迟完成`);
       }
 
     } catch (error) {
@@ -1046,11 +1334,19 @@ async function executeLoopStep(step) {
 }
 
 async function executeSimpleLoopAction(element, step) {
+  console.log('🔧 [DEBUG] executeSimpleLoopAction 开始执行');
+
+  // 在执行具体操作前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
   const actionType = step.actionType || 'click';
   console.log(`🔧 执行简单操作: ${actionType}`);
 
   switch (actionType) {
     case 'click':
+      console.log(`🔧 [DEBUG] 准备点击循环元素`);
       element.click();
       console.log(`👆 点击元素`);
       break;
@@ -1079,16 +1375,33 @@ async function executeSimpleLoopAction(element, step) {
       throw new Error(`不支持的简单循环操作类型: ${actionType}`);
   }
 
-  // 操作后等待
+  // 操作后等待（支持暂停）
   if (step.actionDelay) {
-    await new Promise(resolve => setTimeout(resolve, step.actionDelay));
+    console.log(`🔧 [DEBUG] 操作后延迟开始: ${step.actionDelay}ms`);
+    const delayStartTime = Date.now();
+    while (Date.now() - delayStartTime < step.actionDelay) {
+      // 在延迟期间检查暂停状态
+      if (window.simplifiedExecutionControl) {
+        await window.simplifiedExecutionControl.checkPause();
+      }
+      await new Promise(resolve => setTimeout(resolve, Math.min(100, step.actionDelay - (Date.now() - delayStartTime))));
+    }
+    console.log(`🔧 [DEBUG] 操作后延迟完成`);
   }
 }
 
 async function executeParentLoopAction(element, step) {
+  console.log('🔧 [DEBUG] executeParentLoopAction 开始执行');
+
+  // 在执行具体操作前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
   console.log(`🎯 开始处理父级元素`);
 
   // 1. 点击父级元素
+  console.log(`🔧 [DEBUG] 准备点击父级元素`);
   element.click();
   console.log(`👆 已点击父级元素`);
 

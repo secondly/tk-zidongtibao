@@ -26,7 +26,24 @@ function initializeEventListeners() {
     document.getElementById('saveWorkflowBtn').addEventListener('click', saveWorkflow);
     document.getElementById('clearWorkflowBtn').addEventListener('click', clearWorkflow);
     document.getElementById('executeBtn').addEventListener('click', executeWorkflow);
+    document.getElementById('pauseResumeBtn').addEventListener('click', togglePauseResume);
     document.getElementById('resetEngineBtn').addEventListener('click', resetEngine);
+
+    // 调试：添加手动测试暂停按钮的功能
+    console.log('🔧 [DEBUG] 添加调试功能：双击执行按钮可以手动显示暂停按钮');
+    document.getElementById('executeBtn').addEventListener('dblclick', function() {
+        console.log('🔧 [DEBUG] 双击执行按钮，手动显示暂停按钮');
+        const pauseBtn = document.getElementById('pauseResumeBtn');
+        if (pauseBtn) {
+            pauseBtn.style.display = 'inline-block';
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = '⏸️ 暂停';
+            pauseBtn.className = 'btn btn-warning';
+            executionState.isRunning = true;
+            executionState.isPaused = false;
+            console.log('🔧 [DEBUG] 暂停按钮已手动显示，可以测试点击功能');
+        }
+    });
 
     // 导入导出按钮
     document.getElementById('exportWorkflowBtn').addEventListener('click', exportWorkflow);
@@ -143,8 +160,40 @@ async function executeWorkflow() {
     }
 
     try {
+        // 更新执行状态
+        executionState.isRunning = true;
+        executionState.isPaused = false;
+        executionState.startTime = Date.now();
+
         // 禁用执行按钮
         document.getElementById('executeBtn').disabled = true;
+
+        // 立即显示暂停按钮（强制显示）
+        const pauseBtn = document.getElementById('pauseResumeBtn');
+        if (pauseBtn) {
+            pauseBtn.style.display = 'inline-block';
+            pauseBtn.disabled = false;
+            pauseBtn.textContent = '⏸️ 暂停';
+            pauseBtn.className = 'btn btn-warning';
+            console.log('🔧 [DEBUG] 暂停按钮已强制显示');
+        } else {
+            console.log('❌ [DEBUG] 找不到暂停按钮元素！');
+        }
+
+        // 更新其他状态
+        updateExecutionStatusIndicator();
+
+        // 调试：确认暂停按钮状态
+        console.log('🔧 [DEBUG] 执行开始后，检查暂停按钮状态');
+        console.log('🔧 [DEBUG] 暂停按钮显示状态:', pauseBtn ? pauseBtn.style.display : '按钮不存在');
+        console.log('🔧 [DEBUG] 暂停按钮禁用状态:', pauseBtn ? pauseBtn.disabled : '按钮不存在');
+
+        // 开始执行时间更新定时器
+        if (executionTimeTimer) {
+            clearInterval(executionTimeTimer);
+        }
+        executionTimeTimer = setInterval(updateExecutionTime, 1000);
+
         showStatus('开始执行工作流...', 'info');
 
         // 首先检查当前标签页
@@ -188,22 +237,51 @@ async function executeWorkflow() {
         }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error('执行失败:', chrome.runtime.lastError);
+                // 不立即重置状态，让用户看到错误信息
+                setTimeout(() => {
+                    resetExecutionState();
+                }, 2000);
                 showStatus(`执行失败: ${chrome.runtime.lastError.message}`, 'error');
-                document.getElementById('executeBtn').disabled = false;
             } else if (response && response.success) {
+                // 成功时也延迟重置，让用户看到完成状态
+                setTimeout(() => {
+                    resetExecutionState();
+                }, 1000);
                 showStatus('工作流执行完成', 'success');
-                document.getElementById('executeBtn').disabled = false;
             } else {
+                setTimeout(() => {
+                    resetExecutionState();
+                }, 2000);
                 showStatus(`执行失败: ${response?.error || '未知错误'}`, 'error');
-                document.getElementById('executeBtn').disabled = false;
             }
         });
 
     } catch (error) {
         console.error('执行工作流失败:', error);
         showStatus(`执行工作流失败: ${error.message}`, 'error');
-        document.getElementById('executeBtn').disabled = false;
+        // 重置执行状态
+        resetExecutionState();
     }
+}
+
+// 重置执行状态
+function resetExecutionState() {
+    executionState.isRunning = false;
+    executionState.isPaused = false;
+
+    // 停止执行时间更新定时器
+    if (executionTimeTimer) {
+        clearInterval(executionTimeTimer);
+        executionTimeTimer = null;
+    }
+
+    // 恢复执行按钮，隐藏暂停按钮
+    document.getElementById('executeBtn').disabled = false;
+    updatePauseResumeButton();
+    updateExecutionStatusIndicator();
+
+    // 隐藏详细进度
+    hideDetailedProgress();
 }
 
 // 添加步骤
@@ -1021,27 +1099,268 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
+// 执行状态管理
+let executionState = {
+    isRunning: false,
+    isPaused: false,
+    startTime: null,
+    totalSteps: 0,
+    completedSteps: 0,
+    currentMainLoop: 0,
+    totalMainLoops: 0,
+    currentSubOperation: 0,
+    totalSubOperations: 0,
+    currentOperation: '等待执行...'
+};
+
+// 执行时间更新定时器
+let executionTimeTimer = null;
+
 // 更新执行进度
 function updateProgress(progress) {
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('progressText');
-    
-    if (progressFill && progressText) {
-        progressFill.style.width = `${progress.progress || 0}%`;
-        progressText.textContent = `执行进度: ${progress.completedSteps || 0}/${progress.totalSteps || 0}`;
+    // 更新执行状态
+    Object.assign(executionState, progress);
+
+    // 更新总体进度条
+    const overallProgressFill = document.getElementById('overallProgressFill');
+    const overallProgressText = document.getElementById('overallProgressText');
+
+    if (overallProgressFill && overallProgressText) {
+        const overallPercent = executionState.totalSteps > 0 ?
+            (executionState.completedSteps / executionState.totalSteps * 100) : 0;
+        overallProgressFill.style.width = `${overallPercent}%`;
+        overallProgressText.textContent = `总进度: ${executionState.completedSteps}/${executionState.totalSteps} (${Math.round(overallPercent)}%)`;
     }
+
+    // 显示详细进度
+    showDetailedProgress();
+
+    // 更新详细进度信息
+    updateDetailedProgress();
+}
+
+// 显示详细进度区域
+function showDetailedProgress() {
+    const detailedProgress = document.getElementById('detailedProgress');
+    if (detailedProgress && executionState.isRunning) {
+        detailedProgress.style.display = 'block';
+    }
+}
+
+// 隐藏详细进度区域
+function hideDetailedProgress() {
+    const detailedProgress = document.getElementById('detailedProgress');
+    if (detailedProgress) {
+        detailedProgress.style.display = 'none';
+    }
+}
+
+// 更新详细进度信息
+function updateDetailedProgress() {
+    // 更新主循环进度
+    const mainLoopProgress = document.getElementById('mainLoopProgress');
+    if (mainLoopProgress) {
+        if (executionState.totalMainLoops > 0) {
+            mainLoopProgress.textContent = `当前执行到 ${executionState.currentMainLoop}/${executionState.totalMainLoops} 个主循环`;
+        } else {
+            mainLoopProgress.textContent = '-';
+        }
+    }
+
+    // 更新子操作进度
+    const subOperationProgress = document.getElementById('subOperationProgress');
+    const subOperationProgressItem = document.getElementById('subOperationProgressItem');
+    if (subOperationProgress && subOperationProgressItem) {
+        if (executionState.totalSubOperations > 0) {
+            subOperationProgress.textContent = `正在执行子循环（${executionState.currentSubOperation}/${executionState.totalSubOperations}）`;
+            subOperationProgressItem.style.display = 'block';
+        } else {
+            subOperationProgressItem.style.display = 'none';
+        }
+    }
+
+    // 更新当前操作
+    const currentOperation = document.getElementById('currentOperation');
+    if (currentOperation) {
+        currentOperation.textContent = executionState.currentOperation || '-';
+    }
+
+    // 更新执行时间
+    updateExecutionTime();
+}
+
+// 更新执行时间
+function updateExecutionTime() {
+    const executionTimeElement = document.getElementById('executionTime');
+    if (executionTimeElement && executionState.startTime) {
+        const elapsed = Date.now() - executionState.startTime;
+        const minutes = Math.floor(elapsed / 60000);
+        const seconds = Math.floor((elapsed % 60000) / 1000);
+        executionTimeElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+}
+
+// 暂停/继续功能
+function togglePauseResume() {
+    console.log('🔧 [DEBUG] togglePauseResume 被调用');
+    console.log('🔧 [DEBUG] 当前执行状态:', {
+        isRunning: executionState.isRunning,
+        isPaused: executionState.isPaused
+    });
+
+    const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+
+    if (!executionState.isRunning) {
+        console.log('⚠️ 没有正在执行的任务');
+        alert('当前没有正在执行的任务！请先开始执行工作流。');
+        return;
+    }
+
+    if (executionState.isPaused) {
+        console.log('🔧 [DEBUG] 准备继续执行');
+        // 继续执行
+        resumeExecution();
+    } else {
+        console.log('🔧 [DEBUG] 准备暂停执行');
+        // 暂停执行
+        pauseExecution();
+    }
+}
+
+// 暂停执行
+async function pauseExecution() {
+    console.log('🔧 [DEBUG] pauseExecution 开始执行');
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        console.log('🔧 [DEBUG] 获取到当前标签页:', tab.id);
+
+        // 确保content script已加载
+        const isLoaded = await ensureContentScriptLoaded(tab.id);
+        console.log('🔧 [DEBUG] Content script 加载状态:', isLoaded);
+        if (!isLoaded) {
+            console.log('❌ Content script未加载，无法暂停');
+            alert('Content script未加载，无法暂停执行！');
+            return;
+        }
+
+        console.log('🔧 [DEBUG] 发送暂停消息到 content script');
+        const response = await chrome.tabs.sendMessage(tab.id, {
+            action: 'pauseExecution'
+        });
+        console.log('🔧 [DEBUG] Content script 响应:', response);
+
+        executionState.isPaused = true;
+        updatePauseResumeButton();
+        updateExecutionStatusIndicator();
+
+        console.log('✅ 执行已暂停');
+        alert('执行已暂停！');
+    } catch (error) {
+        console.error('❌ 暂停执行失败:', error);
+        alert('暂停执行失败: ' + error.message);
+    }
+}
+
+// 继续执行
+async function resumeExecution() {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        // 确保content script已加载
+        const isLoaded = await ensureContentScriptLoaded(tab.id);
+        if (!isLoaded) {
+            console.log('Content script未加载，无法继续');
+            return;
+        }
+
+        await chrome.tabs.sendMessage(tab.id, {
+            action: 'resumeExecution'
+        });
+
+        executionState.isPaused = false;
+        updatePauseResumeButton();
+        updateExecutionStatusIndicator();
+
+        console.log('▶️ 继续执行');
+    } catch (error) {
+        console.error('❌ 继续执行失败:', error);
+    }
+}
+
+// 更新暂停/继续按钮状态
+function updatePauseResumeButton() {
+    console.log('🔧 [DEBUG] updatePauseResumeButton 被调用');
+    console.log('🔧 [DEBUG] 当前执行状态:', {
+        isRunning: executionState.isRunning,
+        isPaused: executionState.isPaused
+    });
+
+    const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+    if (!pauseResumeBtn) {
+        console.log('❌ [DEBUG] 找不到暂停按钮元素');
+        return;
+    }
+
+    if (executionState.isRunning) {
+        console.log('🔧 [DEBUG] 显示暂停按钮');
+        pauseResumeBtn.style.display = 'inline-block';
+        pauseResumeBtn.disabled = false;
+
+        if (executionState.isPaused) {
+            pauseResumeBtn.textContent = '▶️ 继续';
+            pauseResumeBtn.className = 'btn btn-success paused';
+            console.log('🔧 [DEBUG] 按钮设置为"继续"状态');
+        } else {
+            pauseResumeBtn.textContent = '⏸️ 暂停';
+            pauseResumeBtn.className = 'btn btn-warning';
+            console.log('🔧 [DEBUG] 按钮设置为"暂停"状态');
+        }
+    } else {
+        console.log('🔧 [DEBUG] 隐藏暂停按钮');
+        pauseResumeBtn.style.display = 'none';
+        pauseResumeBtn.disabled = true;
+    }
+}
+
+// 更新执行状态指示器
+function updateExecutionStatusIndicator() {
+    // 在section title中添加状态指示器
+    const sectionTitle = document.querySelector('.execution-section .section-title');
+    if (!sectionTitle) return;
+
+    // 移除现有的指示器
+    const existingIndicator = sectionTitle.querySelector('.execution-status-indicator');
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+
+    // 添加新的指示器
+    const indicator = document.createElement('span');
+    indicator.className = 'execution-status-indicator';
+
+    if (executionState.isRunning) {
+        if (executionState.isPaused) {
+            indicator.classList.add('paused');
+        } else {
+            indicator.classList.add('running');
+        }
+    } else {
+        indicator.classList.add('stopped');
+    }
+
+    sectionTitle.insertBefore(indicator, sectionTitle.firstChild);
 }
 
 // 执行完成回调
 function onExecutionComplete(stats) {
-    document.getElementById('executeBtn').disabled = false;
+    resetExecutionState();
     showStatus(`执行完成! 成功: ${stats.successCount}, 失败: ${stats.errorCount}`, 'success');
 }
 
 // 执行错误回调
 function onExecutionError(error) {
-    document.getElementById('executeBtn').disabled = false;
-    showStatus(`执行失败: ${error.message}`, 'error');
+    resetExecutionState();
+    showStatus(`执行失败: ${error.error || error.message}`, 'error');
 }
 
 // 保存当前工作流状态到本地存储
