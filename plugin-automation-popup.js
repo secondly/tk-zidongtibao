@@ -16,6 +16,8 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSavedWorkflows();
     // 自动加载上次的工作流状态
     loadLastWorkflowState();
+    // 恢复执行状态
+    loadExecutionState();
 });
 
 // 初始化事件监听器
@@ -165,6 +167,9 @@ async function executeWorkflow() {
         executionState.isPaused = false;
         executionState.startTime = Date.now();
 
+        // 保存执行状态
+        saveExecutionState();
+
         // 禁用执行按钮
         document.getElementById('executeBtn').disabled = true;
 
@@ -282,6 +287,9 @@ function resetExecutionState() {
 
     // 隐藏详细进度
     hideDetailedProgress();
+
+    // 清除保存的执行状态
+    clearExecutionState();
 }
 
 // 添加步骤
@@ -373,7 +381,7 @@ function getStepTypeName(type) {
         'wait': '等待时间',
         'smartWait': '智能等待',
         'loop': '循环操作',
-
+        'checkState': '检测状态'
     };
     return names[type] || type;
 }
@@ -1258,6 +1266,9 @@ async function pauseExecution() {
         updatePauseResumeButton();
         updateExecutionStatusIndicator();
 
+        // 保存执行状态
+        saveExecutionState();
+
         console.log('✅ 执行已暂停');
         alert('执行已暂停！');
     } catch (error) {
@@ -1285,6 +1296,9 @@ async function resumeExecution() {
         executionState.isPaused = false;
         updatePauseResumeButton();
         updateExecutionStatusIndicator();
+
+        // 保存执行状态
+        saveExecutionState();
 
         console.log('▶️ 继续执行');
     } catch (error) {
@@ -2810,4 +2824,93 @@ function escapeHtmlAttribute(str) {
         .replace(/'/g, '&#39;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+}
+
+// 保存执行状态到本地存储
+function saveExecutionState() {
+    try {
+        const stateToSave = {
+            isRunning: executionState.isRunning,
+            isPaused: executionState.isPaused,
+            startTime: executionState.startTime,
+            totalSteps: executionState.totalSteps,
+            completedSteps: executionState.completedSteps,
+            timestamp: Date.now() // 添加时间戳用于验证状态有效性
+        };
+
+        localStorage.setItem('execution_state', JSON.stringify(stateToSave));
+        console.log('✅ 执行状态已保存:', stateToSave);
+    } catch (error) {
+        console.error('❌ 保存执行状态失败:', error);
+    }
+}
+
+// 从本地存储加载执行状态
+function loadExecutionState() {
+    try {
+        const savedState = localStorage.getItem('execution_state');
+        if (!savedState) {
+            console.log('🔍 没有保存的执行状态');
+            return;
+        }
+
+        const state = JSON.parse(savedState);
+        console.log('🔍 尝试恢复执行状态:', state);
+
+        // 检查状态是否过期（超过1小时认为无效）
+        const now = Date.now();
+        const stateAge = now - (state.timestamp || 0);
+        const maxAge = 60 * 60 * 1000; // 1小时
+
+        if (stateAge > maxAge) {
+            console.log('⚠️ 执行状态已过期，清除状态');
+            clearExecutionState();
+            return;
+        }
+
+        // 只有在确实有执行中的任务时才恢复状态
+        if (state.isRunning) {
+            console.log('🔄 恢复执行状态...');
+
+            executionState.isRunning = state.isRunning;
+            executionState.isPaused = state.isPaused;
+            executionState.startTime = state.startTime;
+            executionState.totalSteps = state.totalSteps || 0;
+            executionState.completedSteps = state.completedSteps || 0;
+
+            // 更新UI状态
+            updatePauseResumeButton();
+            updateExecutionStatusIndicator();
+
+            // 如果有执行中的任务，显示详细进度
+            if (executionState.isRunning) {
+                showDetailedProgress();
+
+                // 重新启动执行时间更新定时器
+                if (!executionTimeTimer) {
+                    executionTimeTimer = setInterval(updateExecutionTime, 1000);
+                }
+            }
+
+            console.log('✅ 执行状态已恢复');
+            showStatus(`已恢复执行状态: ${state.isPaused ? '已暂停' : '执行中'}`, 'info');
+        } else {
+            console.log('🔍 没有执行中的任务，清除状态');
+            clearExecutionState();
+        }
+
+    } catch (error) {
+        console.error('❌ 加载执行状态失败:', error);
+        clearExecutionState();
+    }
+}
+
+// 清除保存的执行状态
+function clearExecutionState() {
+    try {
+        localStorage.removeItem('execution_state');
+        console.log('🗑️ 执行状态已清除');
+    } catch (error) {
+        console.error('❌ 清除执行状态失败:', error);
+    }
 }
