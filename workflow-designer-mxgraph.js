@@ -2373,13 +2373,25 @@ class MxGraphWorkflowDesigner {
         // 初始化条件测试器
         if (!this.conditionTester) {
             try {
-                if (typeof ConditionTester === 'undefined') {
+                // 检查依赖是否加载
+                console.log('🔧 检查依赖加载状态:');
+                console.log('  - ConditionTester:', typeof window.ConditionTester);
+                console.log('  - TabSelector:', typeof window.TabSelector);
+
+                if (typeof window.ConditionTester === 'undefined') {
                     throw new Error('ConditionTester 类未加载，请确保 conditionTester.js 已正确引入');
                 }
-                this.conditionTester = new ConditionTester();
+                this.conditionTester = new window.ConditionTester();
+                console.log('✅ 条件测试器初始化成功');
             } catch (error) {
                 console.error('❌ 初始化条件测试器失败:', error);
-                alert('条件测试器初始化失败: ' + error.message);
+                button.style.background = '#dc3545';
+                button.textContent = '❌ 初始化失败';
+                button.disabled = false;
+                setTimeout(() => {
+                    button.style.background = '#28a745';
+                    button.textContent = '🧪 测试条件';
+                }, 3000);
                 return;
             }
         }
@@ -2418,6 +2430,9 @@ class MxGraphWorkflowDesigner {
 
         try {
             console.log('🧪 开始真实条件测试:', conditionConfig);
+            console.log('🔧 条件测试器实例:', this.conditionTester);
+            console.log('🔧 ConditionTester类:', typeof window.ConditionTester);
+            console.log('🔧 TabSelector类:', typeof window.TabSelector);
 
             // 使用条件测试器进行真实测试
             const result = await this.conditionTester.testCondition(conditionConfig);
@@ -2814,10 +2829,10 @@ async function testCondition(button) {
     try {
         // 初始化测试器
         if (!window.conditionTester) {
-            if (typeof ConditionTester === 'undefined') {
+            if (typeof window.ConditionTester === 'undefined') {
                 throw new Error('ConditionTester 类未加载，请确保 conditionTester.js 已正确引入');
             }
-            window.conditionTester = new ConditionTester();
+            window.conditionTester = new window.ConditionTester();
         }
 
         const conditionConfig = {
