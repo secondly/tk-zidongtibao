@@ -1,3 +1,4 @@
+
 // 监听来自后台脚本的消息
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   console.log("Content script收到消息:", request);
@@ -83,6 +84,18 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
       sendResponse({ success: true, count: result.count });
     } catch (error) {
       console.error("测试定位器失败:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
+  // 处理条件测试请求
+  if (request.action === "testCondition") {
+    try {
+      const result = testCondition(request.condition);
+      sendResponse(result);
+    } catch (error) {
+      console.error("测试条件失败:", error);
       sendResponse({ success: false, error: error.message });
     }
     return true;
@@ -1022,6 +1035,9 @@ async function executeSimplifiedWorkflow(workflow) {
         case 'loop':
           await executeLoopStep(step);
           break;
+        case 'condition':
+          await executeConditionStep(step);
+          break;
         default:
           console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
       }
@@ -1222,6 +1238,111 @@ async function executeWaitStep(step) {
   }
 
   console.log(`✅ 等待完成`);
+}
+
+// 执行条件判断步骤
+async function executeConditionStep(step) {
+  console.log(`🧪 执行条件判断步骤:`, step);
+
+  const locator = step.locator;
+  if (!locator || !locator.strategy || !locator.value) {
+    throw new Error('条件判断步骤缺少定位器配置');
+  }
+
+  // 查找元素
+  const element = findSingleElement(locator.strategy, locator.value);
+  if (!element) {
+    throw new Error(`条件判断失败: 找不到元素 (${locator.strategy}: ${locator.value})`);
+  }
+
+  // 高亮元素
+  highlightElement(element, 'processing');
+
+  // 执行条件判断
+  let conditionResult = false;
+  let actualValue = '';
+  const expectedValue = step.expectedValue || '';
+  const attributeName = step.attributeName || '';
+
+  try {
+    // 获取实际值
+    switch (step.conditionType) {
+      case 'attribute':
+        actualValue = element.getAttribute(attributeName) || '';
+        break;
+      case 'text':
+        actualValue = element.textContent || '';
+        break;
+      case 'class':
+        actualValue = element.className || '';
+        break;
+      case 'style':
+        actualValue = getComputedStyle(element)[attributeName] || '';
+        break;
+      case 'value':
+        actualValue = element.value || '';
+        break;
+      case 'exists':
+        conditionResult = true; // 元素已找到
+        break;
+      case 'visible':
+        conditionResult = element.offsetParent !== null;
+        break;
+    }
+
+    // 执行比较
+    if (step.conditionType !== 'exists' && step.conditionType !== 'visible') {
+      switch (step.comparisonType) {
+        case 'equals':
+          conditionResult = actualValue === expectedValue;
+          break;
+        case 'notEquals':
+          conditionResult = actualValue !== expectedValue;
+          break;
+        case 'contains':
+          conditionResult = actualValue.includes(expectedValue);
+          break;
+        case 'notContains':
+          conditionResult = !actualValue.includes(expectedValue);
+          break;
+        case 'startsWith':
+          conditionResult = actualValue.startsWith(expectedValue);
+          break;
+        case 'endsWith':
+          conditionResult = actualValue.endsWith(expectedValue);
+          break;
+        case 'isEmpty':
+          conditionResult = actualValue === '';
+          break;
+        case 'isNotEmpty':
+          conditionResult = actualValue !== '';
+          break;
+        case 'hasAttribute':
+          conditionResult = element.hasAttribute(attributeName);
+          break;
+        case 'notHasAttribute':
+          conditionResult = !element.hasAttribute(attributeName);
+          break;
+      }
+    }
+
+    // 显示结果
+    if (conditionResult) {
+      highlightElement(element, 'success');
+      console.log(`✅ 条件判断通过: ${step.conditionType} ${step.comparisonType} "${expectedValue}" (实际值: "${actualValue}")`);
+    } else {
+      highlightElement(element, 'error');
+      console.log(`❌ 条件判断失败: ${step.conditionType} ${step.comparisonType} "${expectedValue}" (实际值: "${actualValue}")`);
+      throw new Error(`条件判断失败: 期望 ${step.conditionType} ${step.comparisonType} "${expectedValue}"，实际值为 "${actualValue}"`);
+    }
+
+    // 等待一下让用户看到结果
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+  } catch (error) {
+    highlightElement(element, 'error');
+    throw error;
+  }
 }
 
 async function executeLoopStep(step) {
@@ -1621,6 +1742,160 @@ async function executeAutoLoopAction(element, operation, actionType) {
   }
 }
 
+// 测试条件判断
+function testCondition(condition) {
+  console.log('🧪 测试条件:', condition);
+
+  try {
+    // 清除之前的测试高亮
+    clearTestHighlights();
+
+    // 首先获取元素
+    const locator = condition.locator;
+    if (!locator || !locator.strategy || !locator.value) {
+      return {
+        success: false,
+        error: '缺少定位器配置'
+      };
+    }
+
+    // 查找元素
+    const element = findSingleElement(locator.strategy, locator.value);
+    if (!element) {
+      return {
+        success: false,
+        error: '元素未找到',
+        conditionMet: false
+      };
+    }
+
+    // 高亮元素
+    highlightTestElements([element]);
+
+    // 执行条件判断
+    let conditionResult = false;
+    let actualValue = '';
+    let expectedValue = condition.expectedValue || '';
+    const attributeName = condition.attributeName || '';
+
+    // 获取实际值
+    switch (condition.conditionType) {
+      case 'attribute':
+        actualValue = element.getAttribute(attributeName) || '';
+        break;
+      case 'text':
+        actualValue = element.textContent || '';
+        break;
+      case 'class':
+        actualValue = element.className || '';
+        break;
+      case 'style':
+        actualValue = getComputedStyle(element)[attributeName] || '';
+        break;
+      case 'value':
+        actualValue = element.value || '';
+        break;
+      case 'exists':
+        conditionResult = true; // 元素已找到
+        break;
+      case 'visible':
+        conditionResult = element.offsetParent !== null;
+        break;
+    }
+
+    // 执行比较
+    if (condition.conditionType !== 'exists' && condition.conditionType !== 'visible') {
+      switch (condition.comparisonType) {
+        case 'equals':
+          conditionResult = actualValue === expectedValue;
+          break;
+        case 'notEquals':
+          conditionResult = actualValue !== expectedValue;
+          break;
+        case 'contains':
+          conditionResult = actualValue.includes(expectedValue);
+          break;
+        case 'notContains':
+          conditionResult = !actualValue.includes(expectedValue);
+          break;
+        case 'startsWith':
+          conditionResult = actualValue.startsWith(expectedValue);
+          break;
+        case 'endsWith':
+          conditionResult = actualValue.endsWith(expectedValue);
+          break;
+        case 'isEmpty':
+          conditionResult = actualValue === '';
+          break;
+        case 'isNotEmpty':
+          conditionResult = actualValue !== '';
+          break;
+        case 'hasAttribute':
+          conditionResult = element.hasAttribute(attributeName);
+          break;
+        case 'notHasAttribute':
+          conditionResult = !element.hasAttribute(attributeName);
+          break;
+      }
+    }
+
+    // 返回结果
+    return {
+      success: true,
+      conditionMet: conditionResult,
+      message: `条件${conditionResult ? '满足' : '不满足'}`,
+      actualValue,
+      expectedValue
+    };
+  } catch (error) {
+    console.error('❌ 测试条件失败:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// 查找单个元素
+function findSingleElement(strategy, value) {
+  try {
+    switch (strategy) {
+      case 'css':
+        return document.querySelector(value);
+      case 'xpath':
+        const xpathResult = document.evaluate(
+          value,
+          document,
+          null,
+          XPathResult.FIRST_ORDERED_NODE_TYPE,
+          null
+        );
+        return xpathResult.singleNodeValue;
+      case 'id':
+        return document.getElementById(value);
+      case 'className':
+        const elements = document.getElementsByClassName(value);
+        return elements.length > 0 ? elements[0] : null;
+      case 'text':
+        return Array.from(document.querySelectorAll('*')).find(el =>
+          el.textContent && el.textContent.trim() === value.trim()
+        );
+      case 'contains':
+        return Array.from(document.querySelectorAll('*')).find(el =>
+          el.textContent && el.textContent.includes(value)
+        );
+      case 'tagName':
+        const tagElements = document.getElementsByTagName(value);
+        return tagElements.length > 0 ? tagElements[0] : null;
+      default:
+        throw new Error(`不支持的定位策略: ${strategy}`);
+    }
+  } catch (error) {
+    console.error(`查找元素失败 (${strategy}: ${value}):`, error);
+    return null;
+  }
+}
+
 // 测试定位器元素数量
 function testLocatorElements(locator) {
   console.log('🔍 测试定位器:', locator);
@@ -1762,10 +2037,10 @@ function highlightTestElements(elements) {
       };
     }
 
-    // 设置测试高亮样式（黄色）
+    // 设置测试高亮样式（橙色）
     element.style.transition = 'all 0.3s ease';
-    element.style.outline = '3px solid #f1c40f';
-    element.style.backgroundColor = 'rgba(241, 196, 15, 0.1)';
+    element.style.outline = '2px solid orange';
+    element.style.backgroundColor = 'rgba(255, 165, 0, 0.1)';
     element.style.zIndex = '9999';
 
     // 标记为测试高亮元素

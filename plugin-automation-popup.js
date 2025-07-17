@@ -1,73 +1,938 @@
 /**
- * 通用自动化插件弹窗脚本
+ * 通用自动化插件弹窗脚本 - 重构版本
+ *
+ * 依赖的模块文件（通过HTML script标签加载）：
+ * - utils/workflowManager.js - 工作流管理功能
+ * - utils/eventHandlers.js - 事件处理功能
+ * - utils/executionController.js - 执行控制功能
+ * - utils/uiRenderer.js - UI渲染功能
+ * - utils/stepEditor.js - 步骤编辑功能
+ * - utils/importExport.js - 导入导出功能
+ * - utils/contextMenu.js - 右键菜单功能
  */
 
 // 全局变量
-let workflowManager = new WorkflowManager();
-let automationEngine = new UniversalAutomationEngine();
+let automationEngine;
+let workflowManager = null;
 let currentWorkflow = null;
 let editingStep = null;
-let isEditingSubOperation = false; // 标记是否在编辑子操作
+let isEditingSubOperation = false;
+let selectedNode = null; // 当前选中的节点
+
+// 三栏布局相关变量
+let configManager = null;
+let flowPreview = null;
+let executionStatus = null;
 
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🤖 通用自动化插件已加载');
+    console.log('🤖 通用自动化插件已加载 - 三栏布局版本');
+
+    // 初始化工作流管理器
+    if (typeof WorkflowManager !== 'undefined') {
+        workflowManager = new WorkflowManager();
+        console.log('✅ WorkflowManager 已初始化');
+    } else {
+        console.error('❌ WorkflowManager 类未找到');
+    }
+
+    // 初始化自动化引擎
+    if (typeof UniversalAutomationEngine !== 'undefined') {
+        automationEngine = new UniversalAutomationEngine();
+        console.log('✅ UniversalAutomationEngine 已初始化');
+    } else {
+        console.warn('⚠️ UniversalAutomationEngine 未找到');
+    }
+
+    // 初始化三栏布局
+    initializeLayout();
+
+    // 初始化事件监听器
     initializeEventListeners();
+
+    // 调试localStorage内容
+    debugLocalStorage();
+
+    // 初始化localStorage监听
+    initializeStorageListener();
+
+    // 加载保存的工作流
     loadSavedWorkflows();
-    // 自动加载上次的工作流状态
-    loadLastWorkflowState();
-    // 恢复执行状态
-    loadExecutionState();
 });
 
-// 初始化事件监听器
-function initializeEventListeners() {
-    // 工作流管理按钮
-    document.getElementById('newWorkflowBtn').addEventListener('click', newWorkflow);
-    document.getElementById('loadWorkflowBtn').addEventListener('click', loadWorkflow);
-    document.getElementById('saveWorkflowBtn').addEventListener('click', saveWorkflow);
-    document.getElementById('clearWorkflowBtn').addEventListener('click', clearWorkflow);
-    document.getElementById('executeBtn').addEventListener('click', executeWorkflow);
-    document.getElementById('pauseResumeBtn').addEventListener('click', togglePauseResume);
-    document.getElementById('resetEngineBtn').addEventListener('click', resetEngine);
+// 初始化三栏布局
+function initializeLayout() {
+    // 初始化配置管理器
+    initializeConfigManager();
 
-    // 调试：添加手动测试暂停按钮的功能
-    console.log('🔧 [DEBUG] 添加调试功能：双击执行按钮可以手动显示暂停按钮');
-    document.getElementById('executeBtn').addEventListener('dblclick', function() {
-        console.log('🔧 [DEBUG] 双击执行按钮，手动显示暂停按钮');
-        const pauseBtn = document.getElementById('pauseResumeBtn');
-        if (pauseBtn) {
-            pauseBtn.style.display = 'inline-block';
-            pauseBtn.disabled = false;
-            pauseBtn.textContent = '⏸️ 暂停';
-            pauseBtn.className = 'btn btn-warning';
-            executionState.isRunning = true;
-            executionState.isPaused = false;
-            console.log('🔧 [DEBUG] 暂停按钮已手动显示，可以测试点击功能');
+    // 初始化流程图预览
+    initializeFlowPreview();
+
+    // 初始化执行状态
+    initializeExecutionStatus();
+
+    // 初始化分割线拖拽
+    initializeDividerResize();
+
+    // 面板折叠功能已移除
+}
+
+// 初始化配置管理器
+function initializeConfigManager() {
+    // 初始化配置选择下拉框
+    const configSelect = document.getElementById('configSelect');
+    if (configSelect) {
+        configSelect.innerHTML = '<option value="">请选择一个配置...</option>';
+    }
+
+    // 隐藏当前配置信息
+    hideCurrentConfigDisplay();
+}
+
+// 初始化流程图预览
+function initializeFlowPreview() {
+    const flowGraphContainer = document.getElementById('flowGraphContainer');
+    const flowOverlay = document.getElementById('flowOverlay');
+
+    // 初始化mxGraph容器
+    if (flowGraphContainer) {
+        console.log('✅ 流程图容器已找到，准备初始化mxGraph');
+
+        // 监听窗口大小变化
+        window.addEventListener('resize', () => {
+            if (window.previewGraph) {
+                window.previewGraph.refresh();
+            }
+        });
+    } else {
+        console.error('❌ 未找到流程图容器 #flowGraphContainer');
+    }
+
+    // 缩放控制已移除，改用鼠标滚轮缩放
+}
+
+// 初始化执行状态
+function initializeExecutionStatus() {
+    const statusIcon = document.querySelector('.status-icon');
+    const statusText = document.querySelector('.status-text');
+    const statusMessage = document.querySelector('.status-message');
+
+    // 设置初始状态
+    updateExecutionStatus('idle', '等待执行...');
+}
+
+// 初始化分割线拖拽
+function initializeDividerResize() {
+    const divider = document.getElementById('divider');
+    const leftPanel = document.getElementById('leftPanel');
+    const rightPanel = document.getElementById('rightPanel');
+
+    if (divider && leftPanel && rightPanel) {
+        let isResizing = false;
+
+        divider.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', stopResize);
+        });
+
+        function handleResize(e) {
+            if (!isResizing) return;
+
+            const containerRect = document.querySelector('.main-content').getBoundingClientRect();
+            const newWidth = e.clientX - containerRect.left;
+
+            if (newWidth >= 200 && newWidth <= 400) {
+                leftPanel.style.width = newWidth + 'px';
+            }
+        }
+
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener('mousemove', handleResize);
+            document.removeEventListener('mouseup', stopResize);
+        }
+    }
+}
+
+// 加载保存的工作流列表
+function loadSavedWorkflows() {
+    console.log('🔄 开始加载保存的工作流列表...');
+
+    const workflows = getWorkflowsFromStorage();
+    console.log('📊 获取到的工作流数量:', workflows.length);
+
+    renderConfigSelect(workflows);
+    console.log('🎨 配置选择框已渲染');
+
+    // 如果当前有选中的工作流，保持选中状态
+    if (currentWorkflow) {
+        console.log('🔍 尝试保持当前选中的工作流:', currentWorkflow.name);
+        const configSelect = document.getElementById('configSelect');
+        if (configSelect) {
+            const index = workflows.findIndex(w => w.name === currentWorkflow.name);
+            if (index >= 0) {
+                configSelect.value = index;
+                console.log('✅ 已保持选中状态，索引:', index);
+            } else {
+                console.log('⚠️ 当前工作流在列表中未找到');
+            }
+        }
+    } else {
+        console.log('ℹ️ 当前没有选中的工作流');
+    }
+
+    console.log('✅ 工作流列表加载完成');
+}
+
+// 渲染配置下拉选择框
+function renderConfigSelect(workflows) {
+    console.log('🎨 开始渲染配置选择框，工作流数量:', workflows ? workflows.length : 0);
+
+    const configSelect = document.getElementById('configSelect');
+    if (!configSelect) {
+        console.error('❌ 未找到configSelect元素');
+        return;
+    }
+
+    // 清空现有选项
+    configSelect.innerHTML = '<option value="">请选择一个配置...</option>';
+    console.log('🧹 已清空现有选项');
+
+    if (workflows && workflows.length > 0) {
+        console.log('📋 开始添加工作流选项...');
+        workflows.forEach((workflow, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            const stepCount = workflow.steps ? workflow.steps.length : 0;
+            option.textContent = `${workflow.name || '未命名工作流'} (${stepCount} 步骤)`;
+            configSelect.appendChild(option);
+            console.log(`✅ 已添加选项 ${index}: ${workflow.name} (${stepCount} 步骤)`);
+        });
+        console.log('✅ 所有工作流选项已添加完成');
+    } else {
+        console.log('⚠️ 没有工作流数据，只显示默认选项');
+    }
+}
+
+// 选择配置
+function selectConfig(index) {
+    try {
+        const savedWorkflows = getWorkflowsFromStorage();
+        console.log('🔍 选择配置 - 索引:', index, '工作流列表:', savedWorkflows);
+
+        if (savedWorkflows && savedWorkflows[index]) {
+            currentWorkflow = savedWorkflows[index];
+            console.log('✅ 当前工作流已设置:', currentWorkflow);
+            console.log('📊 工作流详细信息:');
+            console.log('  - 名称:', currentWorkflow.name);
+            console.log('  - 步骤数量:', currentWorkflow.steps ? currentWorkflow.steps.length : 0);
+            console.log('  - 步骤详情:', currentWorkflow.steps);
+
+            updateCurrentConfigDisplay();
+
+            // 渲染流程预览
+            console.log('🎨 开始渲染流程预览...');
+            renderFlowPreview(currentWorkflow);
+
+            // 启用执行按钮
+            const executeBtn = document.getElementById('executeBtn');
+            if (executeBtn) {
+                executeBtn.disabled = false;
+            }
+
+            updateExecutionStatus('idle', '配置已选择，可以执行');
+        } else {
+            console.warn('⚠️ 未找到指定索引的工作流:', index);
+        }
+    } catch (error) {
+        console.error('❌ 选择配置失败:', error);
+    }
+}
+
+// 处理下拉选择框变化
+function handleConfigSelectChange(event) {
+    const selectedIndex = event.target.value;
+    if (selectedIndex === '') {
+        // 未选择任何配置
+        currentWorkflow = null;
+        hideCurrentConfigDisplay();
+        clearFlowPreview();
+
+        // 禁用执行按钮
+        const executeBtn = document.getElementById('executeBtn');
+        if (executeBtn) {
+            executeBtn.disabled = true;
+        }
+
+        updateExecutionStatus('idle', '请选择一个配置');
+    } else {
+        selectConfig(parseInt(selectedIndex));
+    }
+}
+
+// 刷新配置列表
+function refreshConfigList() {
+    console.log('🔄 手动刷新配置列表...');
+
+    // 显示刷新状态
+    const refreshBtn = document.getElementById('refreshConfigBtn');
+    if (refreshBtn) {
+        const originalText = refreshBtn.textContent;
+        refreshBtn.textContent = '🔄 刷新中...';
+        refreshBtn.disabled = true;
+
+        // 延迟恢复按钮状态
+        setTimeout(() => {
+            refreshBtn.textContent = originalText;
+            refreshBtn.disabled = false;
+        }, 1000);
+    }
+
+    try {
+        // 调试localStorage内容
+        debugLocalStorage();
+
+        // 重新加载工作流列表
+        loadSavedWorkflows();
+
+        // 显示成功提示
+        updateExecutionStatus('success', '配置列表已刷新');
+
+        // 2秒后恢复状态
+        setTimeout(() => {
+            updateExecutionStatus('idle', '请选择一个配置');
+        }, 2000);
+
+        console.log('✅ 配置列表刷新完成');
+
+    } catch (error) {
+        console.error('❌ 刷新配置列表失败:', error);
+        updateExecutionStatus('error', '刷新配置列表失败');
+
+        // 3秒后恢复状态
+        setTimeout(() => {
+            updateExecutionStatus('idle', '请选择一个配置');
+        }, 3000);
+    }
+}
+
+// localStorage管理功能
+const STORAGE_KEY = 'automationWorkflows';
+
+// 调试函数：检查localStorage中的所有数据
+function debugLocalStorage() {
+    console.log('🔍 调试localStorage内容:');
+    console.log('📦 localStorage长度:', localStorage.length);
+
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        const value = localStorage.getItem(key);
+        console.log(`🔑 键: "${key}" | 值长度: ${value ? value.length : 0}`);
+
+        // 如果是我们关心的键，显示详细内容
+        if (key === STORAGE_KEY || key === 'workflow_list' || key === 'mxgraph_workflow') {
+            try {
+                const parsed = JSON.parse(value);
+                console.log(`📋 "${key}" 解析后的数据:`, parsed);
+            } catch (e) {
+                console.log(`📋 "${key}" 原始数据:`, value);
+            }
+        }
+    }
+}
+
+// 从localStorage获取工作流
+function getWorkflowsFromStorage() {
+    try {
+        console.log('🔍 正在读取localStorage，键名:', STORAGE_KEY);
+        const data = localStorage.getItem(STORAGE_KEY);
+        console.log('📦 localStorage原始数据:', data);
+
+        if (data) {
+            const workflows = JSON.parse(data);
+            console.log('✅ 解析成功，工作流数量:', workflows.length);
+            console.log('📋 工作流列表:', workflows);
+            return workflows;
+        } else {
+            console.log('⚠️ localStorage中没有找到工作流数据');
+            return [];
+        }
+    } catch (error) {
+        console.error('❌ 读取工作流失败:', error);
+        return [];
+    }
+}
+
+// 保存工作流到localStorage
+function saveWorkflowsToStorage(workflows) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(workflows));
+        return true;
+    } catch (error) {
+        console.error('保存工作流失败:', error);
+        return false;
+    }
+}
+
+// 监听localStorage变化（跨窗口同步）
+function initializeStorageListener() {
+    window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_KEY) {
+            console.log('🔄 检测到工作流数据变化，重新加载配置列表...');
+            loadSavedWorkflows();
+
+            // 显示同步提示
+            updateExecutionStatus('success', '配置列表已同步更新');
+            setTimeout(() => {
+                updateExecutionStatus('idle', '等待执行...');
+            }, 2000);
+        }
+    });
+}
+
+// 更新当前配置显示
+function updateCurrentConfigDisplay() {
+    const currentConfig = document.getElementById('currentConfig');
+    if (!currentConfig || !currentWorkflow) return;
+
+    // 显示配置信息区域
+    currentConfig.style.display = 'block';
+
+    const configName = currentConfig.querySelector('.config-name');
+    const configStats = currentConfig.querySelector('.config-stats');
+
+    if (configName) {
+        configName.textContent = currentWorkflow.name || '未命名工作流';
+    }
+
+    if (configStats) {
+        configStats.textContent = `${currentWorkflow.steps ? currentWorkflow.steps.length : 0} 个步骤`;
+    }
+}
+
+// 隐藏当前配置显示
+function hideCurrentConfigDisplay() {
+    const currentConfig = document.getElementById('currentConfig');
+    if (currentConfig) {
+        currentConfig.style.display = 'none';
+    }
+}
+
+// 清除流程图预览
+function clearFlowPreview() {
+    const container = document.getElementById('flowGraphContainer');
+    const overlay = document.getElementById('flowOverlay');
+
+    if (container) {
+        container.innerHTML = '';
+        // 清除全局图形实例
+        if (window.previewGraph) {
+            window.previewGraph = null;
+        }
+    }
+
+    if (overlay) {
+        overlay.style.display = 'flex';
+    }
+}
+
+// 缩放控制已移除，改用鼠标滚轮缩放
+
+// mxGraph容器大小调整（已通过CSS和mxGraph自动处理）
+
+
+
+// 更新执行状态
+function updateExecutionStatus(status, message) {
+    const statusIcon = document.querySelector('.status-icon');
+    const statusText = document.querySelector('.status-text');
+    const statusMessage = document.querySelector('.status-message');
+
+    const statusTypes = {
+        idle: { color: '#6c757d', icon: '⏸️', text: '空闲' },
+        testing: { color: '#17a2b8', icon: '🧪', text: '测试中' },
+        executing: { color: '#007bff', icon: '▶️', text: '执行中' },
+        success: { color: '#28a745', icon: '✅', text: '成功' },
+        error: { color: '#dc3545', icon: '❌', text: '错误' },
+        warning: { color: '#ffc107', icon: '⚠️', text: '警告' }
+    };
+
+    const statusType = statusTypes[status] || statusTypes.idle;
+
+    if (statusIcon) {
+        statusIcon.textContent = statusType.icon;
+        statusIcon.style.color = statusType.color;
+    }
+
+    if (statusText) {
+        statusText.textContent = statusType.text;
+        statusText.style.color = statusType.color;
+    }
+
+    if (statusMessage) {
+        statusMessage.textContent = message;
+    }
+}
+
+// 渲染流程图预览 - 使用mxGraph实现与设计器一致的显示
+function renderFlowPreview(workflow) {
+    console.log('🎨 renderFlowPreview 被调用，工作流:', workflow);
+
+    const container = document.getElementById('flowGraphContainer');
+    const overlay = document.getElementById('flowOverlay');
+
+    console.log('📦 容器元素:', container, '覆盖层:', overlay);
+
+    if (!workflow || !workflow.steps || workflow.steps.length === 0) {
+        console.log('⚠️ 工作流为空或无步骤，显示空状态');
+        // 显示空状态
+        if (overlay) overlay.style.display = 'flex';
+        if (container) container.innerHTML = '';
+        return;
+    }
+
+    console.log('✅ 工作流有效，步骤数量:', workflow.steps.length);
+
+    // 隐藏空状态
+    if (overlay) overlay.style.display = 'none';
+
+    if (container) {
+        try {
+            // 清空容器
+            container.innerHTML = '';
+            console.log('🧹 容器已清空');
+
+            // 检查mxGraph是否可用
+            console.log('🔍 检查mxGraph可用性...');
+            console.log('mxGraph类型:', typeof window.mxGraph);
+            console.log('mxClient类型:', typeof window.mxClient);
+            console.log('window对象中的mxGraph相关属性:', Object.keys(window).filter(key => key.startsWith('mx')));
+
+            if (typeof window.mxGraph === 'undefined' || typeof window.mxClient === 'undefined') {
+                console.warn('⚠️ mxGraph未加载，使用简单预览');
+                console.log('🎨 切换到简单Canvas预览模式');
+                renderSimpleFlowPreview(workflow, container);
+                return;
+            }
+
+            // 确保mxClient已初始化
+            if (!window.mxClient.isBrowserSupported()) {
+                console.warn('⚠️ 浏览器不支持mxGraph，使用简单预览');
+                renderSimpleFlowPreview(workflow, container);
+                return;
+            }
+
+            console.log('✅ mxGraph可用，创建图形实例...');
+
+            // 创建只读的mxGraph实例
+            const graph = new window.mxGraph(container);
+
+            // 设置为预览模式（只读但支持平移缩放）
+            graph.setEnabled(false);
+            graph.setPanning(true);
+            graph.setTooltips(true);
+
+            // 启用鼠标滚轮缩放
+            new window.mxPanningHandler(graph);
+            graph.panningHandler.useLeftButtonForPanning = true;
+
+            // 设置缩放
+            graph.getView().setScale(1);
+            graph.centerZoom = true;
+
+            // 设置网格
+            graph.setGridEnabled(true);
+            graph.setGridSize(20);
+
+            // 添加鼠标滚轮缩放事件
+            if (typeof window.mxEvent !== 'undefined') {
+                window.mxEvent.addMouseWheelListener((evt, up) => {
+                    if (evt.target.closest('#flowGraphContainer')) {
+                        const scale = graph.getView().getScale();
+                        const newScale = up ? scale * 1.1 : scale * 0.9;
+
+                        // 限制缩放范围
+                        if (newScale >= 0.1 && newScale <= 3.0) {
+                            graph.getView().setScale(newScale);
+
+                            // 阻止页面滚动
+                            if (evt.preventDefault) {
+                                evt.preventDefault();
+                            }
+                            evt.returnValue = false;
+                        }
+                    }
+                }, container);
+            } else {
+                // 降级方案：直接监听wheel事件
+                container.addEventListener('wheel', (evt) => {
+                    const scale = graph.getView().getScale();
+                    const delta = evt.deltaY > 0 ? -1 : 1;
+                    const newScale = scale * (1 + delta * 0.1);
+
+                    // 限制缩放范围
+                    if (newScale >= 0.1 && newScale <= 3.0) {
+                        graph.getView().setScale(newScale);
+                        evt.preventDefault();
+                    }
+                });
+            }
+
+            // 保存图形实例到全局变量
+            window.previewGraph = graph;
+
+            console.log('🎨 设置预览样式...');
+            // 设置样式
+            setupPreviewStyles(graph);
+
+            console.log('🏗️ 渲染工作流到预览...');
+            // 渲染工作流
+            renderWorkflowInPreview(graph, workflow);
+
+            // 自适应大小
+            graph.fit();
+
+            console.log('✅ 流程预览渲染完成');
+
+        } catch (error) {
+            console.error('❌ 渲染流程预览失败:', error);
+            renderSimpleFlowPreview(workflow, container);
+        }
+    } else {
+        console.error('❌ 未找到flowGraphContainer容器元素');
+    }
+}
+
+// 简单流程预览（当mxGraph不可用时使用）
+function renderSimpleFlowPreview(workflow, container) {
+    console.log('🎨 使用简单Canvas预览，工作流:', workflow);
+
+    // 创建Canvas元素
+    const canvas = document.createElement('canvas');
+    canvas.width = container.clientWidth || 400;
+    canvas.height = container.clientHeight || 600;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.border = '1px solid #e0e0e0';
+    canvas.style.borderRadius = '6px';
+    canvas.style.background = '#fff';
+
+    container.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+
+    // 绘制工作流步骤
+    if (workflow && workflow.steps && workflow.steps.length > 0) {
+        drawSimpleFlowChart(ctx, workflow.steps);
+        console.log('✅ 简单预览渲染完成，步骤数:', workflow.steps.length);
+    } else {
+        // 绘制空状态
+        drawEmptyState(ctx, canvas.width, canvas.height);
+        console.log('⚠️ 工作流为空，显示空状态');
+    }
+}
+
+// 绘制空状态
+function drawEmptyState(ctx, width, height) {
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = '#999';
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('暂无工作流数据', width / 2, height / 2);
+
+    ctx.font = '12px Arial';
+    ctx.fillText('请在设计器中创建工作流并保存', width / 2, height / 2 + 25);
+}
+
+// 设置预览样式 - 使用和设计器完全相同的样式
+function setupPreviewStyles(graph) {
+    if (typeof window.mxConstants === 'undefined') {
+        console.warn('mxConstants未定义，跳过样式设置');
+        return;
+    }
+
+    try {
+        const stylesheet = graph.getStylesheet();
+        const mxConstants = window.mxConstants;
+        const mxPerimeter = window.mxPerimeter;
+
+        // 节点类型配置（和设计器相同）
+        const nodeTypes = {
+            click: { name: '点击操作', color: '#e74c3c', icon: '👆' },
+            input: { name: '输入文本', color: '#f39c12', icon: '⌨️' },
+            wait: { name: '等待时间', color: '#9b59b6', icon: '⏱️' },
+            smartWait: { name: '智能等待', color: '#27ae60', icon: '🔍' },
+            loop: { name: '循环操作', color: '#3498db', icon: '🔄' },
+            condition: { name: '条件判断', color: '#e67e22', icon: '❓' },
+            checkState: { name: '节点检测', color: '#8e44ad', icon: '🔍' },
+            extract: { name: '提取数据', color: '#1abc9c', icon: '📊' }
+        };
+
+        // 基础节点样式（和设计器相同）
+        const baseNodeStyle = {
+            [mxConstants.STYLE_SHAPE]: mxConstants.SHAPE_RECTANGLE,
+            [mxConstants.STYLE_PERIMETER]: mxPerimeter.RectanglePerimeter,
+            [mxConstants.STYLE_ROUNDED]: true,
+            [mxConstants.STYLE_STROKEWIDTH]: 2,
+            [mxConstants.STYLE_FONTSIZE]: 12,
+            [mxConstants.STYLE_FONTFAMILY]: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
+            [mxConstants.STYLE_FONTCOLOR]: '#333333',
+            [mxConstants.STYLE_ALIGN]: mxConstants.ALIGN_CENTER,
+            [mxConstants.STYLE_VERTICAL_ALIGN]: mxConstants.ALIGN_MIDDLE,
+            [mxConstants.STYLE_WHITE_SPACE]: 'wrap',
+            [mxConstants.STYLE_OVERFLOW]: 'width'
+        };
+
+        // 为每种节点类型创建样式（和设计器相同）
+        Object.keys(nodeTypes).forEach(type => {
+            const config = nodeTypes[type];
+            const style = {
+                ...baseNodeStyle,
+                [mxConstants.STYLE_FILLCOLOR]: config.color,
+                [mxConstants.STYLE_STROKECOLOR]: config.color
+            };
+            stylesheet.putCellStyle(type, style);
+        });
+
+        // 循环容器样式（和设计器相同）
+        const loopContainerStyle = {
+            [mxConstants.STYLE_SHAPE]: mxConstants.SHAPE_SWIMLANE,
+            [mxConstants.STYLE_PERIMETER]: mxPerimeter.RectanglePerimeter,
+            [mxConstants.STYLE_ROUNDED]: true,
+            [mxConstants.STYLE_STROKEWIDTH]: 2,
+            [mxConstants.STYLE_FILLCOLOR]: '#e3f2fd',
+            [mxConstants.STYLE_STROKECOLOR]: '#3498db',
+            [mxConstants.STYLE_FONTSIZE]: 14,
+            [mxConstants.STYLE_FONTFAMILY]: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
+            [mxConstants.STYLE_FONTCOLOR]: '#1976d2',
+            [mxConstants.STYLE_FONTSTYLE]: mxConstants.FONT_BOLD,
+            [mxConstants.STYLE_STARTSIZE]: 40,
+            [mxConstants.STYLE_WHITE_SPACE]: 'wrap',
+            [mxConstants.STYLE_OVERFLOW]: 'width',
+            [mxConstants.STYLE_COLLAPSIBLE]: 1,
+            [mxConstants.STYLE_RESIZABLE]: 1
+        };
+        stylesheet.putCellStyle('loopContainer', loopContainerStyle);
+
+        // 条件判断菱形样式（和设计器相同）
+        const conditionStyle = {
+            ...baseNodeStyle,
+            [mxConstants.STYLE_SHAPE]: mxConstants.SHAPE_RHOMBUS,
+            [mxConstants.STYLE_PERIMETER]: mxPerimeter.RhombusPerimeter,
+            [mxConstants.STYLE_FILLCOLOR]: '#e67e22',
+            [mxConstants.STYLE_STROKECOLOR]: '#e67e22'
+        };
+        stylesheet.putCellStyle('condition', conditionStyle);
+
+        // 连接线样式（和设计器相同）
+        const edgeStyle = stylesheet.getDefaultEdgeStyle();
+        edgeStyle[mxConstants.STYLE_ROUNDED] = true;
+        edgeStyle[mxConstants.STYLE_STROKEWIDTH] = 3;
+        edgeStyle[mxConstants.STYLE_STROKECOLOR] = '#2196F3';
+        edgeStyle[mxConstants.STYLE_EDGE] = window.mxEdgeStyle.OrthConnector;
+        edgeStyle[mxConstants.STYLE_ENDARROW] = mxConstants.ARROW_CLASSIC;
+        edgeStyle[mxConstants.STYLE_ENDFILL] = 1;
+        edgeStyle[mxConstants.STYLE_ENDSIZE] = 8;
+        edgeStyle[mxConstants.STYLE_FONTSIZE] = 12;
+        edgeStyle[mxConstants.STYLE_FONTCOLOR] = '#333333';
+        edgeStyle[mxConstants.STYLE_FONTFAMILY] = 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif';
+        edgeStyle[mxConstants.STYLE_LABEL_BACKGROUNDCOLOR] = '#ffffff';
+        edgeStyle[mxConstants.STYLE_LABEL_BORDERCOLOR] = '#cccccc';
+
+        console.log('✅ 预览样式设置完成（使用设计器样式）');
+    } catch (error) {
+        console.error('设置预览样式失败:', error);
+    }
+}
+
+// 在预览中渲染工作流 - 使用和设计器相同的逻辑
+function renderWorkflowInPreview(graph, workflow) {
+    console.log('🏗️ renderWorkflowInPreview 开始，工作流:', workflow);
+
+    if (!workflow || !workflow.steps || workflow.steps.length === 0) {
+        console.warn('⚠️ 工作流数据无效，无法渲染');
+        return;
+    }
+
+    console.log('📊 准备渲染 ' + workflow.steps.length + ' 个步骤');
+
+    try {
+        // 使用和设计器相同的convertWorkflowToGraph函数
+        if (typeof window.convertWorkflowToGraph === 'function') {
+            console.log('✅ 使用设计器的convertWorkflowToGraph函数');
+            window.convertWorkflowToGraph(graph, workflow);
+            console.log('✅ 工作流渲染完成');
+        } else {
+            console.warn('⚠️ convertWorkflowToGraph函数不可用，使用简化版本');
+            renderWorkflowInPreviewSimple(graph, workflow);
+        }
+    } catch (error) {
+        console.error('❌ 渲染工作流失败:', error);
+        // 降级到简化版本
+        renderWorkflowInPreviewSimple(graph, workflow);
+    }
+}
+
+// 简化版本的工作流渲染（备用）
+function renderWorkflowInPreviewSimple(graph, workflow) {
+    console.log('🔄 使用简化版本渲染工作流');
+
+    const model = graph.getModel();
+    const parent = graph.getDefaultParent();
+
+    model.beginUpdate();
+    try {
+        const nodes = [];
+        const nodeSpacing = 100;
+        const startX = 50;
+        const startY = 50;
+
+        // 创建节点
+        workflow.steps.forEach((step, index) => {
+            const x = step.x || startX;
+            const y = step.y || (startY + index * nodeSpacing);
+            const width = step.width || 120;
+            const height = step.height || 60;
+
+            const label = step.name || step.type || '未命名步骤';
+            console.log(`🔷 创建节点 ${index}: ${label} 位置(${x}, ${y})`);
+
+            const vertex = graph.insertVertex(parent, null, label, x, y, width, height);
+            nodes.push(vertex);
+        });
+
+        // 创建连接线
+        console.log('🔗 开始创建连接线...');
+        for (let i = 0; i < nodes.length - 1; i++) {
+            const edge = graph.insertEdge(parent, null, '', nodes[i], nodes[i + 1]);
+            console.log(`🔗 连接线 ${i} -> ${i + 1} 创建成功`);
+        }
+
+        console.log('✅ 简化版本渲染完成');
+
+    } catch (error) {
+        console.error('❌ 简化版本渲染失败:', error);
+    } finally {
+        model.endUpdate();
+    }
+}
+
+// 绘制简单流程图
+function drawSimpleFlowChart(ctx, steps) {
+    const nodeWidth = 140;
+    const nodeHeight = 70;
+    const nodeSpacing = 50;
+    const startX = 30;
+    const startY = 30;
+
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    steps.forEach((step, index) => {
+        const x = startX;
+        const y = startY + index * (nodeHeight + nodeSpacing);
+
+        // 根据步骤类型设置不同颜色
+        let fillColor = '#e3f2fd';
+        let strokeColor = '#2196F3';
+
+        if (step.type) {
+            switch (step.type) {
+                case 'click':
+                    fillColor = '#e8f5e8';
+                    strokeColor = '#4caf50';
+                    break;
+                case 'input':
+                    fillColor = '#fff3e0';
+                    strokeColor = '#ff9800';
+                    break;
+                case 'condition':
+                    fillColor = '#fce4ec';
+                    strokeColor = '#e91e63';
+                    break;
+                case 'wait':
+                    fillColor = '#f3e5f5';
+                    strokeColor = '#9c27b0';
+                    break;
+                default:
+                    fillColor = '#e3f2fd';
+                    strokeColor = '#2196F3';
+            }
+        }
+
+        // 绘制节点背景（圆角矩形）
+        ctx.fillStyle = fillColor;
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 2;
+
+        // 绘制圆角矩形
+        const radius = 8;
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + nodeWidth - radius, y);
+        ctx.quadraticCurveTo(x + nodeWidth, y, x + nodeWidth, y + radius);
+        ctx.lineTo(x + nodeWidth, y + nodeHeight - radius);
+        ctx.quadraticCurveTo(x + nodeWidth, y + nodeHeight, x + nodeWidth - radius, y + nodeHeight);
+        ctx.lineTo(x + radius, y + nodeHeight);
+        ctx.quadraticCurveTo(x, y + nodeHeight, x, y + nodeHeight - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 绘制节点文本
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 12px Arial';
+
+        // 主标题
+        const title = step.name || step.type || `步骤 ${index + 1}`;
+        ctx.fillText(title, x + nodeWidth / 2, y + nodeHeight / 2 - 8);
+
+        // 副标题（步骤类型）
+        if (step.name && step.type) {
+            ctx.font = '10px Arial';
+            ctx.fillStyle = '#666';
+            ctx.fillText(`(${step.type})`, x + nodeWidth / 2, y + nodeHeight / 2 + 8);
+        }
+
+        // 绘制连接线（除了最后一个节点）
+        if (index < steps.length - 1) {
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x + nodeWidth / 2, y + nodeHeight);
+            ctx.lineTo(x + nodeWidth / 2, y + nodeHeight + nodeSpacing);
+            ctx.stroke();
+
+            // 绘制箭头
+            const arrowY = y + nodeHeight + nodeSpacing - 8;
+            ctx.fillStyle = '#666';
+            ctx.beginPath();
+            ctx.moveTo(x + nodeWidth / 2, arrowY);
+            ctx.lineTo(x + nodeWidth / 2 - 6, arrowY - 8);
+            ctx.lineTo(x + nodeWidth / 2 + 6, arrowY - 8);
+            ctx.closePath();
+            ctx.fill();
         }
     });
 
-    // 导入导出按钮
-    document.getElementById('exportWorkflowBtn').addEventListener('click', exportWorkflow);
-    document.getElementById('importWorkflowBtn').addEventListener('click', () => {
-        document.getElementById('importFileInput').click();
-    });
-    document.getElementById('importFileInput').addEventListener('change', importWorkflow);
+    // 绘制标题
+    ctx.font = 'bold 16px Arial';
+    ctx.fillStyle = '#333';
+    ctx.textAlign = 'left';
+    ctx.fillText(`工作流预览 (${steps.length} 个步骤)`, 10, 20);
+}
 
-    // 工具按钮
-    document.querySelectorAll('.tool-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const stepType = this.dataset.stepType;
-            if (stepType) {
-                addStep(stepType);
-            }
-        });
-    });
-    
-    // 模态框关闭
-    document.getElementById('closeModalBtn').addEventListener('click', closeStepModal);
-    document.getElementById('saveStepBtn').addEventListener('click', saveStepChanges);
-    document.getElementById('cancelStepBtn').addEventListener('click', closeStepModal);
+// 清除执行状态
+function clearExecutionStatus() {
+    updateExecutionStatus('idle', '等待执行...');
+    console.log('执行状态已清除');
 }
 
 // 新建工作流
@@ -75,12 +940,15 @@ function newWorkflow() {
     const name = prompt('请输入工作流名称:', '新建工作流');
     if (name && name.trim()) {
         try {
-            currentWorkflow = workflowManager.createWorkflow(name.trim());
-            updateWorkflowInfo();
-            renderSteps();
-            // 保存当前工作流状态
-            saveCurrentWorkflowState();
-            showStatus('工作流创建成功', 'success');
+            if (typeof workflowManager !== 'undefined') {
+                currentWorkflow = workflowManager.createWorkflow(name.trim());
+                updateWorkflowInfo();
+                renderSteps();
+                saveCurrentWorkflowState();
+                showStatus('工作流创建成功', 'success');
+            } else {
+                console.error('workflowManager 未定义');
+            }
         } catch (error) {
             showStatus(`创建工作流失败: ${error.message}`, 'error');
         }
@@ -147,150 +1015,11 @@ function clearWorkflow() {
     }
 }
 
-// 执行工作流
-async function executeWorkflow() {
-    if (!currentWorkflow || currentWorkflow.steps.length === 0) {
-        showStatus('工作流为空，无法执行', 'error');
-        return;
-    }
+// 执行控制函数在 utils/executionController.js 中定义
+// executeWorkflow() 函数已模块化
 
-    // 验证工作流
-    const validation = workflowManager.validateWorkflow(currentWorkflow);
-    if (!validation.isValid) {
-        showStatus(`工作流验证失败: ${validation.errors[0]}`, 'error');
-        return;
-    }
-
-    try {
-        // 更新执行状态
-        executionState.isRunning = true;
-        executionState.isPaused = false;
-        executionState.startTime = Date.now();
-
-        // 保存执行状态
-        saveExecutionState();
-
-        // 禁用执行按钮
-        document.getElementById('executeBtn').disabled = true;
-
-        // 立即显示暂停按钮（强制显示）
-        const pauseBtn = document.getElementById('pauseResumeBtn');
-        if (pauseBtn) {
-            pauseBtn.style.display = 'inline-block';
-            pauseBtn.disabled = false;
-            pauseBtn.textContent = '⏸️ 暂停';
-            pauseBtn.className = 'btn btn-warning';
-            console.log('🔧 [DEBUG] 暂停按钮已强制显示');
-        } else {
-            console.log('❌ [DEBUG] 找不到暂停按钮元素！');
-        }
-
-        // 更新其他状态
-        updateExecutionStatusIndicator();
-
-        // 调试：确认暂停按钮状态
-        console.log('🔧 [DEBUG] 执行开始后，检查暂停按钮状态');
-        console.log('🔧 [DEBUG] 暂停按钮显示状态:', pauseBtn ? pauseBtn.style.display : '按钮不存在');
-        console.log('🔧 [DEBUG] 暂停按钮禁用状态:', pauseBtn ? pauseBtn.disabled : '按钮不存在');
-
-        // 开始执行时间更新定时器
-        if (executionTimeTimer) {
-            clearInterval(executionTimeTimer);
-        }
-        executionTimeTimer = setInterval(updateExecutionTime, 1000);
-
-        showStatus('开始执行工作流...', 'info');
-
-        // 首先检查当前标签页
-        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-        if (!tab) {
-            throw new Error('无法获取当前标签页');
-        }
-
-        // 确保content script已加载
-        showStatus('🔄 正在准备自动化引擎...', 'info');
-
-        // 先尝试重置引擎，避免重复定义错误
-        try {
-            await sendMessageToTab(tab.id, { action: 'resetEngine' }, 2000);
-            console.log('✅ 引擎已重置');
-        } catch (error) {
-            console.log('⚠️ 重置引擎失败，继续执行:', error.message);
-        }
-
-        await ensureContentScriptLoaded(tab.id);
-
-        // 调试：检查发送的工作流数据
-        console.log('🚀 发送工作流执行请求:', {
-            workflowName: currentWorkflow.name,
-            stepsCount: currentWorkflow.steps.length,
-            steps: currentWorkflow.steps.map(step => ({
-                id: step.id,
-                name: step.name,
-                type: step.type,
-                loopType: step.loopType,
-                hasSubOperations: !!(step.subOperations && step.subOperations.length > 0),
-                subOperationsCount: step.subOperations?.length || 0,
-                subOperations: step.subOperations
-            }))
-        });
-
-        // 发送消息到content script执行
-        chrome.tabs.sendMessage(tab.id, {
-            action: 'executeWorkflow',
-            workflow: currentWorkflow
-        }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.error('执行失败:', chrome.runtime.lastError);
-                // 不立即重置状态，让用户看到错误信息
-                setTimeout(() => {
-                    resetExecutionState();
-                }, 2000);
-                showStatus(`执行失败: ${chrome.runtime.lastError.message}`, 'error');
-            } else if (response && response.success) {
-                // 成功时也延迟重置，让用户看到完成状态
-                setTimeout(() => {
-                    resetExecutionState();
-                }, 1000);
-                showStatus('工作流执行完成', 'success');
-            } else {
-                setTimeout(() => {
-                    resetExecutionState();
-                }, 2000);
-                showStatus(`执行失败: ${response?.error || '未知错误'}`, 'error');
-            }
-        });
-
-    } catch (error) {
-        console.error('执行工作流失败:', error);
-        showStatus(`执行工作流失败: ${error.message}`, 'error');
-        // 重置执行状态
-        resetExecutionState();
-    }
-}
-
-// 重置执行状态
-function resetExecutionState() {
-    executionState.isRunning = false;
-    executionState.isPaused = false;
-
-    // 停止执行时间更新定时器
-    if (executionTimeTimer) {
-        clearInterval(executionTimeTimer);
-        executionTimeTimer = null;
-    }
-
-    // 恢复执行按钮，隐藏暂停按钮
-    document.getElementById('executeBtn').disabled = false;
-    updatePauseResumeButton();
-    updateExecutionStatusIndicator();
-
-    // 隐藏详细进度
-    hideDetailedProgress();
-
-    // 清除保存的执行状态
-    clearExecutionState();
-}
+// 执行状态重置函数在 utils/executionController.js 中定义
+// resetExecutionState() 函数已模块化
 
 // 添加步骤
 function addStep(stepType) {
@@ -386,211 +1115,17 @@ function getStepTypeName(type) {
     return names[type] || type;
 }
 
-// 更新工作流信息
-function updateWorkflowInfo() {
-    const nameElement = document.getElementById('workflowName');
-    const statsElement = document.getElementById('workflowStats');
-    const executeBtn = document.getElementById('executeBtn');
+// UI渲染函数在 utils/uiRenderer.js 中定义
+// updateWorkflowInfo(), renderSteps() 等函数已模块化
 
-    if (currentWorkflow) {
-        nameElement.textContent = currentWorkflow.name;
-        statsElement.textContent = `${currentWorkflow.steps.length} 个步骤`;
-        executeBtn.disabled = currentWorkflow.steps.length === 0;
-    } else {
-        nameElement.textContent = '未选择工作流';
-        statsElement.textContent = '点击"新建"创建工作流';
-        executeBtn.disabled = true;
-    }
-}
+// UI元素创建和步骤详情函数在 utils/uiRenderer.js 中定义
+// createStepElement(), getStepDetails() 等函数已模块化
 
-// 渲染步骤列表
-function renderSteps() {
-    const container = document.getElementById('stepsContainer');
-    
-    if (!currentWorkflow || currentWorkflow.steps.length === 0) {
-        container.innerHTML = `
-            <div class="empty-steps">
-                暂无操作步骤<br>
-                点击上方工具添加操作
-            </div>
-        `;
-        return;
-    }
+// 步骤编辑函数在 utils/stepEditor.js 中定义
+// editStep() 函数已模块化
 
-    container.innerHTML = '';
-    currentWorkflow.steps.forEach((step, index) => {
-        const stepElement = createStepElement(step, index);
-        container.appendChild(stepElement);
-    });
-}
-
-// 创建步骤元素
-function createStepElement(step, index) {
-    const stepDiv = document.createElement('div');
-    stepDiv.className = 'step-item';
-    stepDiv.innerHTML = `
-        <div class="step-info">
-            <div class="step-name">${step.name}</div>
-            <div class="step-details">${getStepDetails(step)}</div>
-        </div>
-        <div class="step-actions">
-            <button class="step-action-btn" data-step-id="${step.id}" data-action="test" title="测试此步骤">🧪</button>
-            <button class="step-action-btn" data-step-id="${step.id}" data-action="edit" title="编辑">✏️</button>
-            <button class="step-action-btn" data-step-id="${step.id}" data-action="delete" title="删除">🗑️</button>
-        </div>
-    `;
-    
-    // 添加事件监听器
-    stepDiv.querySelectorAll('.step-action-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const stepId = this.dataset.stepId;
-            const action = this.dataset.action;
-            
-            if (action === 'test') {
-                testStep(stepId);
-            } else if (action === 'edit') {
-                editStep(stepId);
-            } else if (action === 'delete') {
-                deleteStep(stepId);
-            }
-        });
-    });
-    
-    return stepDiv;
-}
-
-// 获取步骤详情
-function getStepDetails(step) {
-    switch (step.type) {
-        case 'click':
-        case 'input':
-        case 'smartWait':
-
-        case 'loop':
-            const loopTypeText = step.loopType === 'simpleLoop' ? '简单循环' : '父级循环';
-            const locatorText = step.locator ? `${step.locator.strategy}: ${step.locator.value || '未配置'}` : '未配置定位器';
-            const actionText = step.loopType === 'simpleLoop' ? ` (${step.actionType || 'click'})` : '';
-            const subOpsText = step.loopType === 'parentLoop' && step.subOperations ? ` [${step.subOperations.length}个子操作]` : '';
-            return `${loopTypeText} - ${locatorText}${actionText}${subOpsText}`;
-        case 'wait':
-            return `等待 ${step.duration}ms`;
-
-        default:
-            return step.type;
-    }
-}
-
-// 编辑步骤
-function editStep(stepId) {
-    const step = workflowManager.findStepById(currentWorkflow, stepId);
-    if (!step) {
-        showStatus('步骤不存在', 'error');
-        return;
-    }
-
-    editingStep = step;
-
-    // 确保步骤有必要的数据结构
-    if (!step.locator) {
-        step.locator = { strategy: 'css', value: '' };
-        console.log('🔧 为步骤初始化locator对象');
-    }
-
-    // 确保循环步骤有subOperations数组
-    if (step.type === 'loop' && !step.subOperations) {
-        step.subOperations = [];
-        console.log('🔧 为循环步骤初始化subOperations数组');
-    }
-
-    showStepModal(step);
-}
-
-// 测试单个步骤
-async function testStep(stepId) {
-    const step = workflowManager.findStepById(currentWorkflow, stepId);
-    if (!step) {
-        showStatus('步骤不存在', 'error');
-        return;
-    }
-
-    try {
-        showStatus(`🧪 开始测试步骤: ${step.name}`, 'info');
-
-        // 获取当前标签页
-        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-        if (!tab) {
-            throw new Error('无法获取当前标签页');
-        }
-
-        // 确保content script已加载
-        showStatus('🔄 正在加载自动化引擎...', 'info');
-
-        // 先尝试重置引擎，避免重复定义错误
-        try {
-            await sendMessageToTab(tab.id, { action: 'resetEngine' }, 2000);
-            console.log('✅ 引擎已重置');
-        } catch (error) {
-            console.log('⚠️ 重置引擎失败，继续执行:', error.message);
-        }
-
-        await ensureContentScriptLoaded(tab.id);
-
-        // 创建测试工作流（只包含当前步骤）
-        const testWorkflow = {
-            id: 'test-' + Date.now(),
-            name: `测试: ${step.name}`,
-            steps: [step]
-        };
-
-        showStatus('⚡ 正在执行测试...', 'info');
-
-        // 发送测试消息到content script
-        const response = await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error('测试超时（10秒）'));
-            }, 10000);
-
-            chrome.tabs.sendMessage(tab.id, {
-                action: 'executeWorkflow',
-                workflow: testWorkflow
-            }, (response) => {
-                clearTimeout(timeout);
-
-                if (chrome.runtime.lastError) {
-                    reject(new Error(chrome.runtime.lastError.message));
-                } else {
-                    resolve(response);
-                }
-            });
-        });
-
-        if (response && response.success) {
-            showStatus(`✅ 步骤测试成功: ${step.name}`, 'success');
-        } else {
-            showStatus(`❌ 测试失败: ${response?.error || '未知错误'}`, 'error');
-        }
-
-    } catch (error) {
-        console.error('测试步骤失败:', error);
-        showStatus(`❌ 测试步骤失败: ${error.message}`, 'error');
-    }
-}
-
-// 删除步骤
-function deleteStep(stepId) {
-    if (confirm('确定要删除这个步骤吗？')) {
-        try {
-            workflowManager.deleteStep(currentWorkflow.id, stepId);
-            renderSteps();
-            updateWorkflowInfo();
-            // 保存当前工作流状态
-            saveCurrentWorkflowState();
-            showStatus('步骤删除成功', 'success');
-        } catch (error) {
-            showStatus(`删除步骤失败: ${error.message}`, 'error');
-        }
-    }
-}
+// 步骤测试和删除函数在 utils/stepEditor.js 中定义
+// testStep(), deleteStep() 函数已模块化
 
 // 显示步骤编辑模态框
 function showStepModal(step) {
@@ -794,7 +1329,7 @@ function generateStepEditHTML(step) {
                 </div>
                 <div class="form-group">
                     <label>定位策略</label>
-                    <select id="editLocatorStrategy">
+                    <select id="editLoopLocatorStrategy">
                         <option value="css" ${(step.locator && step.locator.strategy === 'css') ? 'selected' : ''}>CSS选择器 [示例: .btn-primary, #submit-btn]</option>
                         <option value="xpath" ${(step.locator && step.locator.strategy === 'xpath') ? 'selected' : ''}>XPath表达式 [示例: //div[@class='container']//button]</option>
                         <option value="id" ${(step.locator && step.locator.strategy === 'id') ? 'selected' : ''}>ID选择器 [示例: submit-btn]</option>
@@ -807,10 +1342,10 @@ function generateStepEditHTML(step) {
                 <div class="form-group">
                     <label>定位值</label>
                     <div class="input-with-test">
-                        <input type="text" id="editLocatorValue" value="${escapeHtmlAttribute((step.locator && step.locator.value) ? step.locator.value : '')}" placeholder="输入定位值">
-                        <button type="button" class="test-locator-btn" id="testMainLocatorBtn">🔍测试</button>
+                        <input type="text" id="editLoopLocatorValue" value="${escapeHtmlAttribute((step.locator && step.locator.value) ? step.locator.value : '')}" placeholder="输入定位值">
+                        <button type="button" class="test-locator-btn" id="testLoopLocatorBtn">🔍测试</button>
                     </div>
-                    <div id="mainLocatorTestResult" class="test-result"></div>
+                    <div id="loopLocatorTestResult" class="test-result"></div>
                     <div class="help-text">用于定位页面元素的值</div>
                 </div>
                 <div class="form-group">
@@ -917,9 +1452,16 @@ function saveStepChanges() {
             name: document.getElementById('editStepName')?.value || editingStep.name
         };
 
-        // 更新定位器
-        const strategyElement = document.getElementById('editLocatorStrategy');
-        const valueElement = document.getElementById('editLocatorValue');
+        // 更新定位器 - 支持不同类型的定位器ID
+        let strategyElement = document.getElementById('editLocatorStrategy');
+        let valueElement = document.getElementById('editLocatorValue');
+
+        // 如果是循环操作，使用循环专用的定位器ID
+        if (!strategyElement || !valueElement) {
+            strategyElement = document.getElementById('editLoopLocatorStrategy');
+            valueElement = document.getElementById('editLoopLocatorValue');
+        }
+
         if (strategyElement && valueElement) {
             updates.locator = {
                 strategy: strategyElement.value,
@@ -1081,28 +1623,29 @@ function saveStepChanges() {
 
 // 显示状态消息
 function showStatus(message, type) {
-    const statusElement = document.getElementById('statusMessage');
-    statusElement.textContent = message;
-    statusElement.className = `status-message status-${type}`;
-    statusElement.style.display = 'block';
-    
-    // setTimeout(() => {
-    //     statusElement.style.display = 'none';
-    // }, 3000);
-}
+    // 使用新的执行状态显示
+    const statusMap = {
+        'success': 'success',
+        'error': 'error',
+        'warning': 'warning',
+        'info': 'idle'
+    };
 
-// 加载保存的工作流
-function loadSavedWorkflows() {
-    try {
-        const workflowList = JSON.parse(localStorage.getItem('workflow_list') || '[]');
-        console.log(`发现 ${workflowList.length} 个保存的工作流`);
-    } catch (error) {
-        console.error('加载保存的工作流失败:', error);
+    const status = statusMap[type] || 'idle';
+    updateExecutionStatus(status, message);
+
+    // 如果是成功、错误或警告消息，3秒后恢复到空闲状态
+    if (type !== 'info') {
+        setTimeout(() => {
+            updateExecutionStatus('idle', '等待执行...');
+        }, 3000);
     }
 }
 
+// 重复的loadSavedWorkflows函数已移除，使用上面的统一版本
+
 // 监听来自content script的消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
     if (message.action === 'executionProgress') {
         updateProgress(message.data);
     } else if (message.action === 'executionComplete') {
@@ -1112,273 +1655,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
-// 执行状态管理
-let executionState = {
-    isRunning: false,
-    isPaused: false,
-    startTime: null,
-    totalSteps: 0,
-    completedSteps: 0,
-    currentMainLoop: 0,
-    totalMainLoops: 0,
-    currentSubOperation: 0,
-    totalSubOperations: 0,
-    currentOperation: '等待执行...'
-};
+// 执行状态管理 - 使用utils/executionController.js中的executionState
+// let executionState - 已在utils/executionController.js中定义
 
 // 执行时间更新定时器
 let executionTimeTimer = null;
 
-// 更新执行进度
-function updateProgress(progress) {
-    // 更新执行状态
-    Object.assign(executionState, progress);
+// 更新执行进度 - 使用utils/executionController.js中的函数
+// updateProgress() 函数已在utils/executionController.js中定义
 
-    // 更新总体进度条
-    const overallProgressFill = document.getElementById('overallProgressFill');
-    const overallProgressText = document.getElementById('overallProgressText');
+// 详细进度显示函数 - 使用utils/executionController.js中的函数
+// showDetailedProgress(), hideDetailedProgress() 函数已在utils/executionController.js中定义
 
-    if (overallProgressFill && overallProgressText) {
-        const overallPercent = executionState.totalSteps > 0 ?
-            (executionState.completedSteps / executionState.totalSteps * 100) : 0;
-        overallProgressFill.style.width = `${overallPercent}%`;
-        overallProgressText.textContent = `总进度: ${executionState.completedSteps}/${executionState.totalSteps} (${Math.round(overallPercent)}%)`;
-    }
+// 详细进度更新函数 - 使用utils/executionController.js中的函数
+// updateDetailedProgress() 函数已在utils/executionController.js中定义
 
-    // 显示详细进度
-    showDetailedProgress();
+// 执行时间更新函数 - 使用utils/executionController.js中的函数
+// updateExecutionTime() 函数已在utils/executionController.js中定义
 
-    // 更新详细进度信息
-    updateDetailedProgress();
-}
+// 暂停/继续控制函数在 utils/executionController.js 中定义
+// togglePauseResume(), pauseExecution(), resumeExecution() 函数已模块化
 
-// 显示详细进度区域
-function showDetailedProgress() {
-    const detailedProgress = document.getElementById('detailedProgress');
-    if (detailedProgress && executionState.isRunning) {
-        detailedProgress.style.display = 'block';
-    }
-}
-
-// 隐藏详细进度区域
-function hideDetailedProgress() {
-    const detailedProgress = document.getElementById('detailedProgress');
-    if (detailedProgress) {
-        detailedProgress.style.display = 'none';
-    }
-}
-
-// 更新详细进度信息
-function updateDetailedProgress() {
-    // 更新主循环进度
-    const mainLoopProgress = document.getElementById('mainLoopProgress');
-    if (mainLoopProgress) {
-        if (executionState.totalMainLoops > 0) {
-            mainLoopProgress.textContent = `当前执行到 ${executionState.currentMainLoop}/${executionState.totalMainLoops} 个主循环`;
-        } else {
-            mainLoopProgress.textContent = '-';
-        }
-    }
-
-    // 更新子操作进度
-    const subOperationProgress = document.getElementById('subOperationProgress');
-    const subOperationProgressItem = document.getElementById('subOperationProgressItem');
-    if (subOperationProgress && subOperationProgressItem) {
-        if (executionState.totalSubOperations > 0) {
-            subOperationProgress.textContent = `正在执行子循环（${executionState.currentSubOperation}/${executionState.totalSubOperations}）`;
-            subOperationProgressItem.style.display = 'block';
-        } else {
-            subOperationProgressItem.style.display = 'none';
-        }
-    }
-
-    // 更新当前操作
-    const currentOperation = document.getElementById('currentOperation');
-    if (currentOperation) {
-        currentOperation.textContent = executionState.currentOperation || '-';
-    }
-
-    // 更新执行时间
-    updateExecutionTime();
-}
-
-// 更新执行时间
-function updateExecutionTime() {
-    const executionTimeElement = document.getElementById('executionTime');
-    if (executionTimeElement && executionState.startTime) {
-        const elapsed = Date.now() - executionState.startTime;
-        const minutes = Math.floor(elapsed / 60000);
-        const seconds = Math.floor((elapsed % 60000) / 1000);
-        executionTimeElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
-}
-
-// 暂停/继续功能
-function togglePauseResume() {
-    console.log('🔧 [DEBUG] togglePauseResume 被调用');
-    console.log('🔧 [DEBUG] 当前执行状态:', {
-        isRunning: executionState.isRunning,
-        isPaused: executionState.isPaused
-    });
-
-    const pauseResumeBtn = document.getElementById('pauseResumeBtn');
-
-    if (!executionState.isRunning) {
-        console.log('⚠️ 没有正在执行的任务');
-        alert('当前没有正在执行的任务！请先开始执行工作流。');
-        return;
-    }
-
-    if (executionState.isPaused) {
-        console.log('🔧 [DEBUG] 准备继续执行');
-        // 继续执行
-        resumeExecution();
-    } else {
-        console.log('🔧 [DEBUG] 准备暂停执行');
-        // 暂停执行
-        pauseExecution();
-    }
-}
-
-// 暂停执行
-async function pauseExecution() {
-    console.log('🔧 [DEBUG] pauseExecution 开始执行');
-    try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        console.log('🔧 [DEBUG] 获取到当前标签页:', tab.id);
-
-        // 确保content script已加载
-        const isLoaded = await ensureContentScriptLoaded(tab.id);
-        console.log('🔧 [DEBUG] Content script 加载状态:', isLoaded);
-        if (!isLoaded) {
-            console.log('❌ Content script未加载，无法暂停');
-            alert('Content script未加载，无法暂停执行！');
-            return;
-        }
-
-        console.log('🔧 [DEBUG] 发送暂停消息到 content script');
-        const response = await chrome.tabs.sendMessage(tab.id, {
-            action: 'pauseExecution'
-        });
-        console.log('🔧 [DEBUG] Content script 响应:', response);
-
-        executionState.isPaused = true;
-        updatePauseResumeButton();
-        updateExecutionStatusIndicator();
-
-        // 保存执行状态
-        saveExecutionState();
-
-        console.log('✅ 执行已暂停');
-        alert('执行已暂停！');
-    } catch (error) {
-        console.error('❌ 暂停执行失败:', error);
-        alert('暂停执行失败: ' + error.message);
-    }
-}
-
-// 继续执行
-async function resumeExecution() {
-    try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        // 确保content script已加载
-        const isLoaded = await ensureContentScriptLoaded(tab.id);
-        if (!isLoaded) {
-            console.log('Content script未加载，无法继续');
-            return;
-        }
-
-        await chrome.tabs.sendMessage(tab.id, {
-            action: 'resumeExecution'
-        });
-
-        executionState.isPaused = false;
-        updatePauseResumeButton();
-        updateExecutionStatusIndicator();
-
-        // 保存执行状态
-        saveExecutionState();
-
-        console.log('▶️ 继续执行');
-    } catch (error) {
-        console.error('❌ 继续执行失败:', error);
-    }
-}
-
-// 更新暂停/继续按钮状态
-function updatePauseResumeButton() {
-    console.log('🔧 [DEBUG] updatePauseResumeButton 被调用');
-    console.log('🔧 [DEBUG] 当前执行状态:', {
-        isRunning: executionState.isRunning,
-        isPaused: executionState.isPaused
-    });
-
-    const pauseResumeBtn = document.getElementById('pauseResumeBtn');
-    if (!pauseResumeBtn) {
-        console.log('❌ [DEBUG] 找不到暂停按钮元素');
-        return;
-    }
-
-    if (executionState.isRunning) {
-        console.log('🔧 [DEBUG] 显示暂停按钮');
-        pauseResumeBtn.style.display = 'inline-block';
-        pauseResumeBtn.disabled = false;
-
-        if (executionState.isPaused) {
-            pauseResumeBtn.textContent = '▶️ 继续';
-            pauseResumeBtn.className = 'btn btn-success paused';
-            console.log('🔧 [DEBUG] 按钮设置为"继续"状态');
-        } else {
-            pauseResumeBtn.textContent = '⏸️ 暂停';
-            pauseResumeBtn.className = 'btn btn-warning';
-            console.log('🔧 [DEBUG] 按钮设置为"暂停"状态');
-        }
-    } else {
-        console.log('🔧 [DEBUG] 隐藏暂停按钮');
-        pauseResumeBtn.style.display = 'none';
-        pauseResumeBtn.disabled = true;
-    }
-}
-
-// 更新执行状态指示器
-function updateExecutionStatusIndicator() {
-    // 在section title中添加状态指示器
-    const sectionTitle = document.querySelector('.execution-section .section-title');
-    if (!sectionTitle) return;
-
-    // 移除现有的指示器
-    const existingIndicator = sectionTitle.querySelector('.execution-status-indicator');
-    if (existingIndicator) {
-        existingIndicator.remove();
-    }
-
-    // 添加新的指示器
-    const indicator = document.createElement('span');
-    indicator.className = 'execution-status-indicator';
-
-    if (executionState.isRunning) {
-        if (executionState.isPaused) {
-            indicator.classList.add('paused');
-        } else {
-            indicator.classList.add('running');
-        }
-    } else {
-        indicator.classList.add('stopped');
-    }
-
-    sectionTitle.insertBefore(indicator, sectionTitle.firstChild);
-}
+// 暂停/继续按钮和状态指示器函数 - 使用utils/executionController.js中的函数
+// updatePauseResumeButton(), updateExecutionStatusIndicator() 函数已在utils/executionController.js中定义
 
 // 执行完成回调
 function onExecutionComplete(stats) {
-    resetExecutionState();
+    if (typeof window.resetExecutionState === 'function') {
+        window.resetExecutionState();
+    }
     showStatus(`执行完成! 成功: ${stats.successCount}, 失败: ${stats.errorCount}`, 'success');
 }
 
 // 执行错误回调
 function onExecutionError(error) {
-    resetExecutionState();
+    if (typeof window.resetExecutionState === 'function') {
+        window.resetExecutionState();
+    }
     showStatus(`执行失败: ${error.error || error.message}`, 'error');
 }
 
@@ -2231,198 +2544,62 @@ function saveSubOperation(index) {
 
 // ==================== 定位器测试功能 ====================
 
+// 初始化定位器测试器
+let locatorTester = null;
+
+// 初始化定位器测试器实例
+function initializeLocatorTester() {
+    if (!locatorTester) {
+        locatorTester = new LocatorTester();
+    }
+}
+
 // 测试主操作定位器
 async function testMainLocator() {
-    const strategyElement = document.getElementById('editLocatorStrategy');
-    const valueElement = document.getElementById('editLocatorValue');
-    const resultElement = document.getElementById('mainLocatorTestResult');
-    const testBtn = document.getElementById('testMainLocatorBtn');
+    initializeLocatorTester();
+    await locatorTester.testMainLocator();
+}
 
-    if (!strategyElement || !valueElement || !resultElement) {
-        console.error('❌ 找不到必要的元素');
+// 测试循环操作定位器
+async function testLoopLocator() {
+    initializeLocatorTester();
+
+    const strategyElement = document.getElementById('editLoopLocatorStrategy');
+    const valueElement = document.getElementById('editLoopLocatorValue');
+    const resultElement = document.getElementById('loopLocatorTestResult');
+    const testBtn = document.getElementById('testLoopLocatorBtn');
+
+    if (!strategyElement || !valueElement || !resultElement || !testBtn) {
+        console.error('❌ 找不到循环操作定位器测试的必要元素');
         return;
     }
 
     const strategy = strategyElement.value;
     const value = valueElement.value.trim();
 
-    if (!value) {
-        showTestResult(resultElement, '请输入定位值', 'error');
-        return;
-    }
-
-    // 禁用按钮并显示加载状态
-    testBtn.disabled = true;
-    testBtn.textContent = '🔄测试中...';
-
-    try {
-        // 先清除之前的测试高亮
-        await clearTestHighlights();
-
-        // 发送消息到content script进行测试
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        // 确保content script已加载
-        const isLoaded = await ensureContentScriptLoaded(tab.id);
-        if (!isLoaded) {
-            showTestResult(resultElement, '页面不支持测试功能', 'error');
-            return;
-        }
-
-        const response = await chrome.tabs.sendMessage(tab.id, {
-            action: 'testLocator',
-            locator: { strategy, value }
-        });
-
-        if (response && response.success) {
-            const count = response.count;
-            if (count === 0) {
-                showTestResult(resultElement, '未找到匹配元素', 'error');
-            } else {
-                showTestResult(resultElement, `找到 ${count} 个匹配元素`, 'success');
-                console.log(`🎯 主操作定位器测试成功，已高亮 ${count} 个元素`);
-            }
-        } else {
-            showTestResult(resultElement, response?.error || '测试失败', 'error');
-        }
-    } catch (error) {
-        console.log('⚠️ 测试定位器失败，可能是因为页面不支持或content script未加载');
-        showTestResult(resultElement, '页面不支持测试功能', 'error');
-    } finally {
-        // 恢复按钮状态
-        testBtn.disabled = false;
-        testBtn.textContent = '🔍测试';
-    }
+    await locatorTester.testLocator(strategy, value, resultElement, testBtn);
 }
 
 // 测试子操作定位器
 async function testSubOpLocator() {
-    const strategyElement = document.getElementById('subOpLocatorStrategy');
-    const valueElement = document.getElementById('subOpLocatorValue');
-    const resultElement = document.getElementById('subOpLocatorTestResult');
-    const testBtn = document.getElementById('testSubOpLocatorBtn');
-
-    if (!strategyElement || !valueElement || !resultElement) {
-        console.error('❌ 找不到必要的元素');
-        return;
-    }
-
-    const strategy = strategyElement.value;
-    const value = valueElement.value.trim();
-
-    if (!value) {
-        showTestResult(resultElement, '请输入定位值', 'error');
-        return;
-    }
-
-    // 禁用按钮并显示加载状态
-    testBtn.disabled = true;
-    testBtn.textContent = '🔄测试中...';
-
-    try {
-        // 先清除之前的测试高亮
-        await clearTestHighlights();
-
-        // 发送消息到content script进行测试
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        // 确保content script已加载
-        const isLoaded = await ensureContentScriptLoaded(tab.id);
-        if (!isLoaded) {
-            showTestResult(resultElement, '页面不支持测试功能', 'error');
-            return;
-        }
-
-        const response = await chrome.tabs.sendMessage(tab.id, {
-            action: 'testLocator',
-            locator: { strategy, value }
-        });
-
-        if (response && response.success) {
-            const count = response.count;
-            if (count === 0) {
-                showTestResult(resultElement, '未找到匹配元素', 'error');
-            } else {
-                showTestResult(resultElement, `找到 ${count} 个匹配元素`, 'success');
-                console.log(`🎯 子操作定位器测试成功，已高亮 ${count} 个元素`);
-            }
-        } else {
-            showTestResult(resultElement, response?.error || '测试失败', 'error');
-        }
-    } catch (error) {
-        console.log('⚠️ 测试定位器失败，可能是因为页面不支持或content script未加载');
-        showTestResult(resultElement, '页面不支持测试功能', 'error');
-    } finally {
-        // 恢复按钮状态
-        testBtn.disabled = false;
-        testBtn.textContent = '🔍测试';
-    }
+    initializeLocatorTester();
+    await locatorTester.testSubOpLocator();
 }
 
-// 显示测试结果
+// 保留向后兼容的函数（已迁移到LocatorTester模块）
 function showTestResult(resultElement, message, type) {
-    resultElement.textContent = message;
-    resultElement.className = `test-result ${type}`;
+    initializeLocatorTester();
+    locatorTester.showTestResult(resultElement, message, type);
 }
 
-// 清除测试结果
 function clearTestResult(resultElementId) {
-    const resultElement = document.getElementById(resultElementId);
-    if (resultElement) {
-        resultElement.textContent = '';
-        resultElement.className = 'test-result empty';
-    }
+    initializeLocatorTester();
+    locatorTester.clearTestResult(resultElementId);
 }
 
-// 检查content script是否已加载
-async function checkContentScriptLoaded(tabId) {
-    try {
-        const response = await chrome.tabs.sendMessage(tabId, { action: 'ping' });
-        return response && response.success;
-    } catch (error) {
-        return false;
-    }
-}
-
-// 注入content script（如果需要）
-async function ensureContentScriptLoaded(tabId) {
-    const isLoaded = await checkContentScriptLoaded(tabId);
-    if (!isLoaded) {
-        try {
-            await chrome.scripting.executeScript({
-                target: { tabId: tabId },
-                files: ['content/content.js']
-            });
-            // 等待一下让content script初始化
-            await new Promise(resolve => setTimeout(resolve, 100));
-            return await checkContentScriptLoaded(tabId);
-        } catch (error) {
-            console.log('无法注入content script:', error);
-            return false;
-        }
-    }
-    return true;
-}
-
-// 清除页面上的测试高亮
 async function clearTestHighlights() {
-    try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-        // 确保content script已加载
-        const isLoaded = await ensureContentScriptLoaded(tab.id);
-        if (!isLoaded) {
-            console.log('Content script未加载，跳过清除高亮');
-            return;
-        }
-
-        await chrome.tabs.sendMessage(tab.id, {
-            action: 'clearTestHighlights'
-        });
-        console.log('✅ 已清除页面测试高亮');
-    } catch (error) {
-        console.log('⚠️ 无法清除测试高亮，可能是因为页面不支持');
-    }
+    initializeLocatorTester();
+    await locatorTester.clearTestHighlights();
 }
 
 // 设置定位器测试监听器
@@ -2431,6 +2608,12 @@ function setupLocatorTestListeners() {
     const mainTestBtn = document.getElementById('testMainLocatorBtn');
     if (mainTestBtn) {
         mainTestBtn.addEventListener('click', testMainLocator);
+    }
+
+    // 循环操作定位器测试按钮监听
+    const loopTestBtn = document.getElementById('testLoopLocatorBtn');
+    if (loopTestBtn) {
+        loopTestBtn.addEventListener('click', testLoopLocator);
     }
 
     // 子操作定位器测试按钮监听
@@ -2445,15 +2628,37 @@ function setupLocatorTestListeners() {
 
     if (mainLocatorValue) {
         mainLocatorValue.addEventListener('input', () => {
-            clearTestResult('mainLocatorTestResult');
-            clearTestHighlights(); // 清除高亮
+            initializeLocatorTester();
+            locatorTester.clearTestResult('mainLocatorTestResult');
+            locatorTester.clearTestHighlights(); // 清除高亮
         });
     }
 
     if (mainLocatorStrategy) {
         mainLocatorStrategy.addEventListener('change', () => {
-            clearTestResult('mainLocatorTestResult');
-            clearTestHighlights(); // 清除高亮
+            initializeLocatorTester();
+            locatorTester.clearTestResult('mainLocatorTestResult');
+            locatorTester.clearTestHighlights(); // 清除高亮
+        });
+    }
+
+    // 循环操作定位器输入框监听
+    const loopLocatorValue = document.getElementById('editLoopLocatorValue');
+    const loopLocatorStrategy = document.getElementById('editLoopLocatorStrategy');
+
+    if (loopLocatorValue) {
+        loopLocatorValue.addEventListener('input', () => {
+            initializeLocatorTester();
+            locatorTester.clearTestResult('loopLocatorTestResult');
+            locatorTester.clearTestHighlights(); // 清除高亮
+        });
+    }
+
+    if (loopLocatorStrategy) {
+        loopLocatorStrategy.addEventListener('change', () => {
+            initializeLocatorTester();
+            locatorTester.clearTestResult('loopLocatorTestResult');
+            locatorTester.clearTestHighlights(); // 清除高亮
         });
     }
 
@@ -2463,179 +2668,78 @@ function setupLocatorTestListeners() {
 
     if (subOpLocatorValue) {
         subOpLocatorValue.addEventListener('input', () => {
-            clearTestResult('subOpLocatorTestResult');
-            clearTestHighlights(); // 清除高亮
+            initializeLocatorTester();
+            locatorTester.clearTestResult('subOpLocatorTestResult');
+            locatorTester.clearTestHighlights(); // 清除高亮
         });
     }
 
     if (subOpLocatorStrategy) {
         subOpLocatorStrategy.addEventListener('change', () => {
-            clearTestResult('subOpLocatorTestResult');
-            clearTestHighlights(); // 清除高亮
+            initializeLocatorTester();
+            locatorTester.clearTestResult('subOpLocatorTestResult');
+            locatorTester.clearTestHighlights(); // 清除高亮
         });
     }
 }
 
 // ==================== 导入导出功能 ====================
+// 导入导出函数在 utils/importExport.js 中定义
+// exportWorkflow(), importWorkflow() 函数已模块化
 
-// 导出工作流配置
-function exportWorkflow() {
-    if (!currentWorkflow) {
-        showStatus('没有工作流可导出', 'error');
-        return;
-    }
+// 导出辅助函数在 utils/importExport.js 中定义
+// createAnnotatedWorkflowData(), getStepTypeDescription() 函数已模块化
 
+// 打开流程图设计器
+function openWorkflowDesigner() {
     try {
-        // 创建带注释的导出数据
-        const exportData = createAnnotatedWorkflowData(currentWorkflow);
+        // 使用Chrome扩展URL打开弹窗
+        const designerUrl = chrome.runtime.getURL('workflow-designer-mxgraph.html');
 
-        // 创建下载链接
-        const dataStr = JSON.stringify(exportData, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
+        // 打开设计器弹窗
+        const designerWindow = window.open(
+            designerUrl,
+            'workflowDesigner',
+            'width=1200,height=800,scrollbars=yes,resizable=yes'
+        );
 
-        // 创建下载元素
-        const downloadLink = document.createElement('a');
-        downloadLink.href = url;
-        downloadLink.download = `workflow_${currentWorkflow.name}_${new Date().toISOString().slice(0, 10)}.json`;
+        if (!designerWindow) {
+            alert('无法打开设计器窗口，请检查浏览器弹窗设置');
+            return;
+        }
 
-        // 触发下载
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
+        // 保存当前工作流到localStorage，供设计器页面读取
+        if (currentWorkflow) {
+            try {
+                localStorage.setItem('designer_workflow_data', JSON.stringify(currentWorkflow));
+                console.log('✅ 工作流数据已保存到localStorage供设计器使用');
+            } catch (error) {
+                console.error('❌ 保存工作流数据到localStorage失败:', error);
+            }
+        }
 
-        // 清理URL
-        URL.revokeObjectURL(url);
+        // 监听设计器窗口关闭事件，重新加载工作流列表
+        const checkClosed = setInterval(() => {
+            if (designerWindow.closed) {
+                clearInterval(checkClosed);
+                console.log('设计器窗口已关闭，重新加载工作流列表');
+                loadSavedWorkflows();
+            }
+        }, 1000);
 
-        console.log('✅ 工作流配置已导出:', exportData);
-        showStatus('工作流配置已导出', 'success');
+        updateExecutionStatus('idle', '设计器已打开');
+        console.log('🎨 工作流设计器已在弹窗中打开');
 
     } catch (error) {
-        console.error('❌ 导出工作流失败:', error);
-        showStatus(`导出失败: ${error.message}`, 'error');
+        console.error('❌ 打开设计器失败:', error);
+        alert('打开设计器失败: ' + error.message);
     }
 }
 
-// 创建带注释的工作流数据
-function createAnnotatedWorkflowData(workflow) {
-    // 注意：JSON不支持注释，这里我们创建一个带有描述性字段的结构
-    const annotatedData = {
-        "配置文件版本": "1.0",
-        "导出时间": new Date().toISOString(),
-        "工作流配置": {
-            "工作流ID": workflow.id,
-            "工作流名称": workflow.name,
-            "工作流描述": workflow.description || '无描述',
-            "创建时间": workflow.createdAt,
-            "更新时间": workflow.updatedAt,
-            "步骤总数": workflow.steps.length,
-            "自动化步骤": workflow.steps.map((step, index) => {
-                const annotatedStep = {
-                    "步骤序号": index + 1,
-                    "步骤ID": step.id,
-                    "步骤名称": step.name,
-                    "步骤类型": step.type,
-                    "步骤类型说明": getStepTypeDescription(step.type)
-                };
-
-                // 添加定位器信息
-                if (step.locator) {
-                    annotatedStep["定位器配置"] = {
-                        "定位策略": step.locator.strategy,
-                        "定位策略说明": getLocatorStrategyDescription(step.locator.strategy),
-                        "定位值": step.locator.value
-                    };
-                }
-
-                // 根据步骤类型添加特定配置
-                switch (step.type) {
-                    case 'click':
-                        if (step.delay) annotatedStep["点击后延迟(毫秒)"] = step.delay;
-                        break;
-
-                    case 'input':
-                        if (step.text) annotatedStep["输入文本"] = step.text;
-                        if (step.delay) annotatedStep["输入后延迟(毫秒)"] = step.delay;
-                        break;
-
-                    case 'wait':
-                        annotatedStep["等待时间(毫秒)"] = step.duration || 1000;
-                        break;
-
-                    case 'smartWait':
-                        if (step.timeout) annotatedStep["超时时间(毫秒)"] = step.timeout;
-                        break;
-
-                    case 'loop':
-                        annotatedStep["循环类型"] = step.loopType;
-                        annotatedStep["循环类型说明"] = step.loopType === 'parentLoop' ? '父级循环（带子操作）' : '简单循环（单一操作）';
-                        annotatedStep["起始索引"] = step.startIndex || 0;
-                        annotatedStep["结束索引"] = step.endIndex || -1;
-                        annotatedStep["结束索引说明"] = step.endIndex === -1 ? '处理所有元素' : `处理到第${step.endIndex + 1}个元素`;
-
-                        if (step.loopType === 'parentLoop') {
-                            if (step.waitAfterClick) annotatedStep["点击后等待时间(毫秒)"] = step.waitAfterClick;
-                            if (step.loopDelay) annotatedStep["循环间隔(毫秒)"] = step.loopDelay;
-                            if (step.errorHandling) annotatedStep["错误处理策略"] = step.errorHandling === 'continue' ? '跳过错误继续' : '遇到错误停止';
-
-                            // 添加子操作配置
-                            if (step.subOperations && step.subOperations.length > 0) {
-                                annotatedStep["子操作数量"] = step.subOperations.length;
-                                annotatedStep["子操作列表"] = step.subOperations.map((subOp, subIndex) => {
-                                    const annotatedSubOp = {
-                                        "子操作序号": subIndex + 1,
-                                        "操作类型": subOp.type,
-                                        "操作类型说明": getSubOperationTypeDescription(subOp.type)
-                                    };
-
-                                    if (subOp.locator) {
-                                        annotatedSubOp["定位器配置"] = {
-                                            "定位策略": subOp.locator.strategy,
-                                            "定位值": subOp.locator.value
-                                        };
-                                    }
-
-                                    if (subOp.text) annotatedSubOp["输入文本"] = subOp.text;
-                                    if (subOp.value) annotatedSubOp["选择值"] = subOp.value;
-                                    if (subOp.duration) annotatedSubOp["等待时间(毫秒)"] = subOp.duration;
-                                    if (subOp.timeout) annotatedSubOp["超时时间(毫秒)"] = subOp.timeout;
-                                    if (subOp.delay) annotatedSubOp["操作后延迟(毫秒)"] = subOp.delay;
-
-                                    return annotatedSubOp;
-                                });
-                            }
-                        } else if (step.loopType === 'simpleLoop') {
-                            if (step.actionType) annotatedStep["循环操作类型"] = step.actionType;
-                            if (step.actionDelay) annotatedStep["操作后延迟(毫秒)"] = step.actionDelay;
-                        }
-                        break;
-
-
-                }
-
-                // 保留原始数据以便导入
-                annotatedStep["原始步骤数据"] = step;
-
-                return annotatedStep;
-            })
-        }
-    };
-
-    return annotatedData;
-}
-
-// 获取步骤类型的中文描述
-function getStepTypeDescription(type) {
-    const descriptions = {
-        'click': '点击操作 - 点击页面元素',
-        'input': '输入操作 - 在输入框中输入文本',
-        'wait': '等待操作 - 固定时间等待',
-        'smartWait': '智能等待 - 等待元素出现',
-        'loop': '循环操作 - 对多个元素执行重复操作',
-
-        'custom': '自定义操作 - 执行自定义脚本'
-    };
-    return descriptions[type] || '未知操作类型';
+// 设置设计器数据同步 - 已合并到initializeStorageListener中
+function setupDesignerDataSync() {
+    // 数据同步逻辑已合并到主storage监听器中
+    console.log('设计器数据同步已通过主storage监听器处理');
 }
 
 // 获取定位策略的中文描述
@@ -2826,91 +2930,254 @@ function escapeHtmlAttribute(str) {
         .replace(/>/g, '&gt;');
 }
 
-// 保存执行状态到本地存储
-function saveExecutionState() {
-    try {
-        const stateToSave = {
-            isRunning: executionState.isRunning,
-            isPaused: executionState.isPaused,
-            startTime: executionState.startTime,
-            totalSteps: executionState.totalSteps,
-            completedSteps: executionState.completedSteps,
-            timestamp: Date.now() // 添加时间戳用于验证状态有效性
-        };
+// ==================== 右键菜单功能 ====================
+// 右键菜单函数在 utils/contextMenu.js 中定义
+// initializeContextMenu(), showStepContextMenu() 等函数已模块化
 
-        localStorage.setItem('execution_state', JSON.stringify(stateToSave));
-        console.log('✅ 执行状态已保存:', stateToSave);
-    } catch (error) {
-        console.error('❌ 保存执行状态失败:', error);
+// 右键菜单显示、隐藏和操作处理函数已在 utils/contextMenu.js 中定义
+
+// ==================== 节点测试功能 ====================
+// 节点测试函数在 utils/stepEditor.js 中定义
+// testStepNode() 函数已模块化
+
+// 执行状态保存和加载函数在 utils/executionController.js 中定义
+// saveExecutionState(), loadExecutionState(), clearExecutionState() 函数已模块化
+
+// 执行状态加载和清除函数已在上面的注释中说明，已模块化
+
+// ==================== 新增的三栏布局功能 ====================
+
+// 导入工作流
+function importWorkflow() {
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.click();
     }
 }
 
-// 从本地存储加载执行状态
-function loadExecutionState() {
-    try {
-        const savedState = localStorage.getItem('execution_state');
-        if (!savedState) {
-            console.log('🔍 没有保存的执行状态');
-            return;
-        }
+// 处理文件选择
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-        const state = JSON.parse(savedState);
-        console.log('🔍 尝试恢复执行状态:', state);
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const workflow = JSON.parse(e.target.result);
 
-        // 检查状态是否过期（超过1小时认为无效）
-        const now = Date.now();
-        const stateAge = now - (state.timestamp || 0);
-        const maxAge = 60 * 60 * 1000; // 1小时
-
-        if (stateAge > maxAge) {
-            console.log('⚠️ 执行状态已过期，清除状态');
-            clearExecutionState();
-            return;
-        }
-
-        // 只有在确实有执行中的任务时才恢复状态
-        if (state.isRunning) {
-            console.log('🔄 恢复执行状态...');
-
-            executionState.isRunning = state.isRunning;
-            executionState.isPaused = state.isPaused;
-            executionState.startTime = state.startTime;
-            executionState.totalSteps = state.totalSteps || 0;
-            executionState.completedSteps = state.completedSteps || 0;
-
-            // 更新UI状态
-            updatePauseResumeButton();
-            updateExecutionStatusIndicator();
-
-            // 如果有执行中的任务，显示详细进度
-            if (executionState.isRunning) {
-                showDetailedProgress();
-
-                // 重新启动执行时间更新定时器
-                if (!executionTimeTimer) {
-                    executionTimeTimer = setInterval(updateExecutionTime, 1000);
-                }
+            // 验证工作流格式
+            if (!workflow.name) {
+                alert('无效的工作流文件：缺少名称');
+                return;
             }
 
-            console.log('✅ 执行状态已恢复');
-            showStatus(`已恢复执行状态: ${state.isPaused ? '已暂停' : '执行中'}`, 'info');
-        } else {
-            console.log('🔍 没有执行中的任务，清除状态');
-            clearExecutionState();
+            // 保存到localStorage
+            let savedWorkflows = getWorkflowsFromStorage();
+
+            // 检查是否已存在同名工作流
+            const existingIndex = savedWorkflows.findIndex(w => w.name === workflow.name);
+            if (existingIndex >= 0) {
+                if (confirm(`工作流 "${workflow.name}" 已存在，是否覆盖？`)) {
+                    savedWorkflows[existingIndex] = workflow;
+                } else {
+                    return;
+                }
+            } else {
+                savedWorkflows.push(workflow);
+            }
+
+            // 保存到localStorage
+            if (!saveWorkflowsToStorage(savedWorkflows)) {
+                alert('保存工作流失败');
+                return;
+            }
+
+            // 重新渲染下拉选择框
+            renderConfigSelect(savedWorkflows);
+
+            // 自动选择导入的工作流
+            const newIndex = existingIndex >= 0 ? existingIndex : savedWorkflows.length - 1;
+            selectConfig(newIndex);
+
+            updateExecutionStatus('success', `工作流 "${workflow.name}" 导入成功`);
+
+        } catch (error) {
+            alert('导入失败：文件格式错误');
+            console.error('导入工作流失败:', error);
         }
+    };
 
-    } catch (error) {
-        console.error('❌ 加载执行状态失败:', error);
-        clearExecutionState();
+    reader.readAsText(file);
+
+    // 清空文件输入，允许重复选择同一文件
+    event.target.value = '';
+}
+
+// 这个函数已被上面的Chrome扩展版本替代，删除重复定义
+
+// 基本事件监听器初始化
+function initializeEventListeners() {
+    // 打开设计器按钮
+    const openDesignerBtn = document.getElementById('openDesignerBtn');
+    if (openDesignerBtn) {
+        openDesignerBtn.addEventListener('click', openWorkflowDesigner);
+        console.log('✅ 打开设计器按钮事件已绑定');
+    } else {
+        console.error('❌ 未找到打开设计器按钮');
+    }
+
+    // 导入配置按钮
+    const importBtn = document.getElementById('importBtn');
+    if (importBtn) {
+        importBtn.addEventListener('click', importWorkflow);
+        console.log('✅ 导入配置按钮事件已绑定');
+    } else {
+        console.error('❌ 未找到导入配置按钮');
+    }
+
+    // 执行按钮
+    const executeBtn = document.getElementById('executeBtn');
+    if (executeBtn) {
+        executeBtn.addEventListener('click', executeWorkflow);
+        console.log('✅ 执行按钮事件已绑定');
+    } else {
+        console.error('❌ 未找到执行按钮');
+    }
+
+    // 配置选择下拉框
+    const configSelect = document.getElementById('configSelect');
+    if (configSelect) {
+        configSelect.addEventListener('change', handleConfigSelectChange);
+        console.log('✅ 配置选择下拉框事件已绑定');
+    } else {
+        console.error('❌ 未找到配置选择下拉框');
+    }
+
+    // 刷新配置按钮
+    const refreshConfigBtn = document.getElementById('refreshConfigBtn');
+    if (refreshConfigBtn) {
+        refreshConfigBtn.addEventListener('click', refreshConfigList);
+        console.log('✅ 刷新配置按钮事件已绑定');
+    } else {
+        console.error('❌ 未找到刷新配置按钮');
+    }
+
+    // 文件输入
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileSelect);
+        console.log('✅ 文件输入事件已绑定');
+    } else {
+        console.error('❌ 未找到文件输入元素');
+    }
+
+    // 模态框关闭按钮
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', closeModal);
+        console.log('✅ 模态框关闭按钮事件已绑定');
+    }
+
+    // 右键菜单按钮
+    const testNodeBtn = document.getElementById('testNodeBtn');
+    if (testNodeBtn) {
+        testNodeBtn.addEventListener('click', testSelectedNode);
+    }
+
+    const viewConfigBtn = document.getElementById('viewConfigBtn');
+    if (viewConfigBtn) {
+        viewConfigBtn.addEventListener('click', viewSelectedNodeConfig);
+    }
+
+    // 右键菜单事件
+    initializeContextMenu();
+}
+
+// ==================== 缺失的函数实现 ====================
+
+// 更新工作流信息显示
+function updateWorkflowInfo() {
+    // 在新的三栏布局中，这个功能由updateCurrentConfigDisplay处理
+    if (currentWorkflow) {
+        updateCurrentConfigDisplay();
+    } else {
+        hideCurrentConfigDisplay();
     }
 }
 
-// 清除保存的执行状态
-function clearExecutionState() {
+// 渲染步骤列表
+function renderSteps() {
+    // 在新的三栏布局中，这个功能由renderFlowPreview处理
+    if (currentWorkflow) {
+        renderFlowPreview(currentWorkflow);
+    } else {
+        clearFlowPreview();
+    }
+}
+
+// 保存当前工作流状态
+function saveCurrentWorkflowState() {
+    if (currentWorkflow) {
+        try {
+            localStorage.setItem('current_workflow_id', currentWorkflow.id || '');
+            localStorage.setItem('current_workflow_data', JSON.stringify(currentWorkflow));
+        } catch (error) {
+            console.error('保存工作流状态失败:', error);
+        }
+    }
+}
+
+// 加载上次工作流状态
+function loadLastWorkflowState() {
     try {
-        localStorage.removeItem('execution_state');
-        console.log('🗑️ 执行状态已清除');
+        const workflowData = localStorage.getItem('current_workflow_data');
+        if (workflowData) {
+            currentWorkflow = JSON.parse(workflowData);
+            updateWorkflowInfo();
+            renderSteps();
+            console.log('已恢复上次的工作流:', currentWorkflow.name);
+        }
     } catch (error) {
-        console.error('❌ 清除执行状态失败:', error);
+        console.error('加载工作流状态失败:', error);
     }
 }
+
+// 清除当前工作流状态
+function clearCurrentWorkflowState() {
+    currentWorkflow = null;
+    localStorage.removeItem('current_workflow_id');
+    localStorage.removeItem('current_workflow_data');
+    updateWorkflowInfo();
+    renderSteps();
+}
+
+// ==================== 缺失的函数实现 ====================
+
+// 关闭模态框
+function closeModal() {
+    const modalOverlay = document.getElementById('modalOverlay');
+    if (modalOverlay) {
+        modalOverlay.style.display = 'none';
+    }
+}
+
+// 测试选中的节点
+function testSelectedNode() {
+    console.log('测试选中的节点:', selectedNode);
+    // 这里可以添加具体的测试逻辑
+}
+
+// 查看选中节点的配置
+function viewSelectedNodeConfig() {
+    console.log('查看选中节点的配置:', selectedNode);
+    // 这里可以添加具体的查看配置逻辑
+}
+
+// 初始化右键菜单
+function initializeContextMenu() {
+    // 右键菜单相关逻辑
+    console.log('右键菜单已初始化');
+}
+
+// 执行工作流函数 - 使用utils/executionController.js中的函数
+// executeWorkflow() 函数已在utils/executionController.js中定义

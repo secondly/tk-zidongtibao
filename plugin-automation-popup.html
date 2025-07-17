@@ -12,42 +12,233 @@
         }
         
         body {
-            width: 650px;
-            min-height: 500px;
+            width: 800px;
+            height: 600px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #f8f9fa;
             color: #333;
+            overflow: hidden;
         }
         
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px;
-            text-align: center;
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: #fff;
         }
-        
-        .header h1 {
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+
+        /* 左侧配置管理面板 */
+        .left-panel {
+            width: 280px;
+            min-width: 200px;
+            max-width: 400px;
+            background: #fafafa;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s ease;
+        }
+
+        .left-panel.collapsed {
+            width: 40px;
+        }
+
+        .left-panel.collapsed .panel-content {
+            display: none;
+        }
+
+        /* 分割线 */
+        .divider {
+            width: 4px;
+            background: #e0e0e0;
+            cursor: col-resize;
+            transition: background-color 0.2s;
+        }
+
+        .divider:hover {
+            background: #2196F3;
+        }
+
+        /* 右侧流程图预览面板 */
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 300px;
+        }
+
+        /* 面板头部 */
+        .panel-header {
+            height: 50px;
+            padding: 0 16px;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-header h3 {
             font-size: 16px;
-            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* 面板内容 */
+        .panel-content {
+            flex: 1;
+            padding: 16px;
+            overflow: auto;
+            min-height: 0;
+            #flowPreview{
+                width: 100%;
+                height: 100%;
+            }
+        }
+
+        /* 底部执行状态栏 */
+        .bottom-panel {
+            height: 80px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+        }
+
+        .status-content {
+            width: 100%;
+            padding: 0 16px;
         }
         
-        .header p {
-            font-size: 12px;
-            opacity: 0.9;
+        /* 按钮样式 */
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #f5f5f5;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
         }
-        
-        .content {
-            padding: 15px;
+
+        .btn-icon:hover {
+            background: #e3f2fd;
+            color: #2196F3;
         }
-        
-        .workflow-section {
-            margin-bottom: 20px;
-        }
-        
-        .section-title {
+
+        .btn-icon .icon {
             font-size: 14px;
-            font-weight: bold;
-            color: #2c3e50;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #2196F3;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #1976D2;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #e3f2fd;
+            border-color: #2196F3;
+            color: #2196F3;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* 流程图预览样式 */
+        .flow-preview {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #f8f9fa;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .flow-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        .flow-canvas:active {
+            cursor: grabbing;
+        }
+
+        .flow-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            z-index: 1;
+        }
+
+        .empty-flow {
+            text-align: center;
+            color: #666;
+        }
+
+        .empty-flow-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        .empty-flow-text {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .empty-flow-desc {
+            font-size: 14px;
+            color: #666;
+        }
             margin-bottom: 10px;
             border-bottom: 2px solid #3498db;
             padding-bottom: 5px;
@@ -170,25 +361,29 @@
             border: 1px solid #dee2e6;
             border-radius: 6px;
             background: white;
-            display: flex;
+            display: block;
         }
         
         .step-item {
-            width: 33%;
+            width: 100%;
             padding: 10px;
             border-bottom: 1px solid #f8f9fa;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
+            cursor: pointer;
         }
-        
+
         .step-item:last-child {
             border-bottom: none;
         }
-        
+
         .step-item:hover {
             background: #f8f9fa;
         }
+
+
         
         .step-info {
             flex: 1;
@@ -601,131 +796,171 @@
         <p>智能网页操作助手</p>
     </div> -->
     
-    <div class="content">
-        <!-- 当前工作流信息 -->
-        <div class="workflow-section">
-            <div class="section-title">📋 当前工作流</div>
-            <div class="workflow-info" id="workflowInfo">
-                <div class="workflow-name" id="workflowName">未选择工作流</div>
-                <div class="workflow-stats" id="workflowStats">点击"新建"创建工作流</div>
-            </div>
-            
-            <div class="action-buttons">
-                <button class="btn btn-primary" id="newWorkflowBtn">新建</button>
-                <button class="btn btn-secondary" id="loadWorkflowBtn">加载</button>
-                <button class="btn btn-primary" id="saveWorkflowBtn">保存</button>
-                <button class="btn btn-danger" id="clearWorkflowBtn" style="font-size: 12px;">清除</button>
-                <button class="btn btn-success" id="executeBtn" disabled>执行</button>
-                <button class="btn btn-warning" id="pauseResumeBtn" disabled style="display: none;">⏸️ 暂停</button>
-                <button class="btn btn-warning" id="resetEngineBtn" title="重置自动化引擎" style="font-size: 12px;">🔄重置</button>
-            </div>
-            <div class="action-buttons" style="margin-top: 10px;">
-                <button class="btn btn-info" id="exportWorkflowBtn" style="font-size: 12px;">📤导出配置</button>
-                <button class="btn btn-info" id="importWorkflowBtn" style="font-size: 12px;">📥导入配置</button>
-                <input type="file" id="importFileInput" accept=".json" style="display: none;">
-            </div>
-        </div>
-        
-        <!-- 操作工具 -->
-        <div class="tools-section">
-            <div class="section-title">🧰 添加操作</div>
-            <div class="tool-grid">
-                <button class="tool-btn" data-step-type="click">
-                    <span class="icon">👆</span>
-                    点击
-                </button>
-                <button class="tool-btn" data-step-type="input">
-                    <span class="icon">⌨️</span>
-                    输入
-                </button>
-                <button class="tool-btn" data-step-type="wait">
-                    <span class="icon">⏱️</span>
-                    等待
-                </button>
-                <button class="tool-btn" data-step-type="smartWait">
-                    <span class="icon">🔍</span>
-                    智能等待
-                </button>
-                <button class="tool-btn" data-step-type="loop">
-                    <span class="icon">🔄</span>
-                    循环
-                </button>
+    <div class="app-container">
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <!-- 左侧配置管理面板 -->
+            <div class="left-panel" id="leftPanel">
+                <div class="panel-header">
+                    <h3>配置管理</h3>
+                </div>
 
+                <div class="panel-content">
+                    <!-- 配置管理模块 -->
+                    <div id="configManager">
+                        <!-- 工具栏 -->
+                        <div class="config-toolbar" style="display: flex; gap: 8px; margin-bottom: 16px;">
+                            <button class="btn btn-primary btn-sm" id="openDesignerBtn">
+                                <span class="icon">🎨</span>
+                                打开设计器
+                            </button>
+                            <button class="btn btn-secondary btn-sm" id="importBtn">
+                                <span class="icon">📁</span>
+                                导入配置
+                            </button>
+                        </div>
+
+                        <!-- 配置选择下拉框 -->
+                        <div class="config-selector" style="margin-bottom: 16px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                <label for="configSelect" style="font-size: 14px; font-weight: 500; color: #333;">选择配置:</label>
+                                <button id="refreshConfigBtn" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" title="刷新配置列表">
+                                    🔄 刷新
+                                </button>
+                            </div>
+                            <select id="configSelect" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; background: #fff; cursor: pointer;">
+                                <option value="">请选择一个配置...</option>
+                            </select>
+                        </div>
+
+                        <!-- 当前配置信息 -->
+                        <div class="current-config" id="currentConfig" style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; background: #f8f9fa; margin-bottom: 16px; display: none;">
+                            <div class="config-info" style="font-size: 13px; color: #666;">
+                                <div class="config-name" style="font-weight: 600; color: #333; margin-bottom: 4px;">未选择配置</div>
+                                <div class="config-stats">0 个步骤</div>
+                            </div>
+                        </div>
+
+                        <!-- 执行按钮 -->
+                        <div class="config-actions" style="margin-top: 16px;">
+                            <button class="btn btn-primary" id="executeBtn" disabled style="width: 100%; padding: 12px;">
+                                <span class="icon">▶️</span>
+                                执行工作流
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-        
-        <!-- 步骤列表 -->
-        <div class="steps-section">
-            <div class="section-title">📝 操作步骤</div>
-            <div class="steps-container" id="stepsContainer">
-                <div class="empty-steps">
-                    暂无操作步骤<br>
-                    点击上方工具添加操作
+
+            <!-- 中间分割线 -->
+            <div class="divider" id="divider"></div>
+
+            <!-- 右侧流程图预览面板 -->
+            <div class="right-panel" id="rightPanel">
+                <div class="panel-header">
+                    <h3>流程预览</h3>
+                </div>
+
+                <div class="panel-content">
+                    <!-- 流程图预览模块 -->
+                    <div id="flowPreview">
+                        <div class="flow-preview">
+                            <div id="flowGraphContainer" class="flow-graph-container" style="width: 100%; height: 100%; background: white; position: relative;">
+                                <div class="loading" style="display: none;">
+                                    <div class="spinner"></div>
+                                    <div>正在加载...</div>
+                                </div>
+                            </div>
+                            <div class="flow-overlay" id="flowOverlay">
+                                <div class="empty-flow">
+                                    <div class="empty-flow-icon">🔄</div>
+                                    <div class="empty-flow-text">暂无流程图</div>
+                                    <div class="empty-flow-desc">请从左侧选择一个配置来预览流程</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <!-- 执行状态 -->
-        <div class="execution-section">
-            <div class="section-title">🚀 执行状态</div>
 
-            <!-- 总体进度 -->
-            <div class="overall-progress">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="overallProgressFill"></div>
-                </div>
-                <div class="progress-text" id="overallProgressText">等待执行...</div>
-            </div>
+        <!-- 底部执行状态栏 -->
+        <div class="bottom-panel" id="bottomPanel">
+            <div class="status-content">
+                <!-- 执行状态模块 -->
+                <div id="executionStatus">
+                    <div class="execution-status" style="display: flex; align-items: center; gap: 16px; padding: 0 4px; height: 100%;">
+                        <!-- 状态指示器 -->
+                        <div class="status-indicator-section" style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                            <div class="status-icon" style="font-size: 20px; width: 24px; text-align: center; color: #6c757d;">⏸️</div>
+                            <div class="status-info" style="display: flex; flex-direction: column; gap: 2px;">
+                                <div class="status-text" style="font-size: 14px; font-weight: 600; color: #6c757d;">空闲</div>
+                                <div class="status-message" style="font-size: 12px; color: #666;">等待执行...</div>
+                            </div>
+                        </div>
 
-            <!-- 详细进度信息 -->
-            <div class="detailed-progress" id="detailedProgress" style="display: none;">
-                <!-- 主循环进度 -->
-                <div class="progress-item">
-                    <div class="progress-label">主循环进度:</div>
-                    <div class="progress-value" id="mainLoopProgress">-</div>
-                </div>
-
-                <!-- 子操作进度 -->
-                <div class="progress-item" id="subOperationProgressItem" style="display: none;">
-                    <div class="progress-label">子操作进度:</div>
-                    <div class="progress-value" id="subOperationProgress">-</div>
-                </div>
-
-                <!-- 当前操作描述 -->
-                <div class="progress-item">
-                    <div class="progress-label">当前操作:</div>
-                    <div class="progress-value" id="currentOperation">-</div>
-                </div>
-
-                <!-- 执行时间 -->
-                <div class="progress-item">
-                    <div class="progress-label">执行时间:</div>
-                    <div class="progress-value" id="executionTime">00:00</div>
+                        <!-- 执行时间显示 -->
+                        <div class="execution-time" style="display: none; align-items: center; gap: 6px; font-size: 12px; color: #666; flex-shrink: 0; margin-left: auto;">
+                            <span class="time-label" style="font-weight: 500;">执行时间:</span>
+                            <span class="time-value" style="font-family: 'Courier New', monospace; font-weight: 600; color: #333;">00:00</span>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <!-- 状态消息 -->
-            <div class="status-message" id="statusMessage"></div>
         </div>
     </div>
-    
-    <!-- 步骤编辑模态框 -->
-    <div class="modal-overlay" id="stepModal">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title" id="modalTitle">编辑步骤</div>
-                <button class="modal-close" id="closeModalBtn">×</button>
+    <!-- 隐藏的文件输入 -->
+    <input type="file" id="fileInput" accept=".json" style="display: none;">
+
+    <!-- 右键菜单 -->
+    <div id="contextMenu" class="context-menu hidden" style="position: fixed; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); padding: 8px 0; min-width: 180px; z-index: 10000; display: none;">
+        <div class="menu-item" id="testNodeBtn" style="padding: 10px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background-color 0.2s;">
+            <span class="icon" style="font-size: 14px; width: 18px; text-align: center;">🧪</span>
+            <span class="text" style="font-size: 13px; color: #333;">测试节点</span>
+        </div>
+        <div class="menu-item" id="viewConfigBtn" style="padding: 10px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background-color 0.2s;">
+            <span class="icon" style="font-size: 14px; width: 18px; text-align: center;">⚙️</span>
+            <span class="text" style="font-size: 13px; color: #333;">查看配置</span>
+        </div>
+    </div>
+
+    <!-- 模态框 -->
+    <div class="modal-overlay" id="modalOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; display: none;">
+        <div class="modal" id="stepModal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; padding: 20px; width: 90%; max-width: 350px; max-height: 80%; overflow-y: auto;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
+                <h3 class="modal-title" id="modalTitle" style="font-size: 14px; font-weight: bold; color: #2c3e50;">编辑步骤</h3>
+                <button class="modal-close" id="modalCloseBtn" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #7f8c8d;">&times;</button>
             </div>
             <div class="modal-content" id="modalContent">
-                <!-- 动态内容 -->
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn btn-primary" id="saveStepBtn" style="flex: 1;">保存</button>
-                <button class="btn btn-secondary" id="cancelStepBtn" style="flex: 1;">取消</button>
+                <!-- 动态内容将在这里插入 -->
             </div>
         </div>
     </div>
-    
+
+
+
+    <!-- 核心引擎 -->
     <script src="universal-automation-engine.js"></script>
-    <script src="workflow-manager.js"></script>
+
+    <!-- mxGraph库用于流程预览 -->
+    <script src="js/mxClient.min.js"></script>
+
+    <!-- 模块化工具类 -->
+    <script src="utils/mxGraphConfig.js"></script>
+    <script src="utils/mxGraphOperations.js"></script>
+    <script src="utils/workflowConverter.js"></script>
+    <script src="utils/workflowManager.js"></script>
+    <script src="utils/eventHandlers.js"></script>
+    <script src="utils/executionController.js"></script>
+    <script src="utils/uiRenderer.js"></script>
+    <script src="utils/stepEditor.js"></script>
+    <script src="utils/importExport.js"></script>
+    <script src="utils/contextMenu.js"></script>
+    <script src="utils/tabSelector.js"></script>
+    <script src="utils/locatorTester.js"></script>
+    <script src="utils/conditionTester.js"></script>
+
+    <!-- 主文件 -->
     <script src="plugin-automation-popup.js"></script>
+</body>
+</html>

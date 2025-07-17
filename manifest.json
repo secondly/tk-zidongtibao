@@ -38,7 +38,14 @@
     {
       "resources": [
         "universal-automation-engine.js",
-        "workflow-manager.js"
+        "workflow-manager.js",
+        "workflow-designer.html",
+        "workflow-designer.js",
+        "workflow-designer-cytoscape.js",
+        "workflow-designer-mxgraph.html",
+        "workflow-designer-mxgraph.js",
+        "js/logic-flow.js",
+        "js/mxClient.min.js"
       ],
       "matches": ["<all_urls>"]
     }
