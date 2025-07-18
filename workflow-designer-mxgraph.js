@@ -1652,17 +1652,18 @@ class MxGraphWorkflowDesigner {
                 break;
 
             case 'condition':
+                console.log('🔧 [DEBUG] 生成条件判断节点表单，当前配置:', config);
                 formHtml += `
                     <div class="form-group">
                         <label class="form-label">定位策略</label>
                         <select class="form-select" id="locatorType">
-                            <option value="css" ${config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: input[type='checkbox'], .btn]</option>
-                            <option value="xpath" ${config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //button[@disabled]]</option>
-                            <option value="id" ${config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: submit-btn]</option>
-                            <option value="className" ${config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: disabled-btn]</option>
-                            <option value="text" ${config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 提交按钮]</option>
-                            <option value="contains" ${config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
-                            <option value="tagName" ${config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: button, input]</option>
+                            <option value="css" ${config.locator?.strategy === 'css' || config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: input[type='checkbox'], .btn]</option>
+                            <option value="xpath" ${config.locator?.strategy === 'xpath' || config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //button[@disabled]]</option>
+                            <option value="id" ${config.locator?.strategy === 'id' || config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: submit-btn]</option>
+                            <option value="className" ${config.locator?.strategy === 'className' || config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: disabled-btn]</option>
+                            <option value="text" ${config.locator?.strategy === 'text' || config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 提交按钮]</option>
+                            <option value="contains" ${config.locator?.strategy === 'contains' || config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
+                            <option value="tagName" ${config.locator?.strategy === 'tagName' || config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: button, input]</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1915,12 +1916,7 @@ class MxGraphWorkflowDesigner {
                 if (extractMultiple) config.extractMultiple = extractMultiple.value === 'true';
                 break;
 
-            case 'wait':
-                const waitType = document.getElementById('waitType');
-                const waitTime = document.getElementById('waitTime');
-                if (waitType) config.waitType = waitType.value;
-                if (waitTime) config.waitTime = parseInt(waitTime.value);
-                break;
+
 
             case 'loop':
                 const locatorStrategy = document.getElementById('locatorStrategy');
@@ -1954,6 +1950,15 @@ class MxGraphWorkflowDesigner {
                 const comparisonType = document.getElementById('comparisonType');
                 const conditionExpectedValue = document.getElementById('expectedValue');
 
+                console.log('🔧 [DEBUG] 保存条件判断节点配置，表单元素:', {
+                    conditionLocatorType: conditionLocatorType?.value,
+                    conditionLocatorValue: conditionLocatorValue?.value,
+                    conditionType: conditionType?.value,
+                    attributeName: attributeName?.value,
+                    comparisonType: comparisonType?.value,
+                    conditionExpectedValue: conditionExpectedValue?.value
+                });
+
                 if (conditionLocatorType && conditionLocatorValue) {
                     config.locator = {
                         strategy: conditionLocatorType.value,  // 使用 strategy 而不是 type
@@ -1964,6 +1969,8 @@ class MxGraphWorkflowDesigner {
                 if (attributeName) config.attributeName = attributeName.value;
                 if (comparisonType) config.comparisonType = comparisonType.value;
                 if (conditionExpectedValue) config.expectedValue = conditionExpectedValue.value;
+
+                console.log('🔧 [DEBUG] 条件判断节点配置已保存:', config);
                 break;
         }
 
