@@ -308,19 +308,14 @@ class WorkflowDesigner {
             this.saveWorkflow();
         });
         
-        // 执行工作流
-        document.getElementById('executeWorkflow').addEventListener('click', () => {
-            this.executeWorkflow();
-        });
+
 
         // 快捷操作按钮
         document.getElementById('quickSave').addEventListener('click', () => {
             this.saveWorkflow();
         });
 
-        document.getElementById('quickExecute').addEventListener('click', () => {
-            this.executeWorkflow();
-        });
+
 
         document.getElementById('quickClear').addEventListener('click', () => {
             this.clearCanvas();
@@ -568,10 +563,7 @@ class WorkflowDesigner {
                         e.preventDefault();
                         this.saveWorkflow();
                         return;
-                    case 'e':
-                        e.preventDefault();
-                        this.executeWorkflow();
-                        return;
+
                     case 'Delete':
                     case 'Backspace':
                         // 删除选中的节点
@@ -828,15 +820,7 @@ class WorkflowDesigner {
         alert('工作流已保存到控制台，请查看开发者工具');
     }
     
-    executeWorkflow() {
-        const graphData = this.lf.getGraphData();
-        const workflowData = this.convertToWorkflowFormat(graphData);
-        
-        console.log('执行工作流:', workflowData);
-        
-        // 这里可以调用原有的执行逻辑
-        alert('工作流数据已输出到控制台，可以集成到原有执行引擎');
-    }
+
 
     // 智能文本格式化，支持换行
     formatNodeText(text) {

@@ -1247,28 +1247,6 @@ class UniversalAutomationEngine {
                 element.dispatchEvent(new Event('change', { bubbles: true }));
                 break;
 
-            case 'check':
-                if (element.type === 'checkbox' && !element.checked) {
-                    element.checked = true;
-                    element.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-                break;
-
-            case 'uncheck':
-                if (element.type === 'checkbox' && element.checked) {
-                    element.checked = false;
-                    element.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-                break;
-
-            case 'hover':
-                element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-                break;
-
-            case 'focus':
-                element.focus();
-                break;
-
             default:
                 throw new Error(`不支持的自循环操作类型: ${actionType}`);
         }

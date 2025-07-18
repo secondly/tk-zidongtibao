@@ -841,12 +841,22 @@
                             </div>
                         </div>
 
-                        <!-- 执行按钮 -->
+                        <!-- 执行控制按钮 -->
                         <div class="config-actions" style="margin-top: 16px;">
-                            <button class="btn btn-primary" id="executeBtn" disabled style="width: 100%; padding: 12px;">
+                            <button class="btn btn-primary" id="executeBtn" disabled style="width: 100%; padding: 12px; margin-bottom: 8px;">
                                 <span class="icon">▶️</span>
                                 执行工作流
                             </button>
+                            <div class="execution-controls" style="display: none; gap: 8px;" id="executionControls">
+                                <button class="btn btn-warning" id="pauseResumeBtn" style="flex: 1; padding: 8px;">
+                                    <span class="icon">⏸️</span>
+                                    暂停
+                                </button>
+                                <button class="btn btn-danger" id="stopBtn" style="flex: 1; padding: 8px;">
+                                    <span class="icon">⏹️</span>
+                                    停止
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -950,8 +960,7 @@
     <script src="utils/mxGraphOperations.js"></script>
     <script src="utils/workflowConverter.js"></script>
     <script src="utils/workflowManager.js"></script>
-    <script src="utils/eventHandlers.js"></script>
-    <script src="utils/executionController.js"></script>
+
     <script src="utils/uiRenderer.js"></script>
     <script src="utils/stepEditor.js"></script>
     <script src="utils/importExport.js"></script>

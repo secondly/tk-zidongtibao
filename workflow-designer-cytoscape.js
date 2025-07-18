@@ -306,10 +306,7 @@ class CytoscapeWorkflowDesigner {
             this.saveWorkflow();
         });
 
-        // 执行工作流
-        document.getElementById('executeWorkflow').addEventListener('click', () => {
-            this.executeWorkflow();
-        });
+
 
         // 清空画布
         document.getElementById('clearCanvas').addEventListener('click', () => {

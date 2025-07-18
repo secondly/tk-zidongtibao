@@ -572,15 +572,7 @@ class MxGraphWorkflowDesigner {
             this.exportData();
         });
 
-        // 执行工作流
-        document.getElementById('executeWorkflow').addEventListener('click', () => {
-            this.executeWorkflow();
-        });
 
-        // 暂停工作流
-        document.getElementById('pauseWorkflow').addEventListener('click', () => {
-            this.pauseWorkflow();
-        });
 
         // 继续工作流
         document.getElementById('resumeWorkflow').addEventListener('click', () => {
@@ -1136,250 +1128,15 @@ class MxGraphWorkflowDesigner {
         }
     }
     
-    // 工作流执行功能已移至 utils/mxGraphExecution.js 中
-    async executeWorkflow() {
-        await executeWorkflow(this);
-    }
 
-    // 节点执行功能已移至 utils/mxGraphExecution.js 中
-    async executeNode(node) {
-        await executeStep(node);
-    }
 
-    // 执行点击操作
-    async executeClickNode(config) {
-        const element = this.findElement(config.locator);
-        if (!element) {
-            throw new Error(`未找到元素: ${config.locator?.value}`);
-        }
 
-        // 滚动到元素位置
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await this.delay(300);
 
-        // 高亮元素
-        this.highlightElement(element);
 
-        // 点击元素
-        element.click();
-        console.log('点击元素:', element);
 
-        // 等待点击后的延迟
-        if (config.clickDelay) {
-            await this.delay(config.clickDelay);
-        }
-    }
 
-    // 执行输入操作
-    async executeInputNode(config) {
-        const element = this.findElement(config.locator);
-        if (!element) {
-            throw new Error(`未找到输入元素: ${config.locator?.value}`);
-        }
 
-        // 滚动到元素位置
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await this.delay(300);
 
-        // 高亮元素
-        this.highlightElement(element);
-
-        // 清空原有内容（如果配置了）
-        if (config.clearBefore) {
-            element.value = '';
-            element.textContent = '';
-        }
-
-        // 输入文本
-        if (config.inputText) {
-            if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-                element.value = config.inputText;
-                element.dispatchEvent(new Event('input', { bubbles: true }));
-                element.dispatchEvent(new Event('change', { bubbles: true }));
-            } else {
-                element.textContent = config.inputText;
-            }
-        }
-
-        console.log('输入文本:', config.inputText, '到元素:', element);
-    }
-
-    // 执行等待操作
-    async executeWaitNode(config) {
-        const duration = config.duration || 1000;
-        console.log('等待', duration, '毫秒');
-        await this.delay(duration);
-    }
-
-    // 执行智能等待操作
-    async executeSmartWaitNode(config) {
-        const timeout = config.timeout || 10000;
-        const checkInterval = config.checkInterval || 500;
-        const startTime = Date.now();
-
-        console.log('智能等待元素:', config.locator?.value);
-
-        while (Date.now() - startTime < timeout) {
-            const element = this.findElement(config.locator);
-
-            if (config.waitType === 'appear' && element) {
-                console.log('元素已出现');
-                return;
-            } else if (config.waitType === 'disappear' && !element) {
-                console.log('元素已消失');
-                return;
-            }
-
-            await this.delay(checkInterval);
-        }
-
-        throw new Error(`智能等待超时: ${config.locator?.value}`);
-    }
-
-    // 查找元素
-    findElement(locator) {
-        if (!locator || !locator.strategy || !locator.value) {
-            return null;
-        }
-
-        try {
-            console.log('开始查找元素:', locator);
-
-            // 尝试多种查找策略
-            let element = null;
-            let searchResults = [];
-
-            // 策略1: 在当前页面查找
-            console.log('策略1: 在当前页面查找');
-            element = this.searchInDocument(document, locator);
-            if (element) {
-                console.log('在当前页面找到元素:', element);
-                return element;
-            }
-            searchResults.push('当前页面: 未找到');
-
-            // 策略2: 在父页面查找（如果在iframe中）
-            if (window.parent && window.parent !== window) {
-                try {
-                    console.log('策略2: 在父页面查找');
-                    element = this.searchInDocument(window.parent.document, locator);
-                    if (element) {
-                        console.log('在父页面找到元素:', element);
-                        return element;
-                    }
-                    searchResults.push('父页面: 未找到');
-                } catch (e) {
-                    console.log('无法访问父页面:', e.message);
-                    searchResults.push('父页面: 访问被拒绝');
-                }
-            }
-
-            console.warn('所有策略都未找到元素:', searchResults);
-            return null;
-
-        } catch (error) {
-            console.error('查找元素时出错:', error);
-            return null;
-        }
-    }
-
-    // 在指定文档中搜索元素
-    searchInDocument(doc, locator) {
-        try {
-            let element = null;
-            console.log('在文档中搜索:', doc.title || 'unknown', '定位器:', locator);
-
-            switch (locator.strategy) {
-                case 'css':
-                    // 自动添加.前缀（如果需要）
-                    let cssSelector = locator.value;
-                    if (locator.value && !locator.value.startsWith('.') && !locator.value.startsWith('#') && !locator.value.includes(' ') && !locator.value.includes('[')) {
-                        cssSelector = '.' + locator.value;
-                        console.log('自动添加CSS类选择器前缀:', cssSelector);
-                    }
-                    element = doc.querySelector(cssSelector);
-                    console.log('CSS查询结果:', element);
-                    break;
-                case 'xpath':
-                    const xpathResult = doc.evaluate(locator.value, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                    element = xpathResult.singleNodeValue;
-                    console.log('XPath查询结果:', element);
-                    break;
-                case 'id':
-                    element = doc.getElementById(locator.value);
-                    console.log('ID查询结果:', element);
-                    break;
-                case 'text':
-                    element = Array.from(doc.querySelectorAll('*')).find(el =>
-                        el.textContent && el.textContent.trim() === locator.value.trim()
-                    );
-                    console.log('文本查询结果:', element);
-                    break;
-                case 'contains':
-                    element = Array.from(doc.querySelectorAll('*')).find(el =>
-                        el.textContent && el.textContent.includes(locator.value)
-                    );
-                    console.log('包含文本查询结果:', element);
-                    break;
-                default:
-                    console.warn('不支持的定位策略:', locator.strategy);
-                    return null;
-            }
-
-            if (element) {
-                console.log('找到元素:', element, '在文档:', doc.title || 'unknown');
-            }
-
-            return element;
-        } catch (error) {
-            console.error('在文档中搜索元素时出错:', error);
-            return null;
-        }
-    }
-
-    // 高亮元素
-    highlightElement(element) {
-        if (!element) return;
-
-        element.style.outline = '3px solid #007bff';
-        element.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
-
-        setTimeout(() => {
-            element.style.outline = '';
-            element.style.backgroundColor = '';
-        }, 2000);
-    }
-
-    // 高亮正在执行的节点
-    highlightExecutingNode(nodeId) {
-        console.log('高亮执行节点:', nodeId);
-        // 简化版本：只在控制台输出，避免mxGraph API问题
-        this.updateStatus(`正在执行节点: ${nodeId}`);
-    }
-
-    // 移除节点高亮
-    removeNodeHighlight(nodeId) {
-        console.log('移除节点高亮:', nodeId);
-        // 简化版本：只在控制台输出
-    }
-
-    // 延迟函数
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // 工作流控制功能已移至 utils/mxGraphExecution.js 中
-    pauseWorkflow() {
-        pauseWorkflow(this);
-    }
-
-    resumeWorkflow() {
-        resumeWorkflow(this);
-    }
-
-    stopWorkflow() {
-        stopWorkflow(this);
-    }
 
     // UI更新功能已移至 utils/mxGraphExecution.js 中
     updateExecutionStatus(text, progress = 0) {
@@ -1703,11 +1460,6 @@ class MxGraphWorkflowDesigner {
                         <select class="form-select" id="operationType">
                             <option value="click" ${config.operationType === 'click' ? 'selected' : ''}>点击</option>
                             <option value="input" ${config.operationType === 'input' ? 'selected' : ''}>输入文本</option>
-                            <option value="select" ${config.operationType === 'select' ? 'selected' : ''}>选择</option>
-                            <option value="wait" ${config.operationType === 'wait' ? 'selected' : ''}>等待</option>
-                            <option value="scroll" ${config.operationType === 'scroll' ? 'selected' : ''}>滚动</option>
-                            <option value="hover" ${config.operationType === 'hover' ? 'selected' : ''}>悬停</option>
-                            <option value="extract" ${config.operationType === 'extract' ? 'selected' : ''}>提取数据</option>
                         </select>
                     </div>
                     <div class="form-group">

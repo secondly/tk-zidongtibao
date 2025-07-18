@@ -3,12 +3,14 @@
  *
  * 依赖的模块文件（通过HTML script标签加载）：
  * - utils/workflowManager.js - 工作流管理功能
- * - utils/eventHandlers.js - 事件处理功能
- * - utils/executionController.js - 执行控制功能
  * - utils/uiRenderer.js - UI渲染功能
  * - utils/stepEditor.js - 步骤编辑功能
  * - utils/importExport.js - 导入导出功能
  * - utils/contextMenu.js - 右键菜单功能
+ *
+ * 内置功能：
+ * - 执行控制功能 - 执行、暂停、继续、停止工作流
+ * - 事件处理功能 - 按钮事件和消息监听
  */
 
 // 全局变量
@@ -1015,11 +1017,202 @@ function clearWorkflow() {
     }
 }
 
-// 执行控制函数在 utils/executionController.js 中定义
-// executeWorkflow() 函数已模块化
+// ==================== 执行控制功能 ====================
 
-// 执行状态重置函数在 utils/executionController.js 中定义
-// resetExecutionState() 函数已模块化
+// 执行状态管理
+let executionState = {
+    isRunning: false,
+    isPaused: false,
+    startTime: null,
+    totalSteps: 0,
+    completedSteps: 0,
+    currentMainLoop: 0,
+    totalMainLoops: 0,
+    currentSubOperation: 0,
+    totalSubOperations: 0,
+    currentOperation: '等待执行...'
+};
+
+// 执行工作流
+async function executeWorkflow() {
+    if (!currentWorkflow || currentWorkflow.steps.length === 0) {
+        showStatus('请先选择一个配置并确保包含步骤', 'warning');
+        return;
+    }
+
+    console.log('🚀 开始执行工作流:', currentWorkflow.name);
+
+    try {
+        // 获取当前活动标签页
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab) {
+            showStatus('无法获取当前标签页', 'error');
+            return;
+        }
+
+        // 更新执行状态
+        executionState.isRunning = true;
+        executionState.isPaused = false;
+        executionState.startTime = Date.now();
+        executionState.totalSteps = currentWorkflow.steps.length;
+        executionState.completedSteps = 0;
+
+        // 更新UI状态
+        updateExecutionUI();
+        updateExecutionStatus('executing', '正在执行工作流...');
+
+        // 发送消息到content script执行
+        chrome.tabs.sendMessage(tab.id, {
+            action: 'executeWorkflow',
+            workflow: currentWorkflow
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('执行失败:', chrome.runtime.lastError);
+                resetExecutionState();
+                showStatus(`执行失败: ${chrome.runtime.lastError.message}`, 'error');
+            } else if (response && response.success) {
+                resetExecutionState();
+                showStatus('工作流执行完成', 'success');
+            } else {
+                resetExecutionState();
+                showStatus(`执行失败: ${response?.error || '未知错误'}`, 'error');
+            }
+        });
+
+    } catch (error) {
+        console.error('执行工作流失败:', error);
+        showStatus(`执行工作流失败: ${error.message}`, 'error');
+        resetExecutionState();
+    }
+}
+
+// 暂停/继续执行
+async function togglePauseResume() {
+    console.log('🔧 [DEBUG] togglePauseResume 被调用，当前状态:', {
+        isRunning: executionState.isRunning,
+        isPaused: executionState.isPaused
+    });
+
+    if (!executionState.isRunning) {
+        console.log('🔧 [DEBUG] 工作流未运行，忽略暂停/继续操作');
+        return;
+    }
+
+    try {
+        // 获取当前活动标签页
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab) {
+            showStatus('无法获取当前标签页', 'error');
+            return;
+        }
+
+        if (executionState.isPaused) {
+            // 继续执行
+            console.log('🔧 [DEBUG] 发送继续执行消息');
+            executionState.isPaused = false;
+            updateExecutionUI();
+            updateExecutionStatus('executing', '继续执行中...');
+
+            chrome.tabs.sendMessage(tab.id, {
+                action: 'resumeExecution'
+            });
+        } else {
+            // 暂停执行
+            console.log('🔧 [DEBUG] 发送暂停执行消息');
+            executionState.isPaused = true;
+            updateExecutionUI();
+            updateExecutionStatus('warning', '执行已暂停');
+
+            chrome.tabs.sendMessage(tab.id, {
+                action: 'pauseExecution'
+            });
+        }
+    } catch (error) {
+        console.error('暂停/继续操作失败:', error);
+        showStatus(`操作失败: ${error.message}`, 'error');
+    }
+}
+
+// 停止执行
+async function stopExecution() {
+    console.log('🔧 [DEBUG] stopExecution 被调用');
+
+    if (!executionState.isRunning) {
+        console.log('🔧 [DEBUG] 工作流未运行，忽略停止操作');
+        return;
+    }
+
+    try {
+        // 获取当前活动标签页
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab) {
+            showStatus('无法获取当前标签页', 'error');
+            return;
+        }
+
+        console.log('🔧 [DEBUG] 发送停止执行消息');
+        chrome.tabs.sendMessage(tab.id, {
+            action: 'stopExecution'
+        });
+
+        // 重置执行状态
+        resetExecutionState();
+        showStatus('执行已停止', 'warning');
+
+    } catch (error) {
+        console.error('停止执行失败:', error);
+        showStatus(`停止失败: ${error.message}`, 'error');
+        resetExecutionState();
+    }
+}
+
+// 重置执行状态
+function resetExecutionState() {
+    console.log('🔧 [DEBUG] 重置执行状态');
+
+    executionState.isRunning = false;
+    executionState.isPaused = false;
+    executionState.startTime = null;
+    executionState.totalSteps = 0;
+    executionState.completedSteps = 0;
+    executionState.currentMainLoop = 0;
+    executionState.totalMainLoops = 0;
+    executionState.currentSubOperation = 0;
+    executionState.totalSubOperations = 0;
+    executionState.currentOperation = '等待执行...';
+
+    // 更新UI
+    updateExecutionUI();
+    updateExecutionStatus('idle', '等待执行...');
+}
+
+// 更新执行UI状态
+function updateExecutionUI() {
+    const executeBtn = document.getElementById('executeBtn');
+    const executionControls = document.getElementById('executionControls');
+    const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
+    if (executionState.isRunning) {
+        // 执行中状态
+        executeBtn.style.display = 'none';
+        executionControls.style.display = 'flex';
+
+        if (executionState.isPaused) {
+            // 暂停状态
+            pauseResumeBtn.innerHTML = '<span class="icon">▶️</span> 继续';
+            pauseResumeBtn.className = 'btn btn-success';
+        } else {
+            // 运行状态
+            pauseResumeBtn.innerHTML = '<span class="icon">⏸️</span> 暂停';
+            pauseResumeBtn.className = 'btn btn-warning';
+        }
+    } else {
+        // 空闲状态
+        executeBtn.style.display = 'block';
+        executionControls.style.display = 'none';
+    }
+}
 
 // 添加步骤
 function addStep(stepType) {
@@ -1646,53 +1839,86 @@ function showStatus(message, type) {
 
 // 监听来自content script的消息
 chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
+    console.log('🔧 [DEBUG] 插件面板收到消息:', message);
+
     if (message.action === 'executionProgress') {
         updateProgress(message.data);
     } else if (message.action === 'executionComplete') {
         onExecutionComplete(message.data);
     } else if (message.action === 'executionError') {
         onExecutionError(message.data);
+    } else if (message.action === 'executionPaused') {
+        executionState.isPaused = true;
+        updateExecutionUI();
+        updateExecutionStatus('warning', '执行已暂停');
+    } else if (message.action === 'executionResumed') {
+        executionState.isPaused = false;
+        updateExecutionUI();
+        updateExecutionStatus('executing', '继续执行中...');
+    } else if (message.action === 'executionStopped') {
+        resetExecutionState();
+        showStatus('执行已停止', 'warning');
     }
 });
 
-// 执行状态管理 - 使用utils/executionController.js中的executionState
-// let executionState - 已在utils/executionController.js中定义
+// 更新执行进度
+function updateProgress(progressData) {
+    console.log('📊 更新进度:', progressData);
 
-// 执行时间更新定时器
-let executionTimeTimer = null;
+    if (progressData.isRunning !== undefined) {
+        executionState.isRunning = progressData.isRunning;
+    }
+    if (progressData.isPaused !== undefined) {
+        executionState.isPaused = progressData.isPaused;
+    }
+    if (progressData.totalSteps !== undefined) {
+        executionState.totalSteps = progressData.totalSteps;
+    }
+    if (progressData.completedSteps !== undefined) {
+        executionState.completedSteps = progressData.completedSteps;
+    }
+    if (progressData.currentOperation !== undefined) {
+        executionState.currentOperation = progressData.currentOperation;
+    }
+    if (progressData.currentMainLoop !== undefined) {
+        executionState.currentMainLoop = progressData.currentMainLoop;
+    }
+    if (progressData.totalMainLoops !== undefined) {
+        executionState.totalMainLoops = progressData.totalMainLoops;
+    }
 
-// 更新执行进度 - 使用utils/executionController.js中的函数
-// updateProgress() 函数已在utils/executionController.js中定义
+    // 更新UI显示
+    updateExecutionUI();
 
-// 详细进度显示函数 - 使用utils/executionController.js中的函数
-// showDetailedProgress(), hideDetailedProgress() 函数已在utils/executionController.js中定义
+    // 更新状态消息
+    let statusMessage = progressData.currentOperation || '执行中...';
+    if (progressData.totalSteps > 0) {
+        statusMessage += ` (${progressData.completedSteps || 0}/${progressData.totalSteps})`;
+    }
 
-// 详细进度更新函数 - 使用utils/executionController.js中的函数
-// updateDetailedProgress() 函数已在utils/executionController.js中定义
-
-// 执行时间更新函数 - 使用utils/executionController.js中的函数
-// updateExecutionTime() 函数已在utils/executionController.js中定义
-
-// 暂停/继续控制函数在 utils/executionController.js 中定义
-// togglePauseResume(), pauseExecution(), resumeExecution() 函数已模块化
-
-// 暂停/继续按钮和状态指示器函数 - 使用utils/executionController.js中的函数
-// updatePauseResumeButton(), updateExecutionStatusIndicator() 函数已在utils/executionController.js中定义
+    const status = progressData.isPaused ? 'warning' : 'executing';
+    updateExecutionStatus(status, statusMessage);
+}
 
 // 执行完成回调
 function onExecutionComplete(stats) {
-    if (typeof window.resetExecutionState === 'function') {
-        window.resetExecutionState();
-    }
-    showStatus(`执行完成! 成功: ${stats.successCount}, 失败: ${stats.errorCount}`, 'success');
+    console.log('🎉 执行完成:', stats);
+    resetExecutionState();
+
+    const successCount = stats.successCount || 0;
+    const errorCount = stats.errorCount || 0;
+    const message = `执行完成! 成功: ${successCount}, 失败: ${errorCount}`;
+
+    showStatus(message, 'success');
 }
 
 // 执行错误回调
 function onExecutionError(error) {
-    if (typeof window.resetExecutionState === 'function') {
-        window.resetExecutionState();
-    }
-    showStatus(`执行失败: ${error.error || error.message}`, 'error');
+    console.error('❌ 执行错误:', error);
+    resetExecutionState();
+
+    const errorMessage = error.error || error.message || '未知错误';
+    showStatus(`执行失败: ${errorMessage}`, 'error');
 }
 
 // 保存当前工作流状态到本地存储
@@ -2183,10 +2409,6 @@ function showSubOperationModal(subOp, index) {
                 <select id="subOpAutoLoopActionType">
                     <option value="click" ${(subOp.actionType || 'click') === 'click' ? 'selected' : ''}>点击</option>
                     <option value="input" ${subOp.actionType === 'input' ? 'selected' : ''}>输入文本</option>
-                    <option value="check" ${subOp.actionType === 'check' ? 'selected' : ''}>勾选复选框</option>
-                    <option value="uncheck" ${subOp.actionType === 'uncheck' ? 'selected' : ''}>取消勾选</option>
-                    <option value="hover" ${subOp.actionType === 'hover' ? 'selected' : ''}>悬停</option>
-                    <option value="focus" ${subOp.actionType === 'focus' ? 'selected' : ''}>聚焦</option>
                 </select>
                 <div class="help-text">对每个匹配元素执行的操作类型</div>
             </div>
@@ -2940,10 +3162,7 @@ function escapeHtmlAttribute(str) {
 // 节点测试函数在 utils/stepEditor.js 中定义
 // testStepNode() 函数已模块化
 
-// 执行状态保存和加载函数在 utils/executionController.js 中定义
-// saveExecutionState(), loadExecutionState(), clearExecutionState() 函数已模块化
-
-// 执行状态加载和清除函数已在上面的注释中说明，已模块化
+// 执行状态管理函数已在上面定义
 
 // ==================== 新增的三栏布局功能 ====================
 
@@ -3042,6 +3261,24 @@ function initializeEventListeners() {
         console.log('✅ 执行按钮事件已绑定');
     } else {
         console.error('❌ 未找到执行按钮');
+    }
+
+    // 暂停/继续按钮
+    const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+    if (pauseResumeBtn) {
+        pauseResumeBtn.addEventListener('click', togglePauseResume);
+        console.log('✅ 暂停/继续按钮事件已绑定');
+    } else {
+        console.error('❌ 未找到暂停/继续按钮');
+    }
+
+    // 停止按钮
+    const stopBtn = document.getElementById('stopBtn');
+    if (stopBtn) {
+        stopBtn.addEventListener('click', stopExecution);
+        console.log('✅ 停止按钮事件已绑定');
+    } else {
+        console.error('❌ 未找到停止按钮');
     }
 
     // 配置选择下拉框
@@ -3179,5 +3416,4 @@ function initializeContextMenu() {
     console.log('右键菜单已初始化');
 }
 
-// 执行工作流函数 - 使用utils/executionController.js中的函数
-// executeWorkflow() 函数已在utils/executionController.js中定义
+// 执行工作流函数已在上面定义

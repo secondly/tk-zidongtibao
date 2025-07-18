@@ -447,87 +447,8 @@
         </div>
     </div>
 
-    <!-- 第一层弹窗 - 智能等待 -->
-    <div class="modal-overlay" id="modal1Overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title" id="modal1Title">第一层弹窗 - 智能等待</h3>
-                <button class="close-btn" onclick="closeModal(1)">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div style="text-align: center;">
-                    <div class="loading-spinner"></div>
-                    <div class="loading-text" id="loadingText">智能等待中，模拟网络请求...</div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal(1)">取消</button>
-                <button class="btn btn-primary" id="modal1NextBtn" onclick="openModal2()" disabled>下一步</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 第二层弹窗 - 多选列表 -->
-    <div class="modal-overlay" id="modal2Overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title" id="modal2Title">第二层弹窗 - 多选列表</h3>
-                <button class="close-btn" onclick="closeModal(2)">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="modal2LoadingState">
-                    <div style="text-align: center;">
-                        <div class="loading-spinner"></div>
-                        <div class="loading-text" id="modal2LoadingText">正在加载选择项...</div>
-                    </div>
-                </div>
-                <div id="modal2ContentState" style="display: none;">
-                    <p>请选择要处理的数据项（可多选）：</p>
-                    <div class="selection-list" id="selectionList">
-                        <!-- 多选项将在这里动态生成 -->
-                    </div>
-                    <div class="selection-preview" id="selectionPreview">
-                        已选择 0 项数据
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal(2)">返回</button>
-                <button class="btn btn-primary" id="modal2ConfirmBtn" onclick="openModal3()" disabled>确认选择</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 第三层弹窗 - 最终确认 -->
-    <div class="modal-overlay" id="modal3Overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title" id="modal3Title">第三层弹窗 - 最终确认</h3>
-                <button class="close-btn" onclick="closeModal(3)">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="modal3LoadingState">
-                    <div style="text-align: center;">
-                        <div class="loading-spinner"></div>
-                        <div class="loading-text" id="modal3LoadingText">正在生成操作摘要...</div>
-                    </div>
-                </div>
-                <div id="modal3ContentState" style="display: none;">
-                    <p>即将执行以下操作：</p>
-                    <div class="confirmation-summary" id="confirmationSummary">
-                        <!-- 确认信息将在这里动态生成 -->
-                    </div>
-                    <div class="warning-text" id="warningText" style="display: none;">
-                        ⚠️ 注意：此操作的确定按钮已被禁用用于测试
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal(3)">返回</button>
-                <button class="btn btn-primary" id="modal3ExecuteBtn" onclick="executeAction()" disabled>确定</button>
-            </div>
-        </div>
-    </div>
+    <!-- 动态弹窗容器 - 所有弹窗都将在这里动态创建 -->
+    <div id="dynamicModalContainer"></div>
 
     <script>
         // 虚拟滚动列表实现
@@ -654,6 +575,47 @@
         let modal3LoadingTimer = null;
         let selectedItems = new Set();
         let disabledItems = new Set();
+        let modalContainer = null;
+
+        // 动态创建弹窗的工具函数
+        function createModalElement(modalId, title, content, footer) {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.id = modalId;
+            overlay.style.display = 'flex';
+
+            overlay.innerHTML = `
+                <div class="modal">
+                    <div class="modal-header">
+                        <h3 class="modal-title">${title}</h3>
+                        <button class="close-btn" onclick="closeModal('${modalId}')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        ${content}
+                    </div>
+                    <div class="modal-footer">
+                        ${footer}
+                    </div>
+                </div>
+            `;
+
+            // 点击空白区域关闭弹窗
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    closeModal(modalId);
+                }
+            });
+
+            return overlay;
+        }
+
+        // 移除弹窗元素
+        function removeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal && modal.parentNode) {
+                modal.parentNode.removeChild(modal);
+            }
+        }
 
         function startNestedFlow(itemId, isPending) {
             currentFlow = {
@@ -668,17 +630,32 @@
         }
 
         function openModal1() {
-            const overlay = document.getElementById('modal1Overlay');
-            const title = document.getElementById('modal1Title');
+            console.log('🔧 [DEBUG] 开始动态创建第一层弹窗');
+
+            const modalId = 'modal1Overlay';
+            const title = `数据项目 #${String(currentFlow.itemId).padStart(3, '0')} - 智能等待`;
+
+            const content = `
+                <div style="text-align: center;">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text" id="loadingText">智能等待中，模拟网络请求...</div>
+                </div>
+            `;
+
+            const footer = `
+                <button class="btn btn-secondary" onclick="closeModal('${modalId}')">取消</button>
+                <button class="btn btn-primary" id="modal1NextBtn" onclick="openModal2()" disabled>加载中...</button>
+            `;
+
+            // 动态创建并添加弹窗
+            const modal = createModalElement(modalId, title, content, footer);
+            modalContainer.appendChild(modal);
+
+            console.log('🔧 [DEBUG] 第一层弹窗DOM已创建并添加到页面');
+
+            // 获取动态创建的元素
             const nextBtn = document.getElementById('modal1NextBtn');
             const loadingText = document.getElementById('loadingText');
-
-            title.textContent = `数据项目 #${String(currentFlow.itemId).padStart(3, '0')} - 智能等待`;
-
-            nextBtn.disabled = true;
-            nextBtn.textContent = '加载中...';
-
-            overlay.style.display = 'flex';
 
             // 模拟智能等待过程
             let countdown = 3;
@@ -693,33 +670,61 @@
                     nextBtn.disabled = false;
                     nextBtn.textContent = '下一步';
                     clearInterval(loadingTimer);
+                    console.log('🔧 [DEBUG] 第一层弹窗加载完成');
                 }
             }, 1000);
         }
 
         function openModal2() {
-            document.getElementById('modal1Overlay').style.display = 'none';
+            console.log('🔧 [DEBUG] 关闭第一层弹窗，开始创建第二层弹窗');
+
+            // 移除第一层弹窗
+            removeModal('modal1Overlay');
             if (loadingTimer) {
                 clearInterval(loadingTimer);
             }
 
-            const overlay = document.getElementById('modal2Overlay');
-            const title = document.getElementById('modal2Title');
+            const modalId = 'modal2Overlay';
+            const title = `数据项目 #${String(currentFlow.itemId).padStart(3, '0')} - 多选列表`;
+
+            const content = `
+                <div id="modal2LoadingState">
+                    <div style="text-align: center;">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text" id="modal2LoadingText">正在加载选择项...</div>
+                    </div>
+                </div>
+                <div id="modal2ContentState" style="display: none;">
+                    <p>请选择要处理的数据项（可多选）：</p>
+                    <div class="selection-list" id="selectionList">
+                        <!-- 多选项将在这里动态生成 -->
+                    </div>
+                    <div class="selection-preview" id="selectionPreview">
+                        已选择 0 项数据
+                    </div>
+                </div>
+            `;
+
+            const footer = `
+                <button class="btn btn-secondary" onclick="closeModal('${modalId}')">返回</button>
+                <button class="btn btn-primary" id="modal2ConfirmBtn" onclick="openModal3()" disabled>确认选择</button>
+            `;
+
+            // 动态创建并添加弹窗
+            const modal = createModalElement(modalId, title, content, footer);
+            modalContainer.appendChild(modal);
+
+            console.log('🔧 [DEBUG] 第二层弹窗DOM已创建并添加到页面');
+
+            // 获取动态创建的元素
             const loadingState = document.getElementById('modal2LoadingState');
             const contentState = document.getElementById('modal2ContentState');
             const confirmBtn = document.getElementById('modal2ConfirmBtn');
             const loadingText = document.getElementById('modal2LoadingText');
 
-            title.textContent = `数据项目 #${String(currentFlow.itemId).padStart(3, '0')} - 多选列表`;
-
             // 重置状态
-            loadingState.style.display = 'block';
-            contentState.style.display = 'none';
-            confirmBtn.disabled = true;
             selectedItems.clear();
             disabledItems.clear();
-
-            overlay.style.display = 'flex';
 
             // 模拟异步加载选择项
             let countdown = 2;
@@ -742,6 +747,7 @@
                     confirmBtn.disabled = false;
 
                     clearInterval(modal2LoadingTimer);
+                    console.log('🔧 [DEBUG] 第二层弹窗加载完成');
                 }
             }, 1000);
         }
@@ -824,29 +830,54 @@
         }
 
         function openModal3() {
-            document.getElementById('modal2Overlay').style.display = 'none';
+            console.log('🔧 [DEBUG] 关闭第二层弹窗，开始创建第三层弹窗');
+
+            // 移除第二层弹窗
+            removeModal('modal2Overlay');
             if (modal2LoadingTimer) {
                 clearInterval(modal2LoadingTimer);
             }
 
-            const overlay = document.getElementById('modal3Overlay');
-            const title = document.getElementById('modal3Title');
+            const modalId = 'modal3Overlay';
+            const title = `数据项目 #${String(currentFlow.itemId).padStart(3, '0')} - 最终确认`;
+
+            const content = `
+                <div id="modal3LoadingState">
+                    <div style="text-align: center;">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text" id="modal3LoadingText">正在生成操作摘要...</div>
+                    </div>
+                </div>
+                <div id="modal3ContentState" style="display: none;">
+                    <p>即将执行以下操作：</p>
+                    <div class="confirmation-summary" id="confirmationSummary">
+                        <!-- 确认信息将在这里动态生成 -->
+                    </div>
+                    <div class="warning-text" id="warningText" style="display: none;">
+                        ⚠️ 注意：此操作的确定按钮已被禁用用于测试
+                    </div>
+                </div>
+            `;
+
+            const footer = `
+                <button class="btn btn-secondary" onclick="closeModal('${modalId}')">返回</button>
+                <button class="btn btn-primary" id="modal3ExecuteBtn" onclick="executeAction()" disabled>确定</button>
+            `;
+
+            // 动态创建并添加弹窗
+            const modal = createModalElement(modalId, title, content, footer);
+            modalContainer.appendChild(modal);
+
+            console.log('🔧 [DEBUG] 第三层弹窗DOM已创建并添加到页面');
+
+            // 获取动态创建的元素
             const loadingState = document.getElementById('modal3LoadingState');
             const contentState = document.getElementById('modal3ContentState');
             const executeBtn = document.getElementById('modal3ExecuteBtn');
             const loadingText = document.getElementById('modal3LoadingText');
 
-            title.textContent = `数据项目 #${String(currentFlow.itemId).padStart(3, '0')} - 最终确认`;
-
-            // 重置状态
-            loadingState.style.display = 'block';
-            contentState.style.display = 'none';
-            executeBtn.disabled = true;
-
             // 保存当前选择的项目
             currentFlow.selectedItems = new Set(selectedItems);
-
-            overlay.style.display = 'flex';
 
             // 模拟异步生成操作摘要
             let countdown = 2;
@@ -870,6 +901,7 @@
                     executeBtn.disabled = currentFlow.isPending;
 
                     clearInterval(modal3LoadingTimer);
+                    console.log('🔧 [DEBUG] 第三层弹窗加载完成');
                 }
             }, 1000);
         }
@@ -898,35 +930,38 @@
         }
 
         function executeAction() {
+            console.log('🔧 [DEBUG] 执行操作');
             // 标记当前项目为已处理
             markItemAsProcessed(currentFlow.itemId);
             // 直接关闭所有弹窗，不显示alert
             closeAllModals();
         }
 
-        function closeModal(level) {
-            if (level === 1) {
-                document.getElementById('modal1Overlay').style.display = 'none';
-                if (loadingTimer) {
-                    clearInterval(loadingTimer);
-                }
-            } else if (level === 2) {
-                document.getElementById('modal2Overlay').style.display = 'none';
-                if (modal2LoadingTimer) {
-                    clearInterval(modal2LoadingTimer);
-                }
-            } else if (level === 3) {
-                // 第三层弹窗关闭时，无论是点击返回还是确定，都标记为已处理
-                if (currentFlow && currentFlow.itemId) {
-                    markItemAsProcessed(currentFlow.itemId);
-                }
-                document.getElementById('modal3Overlay').style.display = 'none';
-                if (modal3LoadingTimer) {
-                    clearInterval(modal3LoadingTimer);
-                }
+        function closeModal(modalId) {
+            console.log('🔧 [DEBUG] 关闭弹窗:', modalId);
+
+            // 清理定时器
+            if (modalId === 'modal1Overlay' && loadingTimer) {
+                clearInterval(loadingTimer);
+                loadingTimer = null;
+            } else if (modalId === 'modal2Overlay' && modal2LoadingTimer) {
+                clearInterval(modal2LoadingTimer);
+                modal2LoadingTimer = null;
+            } else if (modalId === 'modal3Overlay' && modal3LoadingTimer) {
+                clearInterval(modal3LoadingTimer);
+                modal3LoadingTimer = null;
             }
 
-            if (level === 1) {
+            // 第三层弹窗关闭时，标记为已处理
+            if (modalId === 'modal3Overlay' && currentFlow && currentFlow.itemId) {
+                markItemAsProcessed(currentFlow.itemId);
+            }
+
+            // 移除弹窗DOM元素
+            removeModal(modalId);
+
+            // 第一层弹窗关闭时，重置流程状态
+            if (modalId === 'modal1Overlay') {
                 currentFlow = null;
                 selectedItems.clear();
                 disabledItems.clear();
@@ -934,20 +969,28 @@
         }
 
         function closeAllModals() {
-            document.getElementById('modal1Overlay').style.display = 'none';
-            document.getElementById('modal2Overlay').style.display = 'none';
-            document.getElementById('modal3Overlay').style.display = 'none';
+            console.log('🔧 [DEBUG] 关闭所有弹窗');
 
+            // 移除所有可能存在的弹窗
+            removeModal('modal1Overlay');
+            removeModal('modal2Overlay');
+            removeModal('modal3Overlay');
+
+            // 清理所有定时器
             if (loadingTimer) {
                 clearInterval(loadingTimer);
+                loadingTimer = null;
             }
             if (modal2LoadingTimer) {
                 clearInterval(modal2LoadingTimer);
+                modal2LoadingTimer = null;
             }
             if (modal3LoadingTimer) {
                 clearInterval(modal3LoadingTimer);
+                modal3LoadingTimer = null;
             }
 
+            // 重置状态
             currentFlow = null;
             selectedItems.clear();
             disabledItems.clear();
@@ -989,6 +1032,14 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
+            // 初始化动态弹窗容器
+            modalContainer = document.getElementById('dynamicModalContainer');
+            if (!modalContainer) {
+                console.error('❌ 动态弹窗容器未找到');
+                return;
+            }
+            console.log('✅ 动态弹窗容器已初始化');
+
             const container = document.querySelector('.main-container');
             virtualListInstance = new VirtualList(container, {
                 itemHeight: 80,
