@@ -561,7 +561,7 @@ class CytoscapeWorkflowDesigner {
             },
             'smartWait': {
                 locator: { strategy: 'css', value: '' },
-                timeout: 10000,
+                timeout: 30000,
                 checkInterval: 500,
                 errorHandling: 'continue'
             },
@@ -741,7 +741,7 @@ class CytoscapeWorkflowDesigner {
                     </div>
                     <div class="form-group">
                         <label class="form-label">超时时间 (毫秒)</label>
-                        <input type="number" class="form-input" id="timeout" value="${config.timeout || 10000}" min="1000">
+                        <input type="number" class="form-input" id="timeout" value="${config.timeout || 30000}" min="1000">
                         <div class="form-help">等待元素出现的最大时间</div>
                     </div>
                     <div class="form-group">
@@ -972,7 +972,7 @@ class CytoscapeWorkflowDesigner {
         }
 
         if (timeoutInput) {
-            config.timeout = parseInt(timeoutInput.value) || 10000;
+            config.timeout = parseInt(timeoutInput.value) || 30000;
         }
 
         if (intervalInput) {
@@ -1027,7 +1027,7 @@ class CytoscapeWorkflowDesigner {
         }
 
         if (timeoutInput) {
-            config.timeout = parseInt(timeoutInput.value) || 5000;
+            config.timeout = parseInt(timeoutInput.value) || 30000;
         }
     }
 

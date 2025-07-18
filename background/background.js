@@ -426,15 +426,15 @@ function getCurrentTab() {
  * @param {number} timeout - 超时时间（毫秒）
  * @returns {Promise<any>} 响应结果
  */
-function sendMessageToTab(tabId, message, timeout = 5000) {
+function sendMessageToTab(tabId, message, timeout = 30000) {
   // 根据操作类型优化超时时间
   let adjustedTimeout = timeout;
   if (message.action === "findAllElements") {
-    adjustedTimeout = Math.min(timeout, 10000); // 最多10秒，而不是之前的30秒
+    adjustedTimeout = Math.min(timeout, 30000); // 最多30秒
   } else if (message.action === "performAction") {
-    adjustedTimeout = Math.min(timeout, 8000); // 最多8秒，而不是之前的15秒
+    adjustedTimeout = Math.min(timeout, 30000); // 最多30秒
   } else if (message.action === "performActionOnElementByIndex") {
-    adjustedTimeout = Math.min(timeout, 8000); // 最多8秒，而不是之前的15秒
+    adjustedTimeout = Math.min(timeout, 30000); // 最多30秒
   }
 
   return new Promise((resolve, reject) => {

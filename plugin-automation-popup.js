@@ -1075,7 +1075,7 @@ function createStepByType(type) {
             return {
                 ...baseStep,
                 locator: { strategy: 'css', value: '' },
-                timeout: 10000,
+                timeout: 30000,
                 interval: 500,
                 description: '等待元素出现'
             };
@@ -1429,7 +1429,7 @@ function generateStepEditHTML(step) {
             html += `
                 <div class="form-group">
                     <label>超时时间(毫秒)</label>
-                    <input type="number" id="editSmartWaitTimeout" value="${step.timeout || 10000}" min="1000" max="60000">
+                    <input type="number" id="editSmartWaitTimeout" value="${step.timeout || 30000}" min="1000" max="60000">
                 </div>
                 <div class="form-group">
                     <label>等待描述</label>
@@ -2173,7 +2173,7 @@ function showSubOperationModal(subOp, index) {
         </div>
         <div class="form-group" id="subOpDurationGroup" style="display: ${['wait', 'waitForElement'].includes(subOp.type) ? 'block' : 'none'};">
             <label>${subOp.type === 'wait' ? '等待时间(毫秒)' : '超时时间(毫秒)'}</label>
-            <input type="number" id="subOpDuration" value="${subOp.duration || subOp.timeout || 1000}" min="0">
+            <input type="number" id="subOpDuration" value="${subOp.duration || subOp.timeout || (subOp.type === 'waitForElement' ? 30000 : 1000)}" min="0">
         </div>
 
         <!-- 自循环专用配置 -->

@@ -342,7 +342,7 @@ class UniversalAutomationEngine {
         // 在执行具体操作前检查暂停状态
         await this.checkPause();
 
-        const timeout = step.timeout || 10000;
+        const timeout = step.timeout || 30000;
         const interval = step.interval || 500;
         const description = step.description || '元素出现';
 
@@ -872,7 +872,7 @@ class UniversalAutomationEngine {
     /**
      * 等待元素出现 (兼容性方法)
      */
-    async waitForElement(selector, timeout = 10000) {
+    async waitForElement(selector, timeout = 30000) {
         this.log(`⏳ 等待元素: ${selector}`);
 
         const startTime = Date.now();
@@ -1092,7 +1092,7 @@ class UniversalAutomationEngine {
 
             case 'waitForElement':
                 this.log(`🔍 子操作-等待元素: ${operation.locator.value}`, 'info');
-                await this.waitForElement(operation.locator, operation.timeout || 10000);
+                await this.waitForElement(operation.locator, operation.timeout || 30000);
                 break;
 
             case 'check':

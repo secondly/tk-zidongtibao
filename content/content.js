@@ -1331,7 +1331,7 @@ async function executeSmartWaitStep(step) {
     throw new Error('智能等待定位器缺少值(value)字段');
   }
 
-  const timeout = step.timeout || 10000;
+  const timeout = step.timeout || 30000;
   const checkInterval = step.checkInterval || 500;
 
   console.log(`🔍 智能等待元素出现: ${step.locator.strategy}=${step.locator.value}, 超时: ${timeout}ms`);
@@ -1715,7 +1715,7 @@ async function executeSubOperation(operation, parentElement = null) {
 
     case 'waitForElement':
       console.log(`🔍 子操作-等待元素: ${operation.locator.value}`);
-      const timeout = operation.timeout || 10000;
+      const timeout = operation.timeout || 30000;
       const startTime = Date.now();
       while (Date.now() - startTime < timeout) {
         try {

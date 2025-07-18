@@ -60,7 +60,7 @@ function createStepByType(type) {
             return {
                 ...baseStep,
                 locator: { strategy: 'css', value: '' },
-                timeout: 10000
+                timeout: 30000
             };
         case 'loop':
             return {

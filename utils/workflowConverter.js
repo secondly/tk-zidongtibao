@@ -42,7 +42,7 @@ function convertGraphToWorkflow(graph, workflowName = '新工作流') {
 
                 console.log(`  子节点 ${childIndex + 1}: ${childVertex.id} (${childData.type})`);
 
-                return {
+                const subStepData = {
                     id: childData.id || childVertex.id || `sub_${vertex.id}_${childIndex}`,
                     type: childData.type || 'click',
                     name: childData.name || getNodeTypeName(childData.type),
@@ -58,6 +58,50 @@ function convertGraphToWorkflow(graph, workflowName = '新工作流') {
                     width: childGeometry ? childGeometry.width : 100,
                     height: childGeometry ? childGeometry.height : 40
                 };
+
+                // 为子操作添加类型特定的字段
+                switch (childData.type) {
+                    case 'input':
+                        if (childData.inputText) subStepData.inputText = childData.inputText;
+                        if (childData.clearFirst !== undefined) subStepData.clearFirst = childData.clearFirst;
+                        break;
+                    case 'wait':
+                        if (childData.waitType) subStepData.waitType = childData.waitType;
+                        if (childData.waitTime) subStepData.waitTime = childData.waitTime;
+                        break;
+                    case 'smartWait':
+                        if (childData.timeout) subStepData.timeout = childData.timeout;
+                        if (childData.checkInterval) subStepData.checkInterval = childData.checkInterval;
+                        if (childData.waitCondition) subStepData.waitCondition = childData.waitCondition;
+                        if (childData.attributeName !== undefined) subStepData.attributeName = childData.attributeName;
+                        console.log('🔧 [DEBUG] 导出智能等待子操作:', {
+                            timeout: subStepData.timeout,
+                            checkInterval: subStepData.checkInterval,
+                            waitCondition: subStepData.waitCondition,
+                            attributeName: subStepData.attributeName
+                        });
+                        break;
+                    case 'extract':
+                        if (childData.extractType) subStepData.extractType = childData.extractType;
+                        if (childData.attributeName) subStepData.attributeName = childData.attributeName;
+                        if (childData.variableName) subStepData.variableName = childData.variableName;
+                        break;
+                    case 'condition':
+                        console.log('🔧 [DEBUG] 导出条件判断子操作，原始childData:', childData);
+                        if (childData.conditionType) subStepData.conditionType = childData.conditionType;
+                        if (childData.comparisonType) subStepData.comparisonType = childData.comparisonType;
+                        if (childData.expectedValue !== undefined) subStepData.expectedValue = childData.expectedValue;
+                        if (childData.attributeName !== undefined) subStepData.attributeName = childData.attributeName;
+                        console.log('🔧 [DEBUG] 导出条件判断子操作，最终subStepData:', {
+                            conditionType: subStepData.conditionType,
+                            comparisonType: subStepData.comparisonType,
+                            expectedValue: subStepData.expectedValue,
+                            attributeName: subStepData.attributeName
+                        });
+                        break;
+                }
+
+                return subStepData;
             });
         }
 
@@ -89,13 +133,35 @@ function convertGraphToWorkflow(graph, workflowName = '新工作流') {
                 if (nodeData.waitTime) stepData.waitTime = nodeData.waitTime;
                 break;
             case 'smartWait':
+                console.log('🔧 [DEBUG] 导出智能等待节点，原始nodeData:', nodeData);
                 if (nodeData.timeout) stepData.timeout = nodeData.timeout;
                 if (nodeData.checkInterval) stepData.checkInterval = nodeData.checkInterval;
+                if (nodeData.waitCondition) stepData.waitCondition = nodeData.waitCondition;
+                if (nodeData.attributeName !== undefined) stepData.attributeName = nodeData.attributeName;
+                console.log('🔧 [DEBUG] 导出智能等待节点，最终stepData:', {
+                    timeout: stepData.timeout,
+                    checkInterval: stepData.checkInterval,
+                    waitCondition: stepData.waitCondition,
+                    attributeName: stepData.attributeName
+                });
                 break;
             case 'extract':
                 if (nodeData.extractType) stepData.extractType = nodeData.extractType;
                 if (nodeData.attributeName) stepData.attributeName = nodeData.attributeName;
                 if (nodeData.variableName) stepData.variableName = nodeData.variableName;
+                break;
+            case 'condition':
+                console.log('🔧 [DEBUG] 导出条件判断节点，原始nodeData:', nodeData);
+                if (nodeData.conditionType) stepData.conditionType = nodeData.conditionType;
+                if (nodeData.comparisonType) stepData.comparisonType = nodeData.comparisonType;
+                if (nodeData.expectedValue !== undefined) stepData.expectedValue = nodeData.expectedValue;
+                if (nodeData.attributeName !== undefined) stepData.attributeName = nodeData.attributeName;
+                console.log('🔧 [DEBUG] 导出条件判断节点，最终stepData:', {
+                    conditionType: stepData.conditionType,
+                    comparisonType: stepData.comparisonType,
+                    expectedValue: stepData.expectedValue,
+                    attributeName: stepData.attributeName
+                });
                 break;
         }
 
@@ -304,8 +370,19 @@ function convertWorkflowToGraph(graph, workflow) {
                     nodeMap.set(node.id, node); // 也添加mxGraph生成的ID
                 }
 
-                // 确保节点数据同步
-                node.nodeData = { ...step, id: step.id };
+                // 确保节点数据同步，并为旧数据添加默认配置
+                const nodeData = { ...step, id: step.id };
+
+                // 为旧的条件判断节点添加默认配置（向后兼容性）
+                if (nodeData.type === 'condition') {
+                    if (!nodeData.conditionType) nodeData.conditionType = 'attribute';
+                    if (!nodeData.comparisonType) nodeData.comparisonType = 'equals';
+                    if (!nodeData.expectedValue) nodeData.expectedValue = '';
+                    if (!nodeData.attributeName) nodeData.attributeName = '';
+                    console.log('🔧 [DEBUG] 为导入的旧条件判断节点添加默认配置:', nodeData);
+                }
+
+                node.nodeData = nodeData;
 
                 console.log(`节点映射: ${step.id} -> ${node.id}`);
 
@@ -334,8 +411,19 @@ function convertWorkflowToGraph(graph, workflow) {
 
                         const subNode = graph.insertVertex(node, subNodeId, displayText, subX, subY, subWidth, subHeight, style);
 
-                        // 设置子节点数据
-                        subNode.nodeData = { ...subOp, id: subNodeId };
+                        // 设置子节点数据，并为旧数据添加默认配置
+                        const subNodeData = { ...subOp, id: subNodeId };
+
+                        // 为旧的条件判断子节点添加默认配置（向后兼容性）
+                        if (subNodeData.type === 'condition') {
+                            if (!subNodeData.conditionType) subNodeData.conditionType = 'attribute';
+                            if (!subNodeData.comparisonType) subNodeData.comparisonType = 'equals';
+                            if (!subNodeData.expectedValue) subNodeData.expectedValue = '';
+                            if (!subNodeData.attributeName) subNodeData.attributeName = '';
+                            console.log('🔧 [DEBUG] 为导入的旧条件判断子节点添加默认配置:', subNodeData);
+                        }
+
+                        subNode.nodeData = subNodeData;
 
                         // 也将子节点添加到映射中，以便后续可能的连接
                         nodeMap.set(subOp.id, subNode);

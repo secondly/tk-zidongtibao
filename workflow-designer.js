@@ -727,7 +727,7 @@ class WorkflowDesigner {
             },
             'smartWait': {
                 locator: { strategy: 'css', value: '' },
-                timeout: 10000,
+                timeout: 30000,
                 checkInterval: 500,
                 errorHandling: 'continue'
             },
@@ -1248,7 +1248,7 @@ class WorkflowDesigner {
         }
 
         if (timeoutInput) {
-            config.timeout = parseInt(timeoutInput.value) || 10000;
+            config.timeout = parseInt(timeoutInput.value) || 30000;
         }
 
         if (intervalInput) {
@@ -1303,7 +1303,7 @@ class WorkflowDesigner {
         }
 
         if (timeoutInput) {
-            config.timeout = parseInt(timeoutInput.value) || 5000;
+            config.timeout = parseInt(timeoutInput.value) || 30000;
         }
     }
 

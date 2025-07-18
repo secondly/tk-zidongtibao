@@ -852,6 +852,15 @@ class MxGraphWorkflowDesigner {
             }
         }
 
+        // 为旧的条件判断节点添加默认配置（向后兼容性）
+        if (config.type === 'condition') {
+            if (!config.conditionType) config.conditionType = 'attribute';
+            if (!config.comparisonType) config.comparisonType = 'equals';
+            if (!config.expectedValue) config.expectedValue = '';
+            if (!config.attributeName) config.attributeName = '';
+            console.log('🔧 [DEBUG] 为旧条件判断节点添加默认配置:', config);
+        }
+
         const nodeType = config.type || 'unknown';
 
         console.log(`显示属性面板: ${cell.id}, 类型: ${nodeType}, 配置:`, config);
@@ -1057,6 +1066,57 @@ class MxGraphWorkflowDesigner {
     
     exportData() {
         try {
+            // 检查FileExportManager是否可用
+            if (typeof window.FileExportManager === 'undefined') {
+                console.error('❌ FileExportManager 未加载，回退到原始导出方式');
+                this.exportDataFallback();
+                return;
+            }
+
+            // 获取工作流数据
+            const workflowData = this.exportWorkflowData();
+
+            // 验证工作流数据
+            const validation = window.FileExportManager.validateWorkflowData(workflowData);
+            if (!validation.valid) {
+                this.updateStatus(`导出失败: ${validation.message}`);
+                return;
+            }
+
+            // 生成默认文件名（基于工作流名称或时间戳）
+            const workflowName = workflowData.name || '未命名工作流';
+            const defaultName = window.FileExportManager.generateDefaultFileName(
+                workflowName.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')
+            );
+
+            // 使用模块化导出管理器
+            window.FileExportManager.exportWorkflowWithDialog(workflowData, {
+                defaultName: defaultName,
+                onSuccess: (fileName) => {
+                    this.updateStatus(`✅ 工作流已成功导出: ${fileName}.json`);
+                    console.log(`✅ 工作流导出成功: ${fileName}.json`);
+                },
+                onCancel: () => {
+                    this.updateStatus('导出已取消');
+                    console.log('📤 用户取消导出操作');
+                },
+                onError: (errorMessage) => {
+                    this.updateStatus(`❌ 导出失败: ${errorMessage}`);
+                    console.error('❌ 导出失败:', errorMessage);
+                }
+            });
+
+        } catch (error) {
+            console.error('❌ 导出过程中发生错误:', error);
+            this.updateStatus('导出失败: ' + error.message);
+            // 回退到原始导出方式
+            this.exportDataFallback();
+        }
+    }
+
+    // 原始导出方式（作为回退方案）
+    exportDataFallback() {
+        try {
             const data = this.exportWorkflowData();
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -1071,7 +1131,7 @@ class MxGraphWorkflowDesigner {
             URL.revokeObjectURL(url);
             this.updateStatus(`工作流数据已导出为 ${a.download}`);
         } catch (error) {
-            console.error('导出失败:', error);
+            console.error('回退导出失败:', error);
             this.updateStatus('导出失败: ' + error.message);
         }
     }
@@ -1468,16 +1528,23 @@ class MxGraphWorkflowDesigner {
                     </div>
                     <div class="form-group">
                         <label class="form-label">等待条件</label>
-                        <select class="form-select" id="waitCondition">
+                        <select class="form-select" id="waitCondition" onchange="window.workflowDesigner.toggleAttributeField(this)">
                             <option value="appear" ${config.waitCondition === 'appear' ? 'selected' : ''}>等待元素出现</option>
                             <option value="disappear" ${config.waitCondition === 'disappear' ? 'selected' : ''}>等待元素消失</option>
                             <option value="visible" ${config.waitCondition === 'visible' ? 'selected' : ''}>等待元素可见</option>
                             <option value="hidden" ${config.waitCondition === 'hidden' ? 'selected' : ''}>等待元素隐藏</option>
+                            <option value="attributeAppear" ${config.waitCondition === 'attributeAppear' ? 'selected' : ''}>等待属性出现</option>
                         </select>
+                    </div>
+                    <div class="form-group" id="attributeNameGroup" style="display: ${config.waitCondition === 'attributeAppear' ? 'block' : 'none'};">
+                        <label class="form-label">等待的属性内容</label>
+                        <input type="text" class="form-input" id="attributeName" value="${config.attributeName || ''}" placeholder="例如：disabled、checked、data-loaded等">
+                        <button type="button" class="test-attribute-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🧪 测试等待</button>
+                        <div class="form-help">要等待出现的属性名称</div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">超时时间(毫秒)</label>
-                        <input type="number" class="form-input" id="timeout" value="${config.timeout || 10000}" min="1000" max="60000" step="1000">
+                        <input type="number" class="form-input" id="timeout" value="${config.timeout || 30000}" min="1000" max="60000" step="1000">
                         <div class="form-help">最长等待时间，超时后继续执行</div>
                     </div>
                     <div class="form-group">
@@ -1760,6 +1827,14 @@ class MxGraphWorkflowDesigner {
             });
         }
 
+        // 绑定测试属性按钮事件（智能等待）
+        const testAttributeBtn = document.querySelector('.test-attribute-btn');
+        if (testAttributeBtn) {
+            testAttributeBtn.addEventListener('click', (e) => {
+                this.testSmartWaitAttribute(e.target);
+            });
+        }
+
         // 绑定条件类型选择器事件
         const conditionTypeSelect = document.getElementById('conditionType');
         if (conditionTypeSelect) {
@@ -1801,7 +1876,10 @@ class MxGraphWorkflowDesigner {
     }
 
     saveNodeConfig(cell) {
+        console.log('🔧 [DEBUG] 开始保存节点配置，节点ID:', cell.id);
+
         const config = this.nodeConfigs.get(cell.id) || {};
+        console.log('🔧 [DEBUG] 当前节点配置:', config);
 
         // 获取基础配置
         const nameInput = document.getElementById('nodeName');
@@ -1866,6 +1944,16 @@ class MxGraphWorkflowDesigner {
                 const waitCondition = document.getElementById('waitCondition');
                 const timeout = document.getElementById('timeout');
                 const checkInterval = document.getElementById('checkInterval');
+                const smartWaitAttributeName = document.getElementById('attributeName');
+
+                console.log('🔧 [DEBUG] 保存智能等待节点配置，表单元素:', {
+                    locatorType: smartWaitLocatorType?.value,
+                    locatorValue: smartWaitLocatorValue?.value,
+                    waitCondition: waitCondition?.value,
+                    timeout: timeout?.value,
+                    checkInterval: checkInterval?.value,
+                    attributeName: smartWaitAttributeName?.value
+                });
 
                 if (smartWaitLocatorType && smartWaitLocatorValue) {
                     config.locator = {
@@ -1876,6 +1964,9 @@ class MxGraphWorkflowDesigner {
                 if (waitCondition) config.waitCondition = waitCondition.value;
                 if (timeout) config.timeout = parseInt(timeout.value);
                 if (checkInterval) config.checkInterval = parseInt(checkInterval.value);
+                if (smartWaitAttributeName) config.attributeName = smartWaitAttributeName.value;
+
+                console.log('🔧 [DEBUG] 智能等待节点配置已保存:', config);
                 break;
 
             case 'checkState':
@@ -1943,6 +2034,8 @@ class MxGraphWorkflowDesigner {
                 break;
 
             case 'condition':
+                console.log('🔧 [DEBUG] 开始保存条件判断节点配置');
+
                 const conditionLocatorType = document.getElementById('locatorType');
                 const conditionLocatorValue = document.getElementById('locatorValue');
                 const conditionType = document.getElementById('conditionType');
@@ -1950,7 +2043,16 @@ class MxGraphWorkflowDesigner {
                 const comparisonType = document.getElementById('comparisonType');
                 const conditionExpectedValue = document.getElementById('expectedValue');
 
-                console.log('🔧 [DEBUG] 保存条件判断节点配置，表单元素:', {
+                console.log('🔧 [DEBUG] 表单元素查找结果:', {
+                    conditionLocatorType: !!conditionLocatorType,
+                    conditionLocatorValue: !!conditionLocatorValue,
+                    conditionType: !!conditionType,
+                    attributeName: !!attributeName,
+                    comparisonType: !!comparisonType,
+                    conditionExpectedValue: !!conditionExpectedValue
+                });
+
+                console.log('🔧 [DEBUG] 表单元素值:', {
                     conditionLocatorType: conditionLocatorType?.value,
                     conditionLocatorValue: conditionLocatorValue?.value,
                     conditionType: conditionType?.value,
@@ -1964,11 +2066,34 @@ class MxGraphWorkflowDesigner {
                         strategy: conditionLocatorType.value,  // 使用 strategy 而不是 type
                         value: conditionLocatorValue.value
                     };
+                    console.log('🔧 [DEBUG] 定位器已保存:', config.locator);
+                } else {
+                    console.warn('🔧 [DEBUG] 定位器元素未找到或为空');
                 }
-                if (conditionType) config.conditionType = conditionType.value;
-                if (attributeName) config.attributeName = attributeName.value;
-                if (comparisonType) config.comparisonType = comparisonType.value;
-                if (conditionExpectedValue) config.expectedValue = conditionExpectedValue.value;
+
+                if (conditionType) {
+                    config.conditionType = conditionType.value;
+                    console.log('🔧 [DEBUG] 条件类型已保存:', config.conditionType);
+                } else {
+                    console.warn('🔧 [DEBUG] 条件类型元素未找到');
+                }
+
+                if (attributeName) {
+                    config.attributeName = attributeName.value;
+                    console.log('🔧 [DEBUG] 属性名称已保存:', config.attributeName);
+                }
+
+                if (comparisonType) {
+                    config.comparisonType = comparisonType.value;
+                    console.log('🔧 [DEBUG] 比较方式已保存:', config.comparisonType);
+                } else {
+                    console.warn('🔧 [DEBUG] 比较方式元素未找到');
+                }
+
+                if (conditionExpectedValue) {
+                    config.expectedValue = conditionExpectedValue.value;
+                    console.log('🔧 [DEBUG] 期望值已保存:', config.expectedValue);
+                }
 
                 console.log('🔧 [DEBUG] 条件判断节点配置已保存:', config);
                 break;
@@ -2382,6 +2507,121 @@ class MxGraphWorkflowDesigner {
         const comparisonSelect = document.getElementById('comparisonType');
         if (comparisonSelect) {
             this.toggleExpectedValueField(comparisonSelect);
+        }
+    }
+
+    // 切换智能等待属性字段显示
+    toggleAttributeField(select) {
+        const attributeGroup = document.getElementById('attributeNameGroup');
+        if (attributeGroup) {
+            attributeGroup.style.display = select.value === 'attributeAppear' ? 'block' : 'none';
+        }
+    }
+
+    // 测试智能等待属性功能
+    async testSmartWaitAttribute(button) {
+        const locatorType = document.getElementById('locatorType');
+        const locatorValue = document.getElementById('locatorValue');
+        const attributeName = document.getElementById('attributeName');
+
+        if (!locatorType || !locatorValue || !attributeName) {
+            console.error('❌ 测试属性失败：表单元素未找到');
+            return;
+        }
+
+        if (!locatorValue.value.trim()) {
+            button.style.background = '#dc3545';
+            button.textContent = '❌ 请输入定位值';
+            setTimeout(() => {
+                button.style.background = '#28a745';
+                button.textContent = '🧪 测试等待';
+            }, 2000);
+            return;
+        }
+
+        if (!attributeName.value.trim()) {
+            button.style.background = '#dc3545';
+            button.textContent = '❌ 请输入属性名';
+            setTimeout(() => {
+                button.style.background = '#28a745';
+                button.textContent = '🧪 测试等待';
+            }, 2000);
+            return;
+        }
+
+        // 更新按钮状态
+        const originalText = button.textContent;
+        button.style.background = '#ffc107';
+        button.textContent = '🔄 测试中...';
+        button.disabled = true;
+
+        try {
+            console.log('🧪 开始测试智能等待属性:', {
+                locatorType: locatorType.value,
+                locatorValue: locatorValue.value,
+                attributeName: attributeName.value
+            });
+
+            // 使用定位器测试器查找元素
+            if (!window.locatorTester) {
+                if (typeof window.LocatorTester === 'undefined') {
+                    throw new Error('LocatorTester 类未加载，请确保 locatorTester.js 已正确引入');
+                }
+                window.locatorTester = new window.LocatorTester();
+            }
+
+            const locatorConfig = {
+                strategy: locatorType.value,
+                value: locatorValue.value.trim()
+            };
+
+            const result = await window.locatorTester.testLocator(locatorConfig);
+
+            if (result.success && result.elements && result.elements.length > 0) {
+                const element = result.elements[0];
+                const hasAttribute = element.hasAttribute(attributeName.value.trim());
+
+                console.log('🧪 属性测试结果:', {
+                    element: element,
+                    attributeName: attributeName.value.trim(),
+                    hasAttribute: hasAttribute,
+                    attributeValue: hasAttribute ? element.getAttribute(attributeName.value.trim()) : null
+                });
+
+                if (hasAttribute) {
+                    button.style.background = '#28a745';
+                    button.textContent = '✅ 属性已存在';
+
+                    // 高亮显示元素
+                    element.style.border = '3px solid #28a745';
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    // 3秒后移除高亮
+                    setTimeout(() => {
+                        element.style.border = '';
+                    }, 3000);
+                } else {
+                    button.style.background = '#ffc107';
+                    button.textContent = '⚠️ 属性不存在';
+                }
+            } else {
+                button.style.background = '#dc3545';
+                button.textContent = '❌ 元素未找到';
+                console.error('属性测试失败: 元素未找到');
+            }
+
+        } catch (error) {
+            button.style.background = '#dc3545';
+            button.textContent = '❌ 测试失败';
+            console.error('属性测试失败:', error);
+        } finally {
+            button.disabled = false;
+
+            // 3秒后恢复按钮状态
+            setTimeout(() => {
+                button.style.background = '#28a745';
+                button.textContent = originalText;
+            }, 3000);
         }
     }
 
