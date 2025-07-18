@@ -1061,30 +1061,125 @@ async function executeWorkflow() {
         updateExecutionUI();
         updateExecutionStatus('executing', '正在执行工作流...');
 
-        // 发送消息到content script执行
-        chrome.tabs.sendMessage(tab.id, {
-            action: 'executeWorkflow',
-            workflow: currentWorkflow
-        }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.error('执行失败:', chrome.runtime.lastError);
-                resetExecutionState();
-                showStatus(`执行失败: ${chrome.runtime.lastError.message}`, 'error');
-            } else if (response && response.success) {
-                resetExecutionState();
-                showStatus('工作流执行完成', 'success');
-            } else {
-                resetExecutionState();
-                showStatus(`执行失败: ${response?.error || '未知错误'}`, 'error');
+        // 首先确保content script已加载
+        const ensureContentScriptLoaded = async () => {
+            try {
+                // 尝试发送ping消息测试连接
+                const pingResponse = await new Promise((resolve, reject) => {
+                    const timeoutId = setTimeout(() => {
+                        reject(new Error('ping超时'));
+                    }, 3000);
+
+                    chrome.tabs.sendMessage(tab.id, { action: 'ping' }, (response) => {
+                        clearTimeout(timeoutId);
+                        if (chrome.runtime.lastError) {
+                            reject(new Error(chrome.runtime.lastError.message));
+                        } else {
+                            resolve(response);
+                        }
+                    });
+                });
+
+                if (pingResponse && pingResponse.success) {
+                    console.log('✅ Content script已就绪');
+                    return true;
+                }
+            } catch (error) {
+                console.log('⚠️ Content script未就绪，尝试注入:', error.message);
             }
-        });
+
+            // 如果ping失败，尝试注入content script
+            try {
+                await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: ['content/content.js']
+                });
+
+                // 等待一下让脚本初始化
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // 再次测试连接
+                const retryResponse = await new Promise((resolve, reject) => {
+                    const timeoutId = setTimeout(() => {
+                        reject(new Error('重试ping超时'));
+                    }, 3000);
+
+                    chrome.tabs.sendMessage(tab.id, { action: 'ping' }, (response) => {
+                        clearTimeout(timeoutId);
+                        if (chrome.runtime.lastError) {
+                            reject(new Error(chrome.runtime.lastError.message));
+                        } else {
+                            resolve(response);
+                        }
+                    });
+                });
+
+                if (retryResponse && retryResponse.success) {
+                    console.log('✅ Content script注入成功');
+                    return true;
+                } else {
+                    throw new Error('Content script注入后仍无响应');
+                }
+            } catch (injectError) {
+                console.error('❌ 无法注入content script:', injectError);
+                throw new Error('无法建立与页面的连接，请刷新页面后重试');
+            }
+        };
+
+        // 使用Promise包装消息发送，添加超时处理
+        const executeWithTimeout = () => {
+            return new Promise((resolve, reject) => {
+                // 设置30秒超时
+                const timeoutId = setTimeout(() => {
+                    reject(new Error('执行超时（30秒）'));
+                }, 30000);
+
+                // 发送消息到content script执行
+                chrome.tabs.sendMessage(tab.id, {
+                    action: 'executeWorkflow',
+                    workflow: currentWorkflow
+                }, (response) => {
+                    clearTimeout(timeoutId);
+
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else if (response && response.success) {
+                        resolve(response);
+                    } else {
+                        reject(new Error(response?.error || '未知错误'));
+                    }
+                });
+            });
+        };
+
+        // 确保content script已加载
+        await ensureContentScriptLoaded();
+
+        // 执行工作流
+        const result = await executeWithTimeout();
+        resetExecutionState();
+        showStatus('工作流执行完成', 'success');
+        console.log('✅ 工作流执行成功:', result);
 
     } catch (error) {
         console.error('执行工作流失败:', error);
-        showStatus(`执行工作流失败: ${error.message}`, 'error');
         resetExecutionState();
+
+        // 根据错误类型提供更具体的错误信息
+        let errorMessage = error.message;
+        if (error.message.includes('Could not establish connection')) {
+            errorMessage = '无法连接到页面，请刷新页面后重试';
+        } else if (error.message.includes('Receiving end does not exist')) {
+            errorMessage = '页面连接已断开，请刷新页面后重试';
+        } else if (error.message.includes('ping超时')) {
+            errorMessage = '页面响应超时，请检查页面是否正常加载';
+        }
+
+        showStatus(`执行失败: ${errorMessage}`, 'error');
     }
 }
+
+
 
 // 暂停/继续执行
 async function togglePauseResume() {

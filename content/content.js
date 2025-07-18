@@ -531,23 +531,36 @@ async function findElementsByStrategy(strategy, value, timeout = 5000) {
     }
   }
 
-  // 对于需要轮询的情况（未找到元素或复杂查询如文本查找）
+  // 使用异步轮询避免阻塞主线程
+  return await performAsyncElementSearch(strategy, value, timeout);
+}
+
+/**
+ * 异步元素搜索，避免阻塞主线程
+ * @param {string} strategy - 定位策略
+ * @param {string} value - 定位值
+ * @param {number} timeout - 超时时间
+ * @returns {Promise<HTMLElement[]>} - 找到的元素数组
+ */
+async function performAsyncElementSearch(strategy, value, timeout) {
   const startTime = Date.now();
   let elements = [];
 
   // 减少轮询频率，特别是对于文本查找
-  const pollingInterval =
-    strategy === "text" || strategy === "contains" ? 300 : 100;
-  let lastQueryTime = 0;
+  const pollingInterval = strategy === "text" || strategy === "contains" ? 300 : 100;
 
   while (Date.now() - startTime < timeout) {
-    // 限制查询频率，减少DOM操作频率
-    if (Date.now() - lastQueryTime < pollingInterval) {
-      await new Promise((resolve) => setTimeout(resolve, 50)); // 短暂休眠
-      continue;
+    // 检查暂停状态 - 如果暂停则立即停止搜索
+    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
+      console.log('🔧 [DEBUG] 元素搜索检测到暂停状态，停止搜索');
+      break;
     }
 
-    lastQueryTime = Date.now();
+    // 检查高级引擎暂停状态
+    if (window.automationEngine && window.automationEngine.isPaused) {
+      console.log('🔧 [DEBUG] 元素搜索检测到高级引擎暂停状态，停止搜索');
+      break;
+    }
 
     try {
       elements = await performSingleElementSearch(strategy, value);
@@ -560,8 +573,14 @@ async function findElementsByStrategy(strategy, value, timeout = 5000) {
       console.error(`查找元素时出错:`, error);
     }
 
-    // 等待一段时间再试，减少CPU占用
-    await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+    // 使用 requestAnimationFrame 或 setTimeout 让出主线程，避免阻塞
+    await new Promise((resolve) => {
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => setTimeout(resolve, pollingInterval));
+      } else {
+        setTimeout(resolve, pollingInterval);
+      }
+    });
   }
 
   console.log(
@@ -658,6 +677,17 @@ async function findElement(strategy, selector, timeout = 5000) {
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
+    // 检查暂停状态
+    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
+      console.log('🔧 [DEBUG] findElement检测到暂停状态，停止查找');
+      throw new Error('查找已暂停');
+    }
+
+    if (window.automationEngine && window.automationEngine.isPaused) {
+      console.log('🔧 [DEBUG] findElement检测到高级引擎暂停状态，停止查找');
+      throw new Error('查找已暂停');
+    }
+
     let element = null;
 
     try {
@@ -680,8 +710,14 @@ async function findElement(strategy, selector, timeout = 5000) {
       console.error(`查找元素时出错:`, error);
     }
 
-    // 等待100ms再试
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // 使用异步等待避免阻塞主线程
+    await new Promise((resolve) => {
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => setTimeout(resolve, 100));
+      } else {
+        setTimeout(resolve, 100);
+      }
+    });
   }
 
   throw new Error(`超时(${timeout}ms)：无法找到元素 ${strategy}="${selector}"`);
@@ -699,6 +735,17 @@ async function findElementByText(text, tagNames = ["*"], timeout = 5000) {
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
+    // 检查暂停状态
+    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
+      console.log('🔧 [DEBUG] findElementByText检测到暂停状态，停止查找');
+      throw new Error('查找已暂停');
+    }
+
+    if (window.automationEngine && window.automationEngine.isPaused) {
+      console.log('🔧 [DEBUG] findElementByText检测到高级引擎暂停状态，停止查找');
+      throw new Error('查找已暂停');
+    }
+
     for (const tagName of tagNames) {
       const elements = document.querySelectorAll(tagName);
 
@@ -710,8 +757,14 @@ async function findElementByText(text, tagNames = ["*"], timeout = 5000) {
       }
     }
 
-    // 等待100ms再试
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // 使用异步等待避免阻塞主线程
+    await new Promise((resolve) => {
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => setTimeout(resolve, 100));
+      } else {
+        setTimeout(resolve, 100);
+      }
+    });
   }
 
   throw new Error(`超时(${timeout}ms)：无法找到文本为"${text}"的元素`);
@@ -733,6 +786,17 @@ async function findElementContainingText(
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
+    // 检查暂停状态
+    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
+      console.log('🔧 [DEBUG] findElementContainingText检测到暂停状态，停止查找');
+      throw new Error('查找已暂停');
+    }
+
+    if (window.automationEngine && window.automationEngine.isPaused) {
+      console.log('🔧 [DEBUG] findElementContainingText检测到高级引擎暂停状态，停止查找');
+      throw new Error('查找已暂停');
+    }
+
     for (const tagName of tagNames) {
       const elements = document.querySelectorAll(tagName);
 
@@ -744,8 +808,14 @@ async function findElementContainingText(
       }
     }
 
-    // 等待100ms再试
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // 使用异步等待避免阻塞主线程
+    await new Promise((resolve) => {
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => setTimeout(resolve, 100));
+      } else {
+        setTimeout(resolve, 100);
+      }
+    });
   }
 
   throw new Error(`超时(${timeout}ms)：无法找到包含文本"${text}"的元素`);
@@ -762,6 +832,17 @@ async function findElementByXPath(xpath, timeout = 5000) {
   const startTime = Date.now();
 
   while (Date.now() - startTime < timeout) {
+    // 检查暂停状态
+    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
+      console.log('🔧 [DEBUG] findElementByXPath检测到暂停状态，停止查找');
+      throw new Error('查找已暂停');
+    }
+
+    if (window.automationEngine && window.automationEngine.isPaused) {
+      console.log('🔧 [DEBUG] findElementByXPath检测到高级引擎暂停状态，停止查找');
+      throw new Error('查找已暂停');
+    }
+
     try {
       const result = document.evaluate(
         xpath,
@@ -780,6 +861,15 @@ async function findElementByXPath(xpath, timeout = 5000) {
       console.error(`XPath查询错误: ${error.message}`);
       return null;
     }
+
+    // 使用异步等待避免阻塞主线程
+    await new Promise((resolve) => {
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => setTimeout(resolve, 100));
+      } else {
+        setTimeout(resolve, 100);
+      }
+    });
   }
 
   throw new Error(`超时(${timeout}ms)：无法找到元素`);
@@ -973,16 +1063,31 @@ async function executeSimplifiedWorkflow(workflow) {
       this.isPaused = true;
       console.log('🔧 [DEBUG] 简化模式暂停状态设置为:', this.isPaused);
       console.log('⏸️ 简化模式执行已暂停');
+
+      // 发送暂停确认消息
+      chrome.runtime.sendMessage({
+        action: 'executionPaused',
+        data: { isPaused: true }
+      }).catch(err => console.error('发送暂停消息失败:', err));
     },
 
     resume() {
+      console.log('🔧 [DEBUG] 简化模式 resume() 被调用');
       this.isPaused = false;
+      console.log('🔧 [DEBUG] 简化模式暂停状态设置为:', this.isPaused);
       console.log('▶️ 简化模式继续执行');
+
       if (this.pauseResolve) {
         this.pauseResolve();
         this.pauseResolve = null;
         this.pausePromise = null;
       }
+
+      // 发送继续确认消息
+      chrome.runtime.sendMessage({
+        action: 'executionResumed',
+        data: { isPaused: false }
+      }).catch(err => console.error('发送继续消息失败:', err));
     },
 
     async checkPause() {
@@ -1019,6 +1124,11 @@ async function executeSimplifiedWorkflow(workflow) {
   });
 
   try {
+    // 设置整体执行超时（5分钟）
+    const executionTimeout = setTimeout(() => {
+      throw new Error('工作流执行超时（5分钟）');
+    }, 5 * 60 * 1000);
+
     for (let i = 0; i < workflow.steps.length; i++) {
       console.log(`🔧 [DEBUG] 准备执行步骤 ${i + 1}/${totalSteps}`);
       // 检查是否需要暂停
@@ -1037,28 +1147,38 @@ async function executeSimplifiedWorkflow(workflow) {
         }
       });
 
-      switch (step.type) {
-        case 'click':
-          await executeClickStep(step);
-          break;
-        case 'input':
-          await executeInputStep(step);
-          break;
-        case 'wait':
-          await executeWaitStep(step);
-          break;
-        case 'smartWait':
-          await executeSmartWaitStep(step);
-          break;
-        case 'loop':
-          await executeLoopStep(step);
-          break;
-        case 'condition':
-          await executeConditionStep(step);
-          break;
-        default:
-          console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
-      }
+      // 为每个步骤设置超时
+      const stepTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(`步骤执行超时: ${step.name || step.type}`)), 30000);
+      });
+
+      const stepExecution = (async () => {
+        switch (step.type) {
+          case 'click':
+            await executeClickStep(step);
+            break;
+          case 'input':
+            await executeInputStep(step);
+            break;
+          case 'wait':
+            await executeWaitStep(step);
+            break;
+          case 'smartWait':
+            await executeSmartWaitStep(step);
+            break;
+          case 'loop':
+            await executeLoopStep(step);
+            break;
+          case 'condition':
+            await executeConditionStep(step);
+            break;
+          default:
+            console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
+        }
+      })();
+
+      // 等待步骤完成或超时
+      await Promise.race([stepExecution, stepTimeout]);
 
       completedSteps++;
 
@@ -1079,8 +1199,11 @@ async function executeSimplifiedWorkflow(workflow) {
         await checkPause();
         await new Promise(resolve => setTimeout(resolve, Math.min(50, waitDuration - (Date.now() - waitStartTime))));
       }
-      console.log('🔧 [DEBUG] 步骤间等待完成');
     }
+
+    // 清除超时
+    clearTimeout(executionTimeout);
+    console.log('🔧 [DEBUG] 所有步骤执行完成');
 
     // 发送完成消息
     chrome.runtime.sendMessage({
@@ -1116,7 +1239,7 @@ async function executeSimplifiedWorkflow(workflow) {
  * 动态加载通用自动化引擎
  */
 async function loadUniversalAutomationEngine() {
-  return new Promise(async (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     console.log('🔄 开始加载通用自动化引擎...');
 
     // 检查是否已经加载
@@ -1125,6 +1248,12 @@ async function loadUniversalAutomationEngine() {
       resolve();
       return;
     }
+
+    // 设置加载超时 - 3秒超时
+    const timeoutId = setTimeout(() => {
+      console.warn('⚠️ 引擎加载超时，将使用简化执行模式');
+      reject(new Error('引擎加载超时'));
+    }, 3000);
 
     // 清理所有旧的脚本和全局变量
     const oldScripts = document.querySelectorAll('script[data-automation-engine="true"]');
@@ -1148,45 +1277,27 @@ async function loadUniversalAutomationEngine() {
     script.src = chrome.runtime.getURL('universal-automation-engine.js');
     script.setAttribute('data-automation-engine', 'true');
 
-    // 监听页面脚本的加载完成消息
-    const messageHandler = (event) => {
-      if (event.data && event.data.type === 'AUTOMATION_ENGINE_LOADED') {
-        console.log('✅ 收到引擎加载完成消息');
-        window.removeEventListener('message', messageHandler);
-
-        // 直接检查引擎是否可用（简化方法）
-        setTimeout(() => {
-          console.log('✅ 引擎加载完成，直接解析');
-          resolve();
-        }, 100);
-      }
-
-      if (event.data && event.data.type === 'ENGINE_CHECK_RESULT') {
-        if (event.data.available) {
-          console.log('✅ 引擎在页面上下文中可用');
+    // 监听脚本加载事件
+    script.onload = () => {
+      console.log('📜 引擎脚本文件加载完成');
+      // 给一点时间让脚本执行
+      setTimeout(() => {
+        if (window.UniversalAutomationEngine && typeof window.UniversalAutomationEngine === 'function') {
+          console.log('✅ 引擎加载成功');
+          clearTimeout(timeoutId);
           resolve();
         } else {
-          console.error('❌ 引擎在页面上下文中不可用:', event.data.engineType);
-          reject(new Error(`引擎不可用: ${event.data.engineType}`));
+          console.error('❌ 引擎脚本加载后仍不可用');
+          clearTimeout(timeoutId);
+          reject(new Error('引擎脚本加载后不可用'));
         }
-      }
-    };
-
-    window.addEventListener('message', messageHandler);
-
-    // 设置超时 - 减少到3秒
-    setTimeout(() => {
-      window.removeEventListener('message', messageHandler);
-      reject(new Error('引擎加载超时'));
-    }, 3000);
-
-    script.onload = () => {
-      console.log('📦 引擎脚本文件已加载，等待初始化...');
+      }, 200);
     };
 
     script.onerror = (error) => {
-      console.error('❌ 脚本加载失败:', error);
-      reject(new Error('脚本加载失败'));
+      console.error('❌ 引擎脚本加载失败:', error);
+      clearTimeout(timeoutId);
+      reject(new Error('引擎脚本加载失败'));
     };
 
     // 注入到页面而不是content script上下文
@@ -1231,9 +1342,54 @@ async function executeClickStep(step) {
     throw new Error(`找不到元素: ${step.locator.strategy}=${step.locator.value}`);
   }
 
-  console.log('🔧 [DEBUG] 准备点击元素');
+  console.log('🔧 [DEBUG] 找到目标元素，准备执行点击操作');
+  console.log('🔧 [DEBUG] 元素信息:', {
+    tagName: element.tagName,
+    id: element.id,
+    className: element.className,
+    textContent: element.textContent?.substring(0, 50) + '...'
+  });
+
+  // 滚动到元素位置
+  console.log('🔧 [DEBUG] 滚动到目标元素');
+  element.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+    inline: 'center'
+  });
+
+  // 等待滚动完成
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // 高亮显示元素
+  console.log('🔧 [DEBUG] 高亮显示目标元素');
+  highlightElement(element, 'click');
+
+  // 设置自动清除高亮
+  setTimeout(() => {
+    clearElementHighlight(element);
+  }, 2000);
+
+  // 检查元素是否可见和可点击
+  const rect = element.getBoundingClientRect();
+  const isVisible = rect.width > 0 && rect.height > 0 &&
+                   rect.top >= 0 && rect.left >= 0 &&
+                   rect.bottom <= window.innerHeight &&
+                   rect.right <= window.innerWidth;
+
+  console.log('🔧 [DEBUG] 元素可见性检查:', {
+    isVisible,
+    rect: { width: rect.width, height: rect.height, top: rect.top, left: rect.left }
+  });
+
+  // 执行点击
+  console.log('🔧 [DEBUG] 执行点击操作');
   element.click();
-  console.log(`✅ 点击元素: ${step.locator.value}`);
+
+  // 等待点击效果
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  console.log(`✅ 点击元素完成: ${step.locator.value}`);
 }
 
 async function executeInputStep(step) {
@@ -1272,10 +1428,54 @@ async function executeInputStep(step) {
     throw new Error(`找不到元素: ${step.locator.strategy}=${step.locator.value}`);
   }
 
-  console.log('🔧 [DEBUG] 准备输入文本:', text);
+  console.log('🔧 [DEBUG] 找到输入元素，准备输入文本:', text);
+  console.log('🔧 [DEBUG] 输入元素信息:', {
+    tagName: element.tagName,
+    type: element.type,
+    id: element.id,
+    className: element.className
+  });
+
+  // 滚动到元素位置
+  console.log('🔧 [DEBUG] 滚动到输入元素');
+  element.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+    inline: 'center'
+  });
+
+  // 等待滚动完成
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  // 高亮显示元素
+  console.log('🔧 [DEBUG] 高亮显示输入元素');
+  highlightElement(element, 'input');
+
+  // 设置自动清除高亮
+  setTimeout(() => {
+    clearElementHighlight(element);
+  }, 2000);
+
+  // 聚焦元素
+  element.focus();
+
+  // 清空现有内容（如果需要）
+  if (step.clearFirst !== false) {
+    element.value = '';
+  }
+
+  // 输入文本
+  console.log('🔧 [DEBUG] 执行文本输入');
   element.value = text;
+
+  // 触发输入事件
   element.dispatchEvent(new Event('input', { bubbles: true }));
-  console.log(`✅ 输入文本: ${step.locator.strategy}=${step.locator.value} = "${text}"`);
+  element.dispatchEvent(new Event('change', { bubbles: true }));
+
+  // 等待输入效果
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  console.log(`✅ 输入文本完成: "${text}"`);
 }
 
 async function executeWaitStep(step) {
@@ -1338,6 +1538,11 @@ async function executeSmartWaitStep(step) {
 
   const startTime = Date.now();
   while (Date.now() - startTime < timeout) {
+    // 检查暂停状态
+    if (window.simplifiedExecutionControl) {
+      await window.simplifiedExecutionControl.checkPause();
+    }
+
     try {
       const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
       if (element) {
@@ -1345,16 +1550,21 @@ async function executeSmartWaitStep(step) {
         return;
       }
     } catch (error) {
-      // 继续等待
+      // 如果是暂停导致的错误，重新抛出
+      if (error.message === '查找已暂停') {
+        throw error;
+      }
+      // 其他错误继续等待
     }
 
-    // 等待检查间隔
-    await new Promise(resolve => setTimeout(resolve, checkInterval));
-
-    // 检查暂停状态
-    if (window.simplifiedExecutionControl) {
-      await window.simplifiedExecutionControl.checkPause();
-    }
+    // 使用异步等待避免阻塞主线程
+    await new Promise(resolve => {
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => setTimeout(resolve, checkInterval));
+      } else {
+        setTimeout(resolve, checkInterval);
+      }
+    });
   }
 
   throw new Error(`智能等待超时: 元素未在 ${timeout}ms 内出现`);
@@ -1524,7 +1734,14 @@ async function executeLoopStep(step) {
     }
 
     const element = elements[i];
-    console.log(`🎯 处理第 ${i + 1} 个元素`);
+    console.log(`🎯 处理第 ${i + 1}/${elements.length} 个元素`);
+
+    // 记录当前页面滚动位置
+    const scrollBefore = {
+      x: window.pageXOffset || document.documentElement.scrollLeft,
+      y: window.pageYOffset || document.documentElement.scrollTop
+    };
+    console.log('🔧 [DEBUG] 操作前页面滚动位置:', scrollBefore);
 
     try {
       if (step.loopType === 'simpleLoop') {
@@ -1533,6 +1750,20 @@ async function executeLoopStep(step) {
       } else {
         // 父级循环：点击后执行子操作
         await executeParentLoopAction(element, step);
+      }
+
+      // 记录操作后的滚动位置
+      const scrollAfter = {
+        x: window.pageXOffset || document.documentElement.scrollLeft,
+        y: window.pageYOffset || document.documentElement.scrollTop
+      };
+      console.log('🔧 [DEBUG] 操作后页面滚动位置:', scrollAfter);
+
+      if (scrollBefore.y !== scrollAfter.y || scrollBefore.x !== scrollAfter.x) {
+        console.log('✅ 页面滚动已发生，滚动距离:', {
+          deltaX: scrollAfter.x - scrollBefore.x,
+          deltaY: scrollAfter.y - scrollBefore.y
+        });
       }
 
       // 循环间隔（支持暂停）
@@ -1574,8 +1805,49 @@ async function executeSimpleLoopAction(element, step) {
   switch (actionType) {
     case 'click':
       console.log(`🔧 [DEBUG] 准备点击循环元素`);
+      console.log('🔧 [DEBUG] 循环元素信息:', {
+        tagName: element.tagName,
+        id: element.id,
+        className: element.className,
+        textContent: element.textContent?.substring(0, 50) + '...'
+      });
+
+      // 滚动到元素位置
+      console.log('🔧 [DEBUG] 滚动到循环目标元素');
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'center'
+      });
+
+      // 等待滚动完成
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 高亮显示元素
+      console.log('🔧 [DEBUG] 高亮显示循环目标元素');
+      highlightElement(element, 'loop');
+
+      // 设置自动清除高亮
+      setTimeout(() => {
+        clearElementHighlight(element);
+      }, 1500);
+
+      // 检查元素可见性
+      const rect = element.getBoundingClientRect();
+      const isVisible = rect.width > 0 && rect.height > 0;
+      console.log('🔧 [DEBUG] 循环元素可见性:', {
+        isVisible,
+        rect: { width: rect.width, height: rect.height, top: rect.top, left: rect.left }
+      });
+
+      // 执行点击
+      console.log('🔧 [DEBUG] 执行循环元素点击');
       element.click();
-      console.log(`👆 点击元素`);
+
+      // 等待点击效果
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      console.log(`👆 循环点击元素完成`);
       break;
     case 'input':
       const inputText = step.inputText || '';
@@ -2140,6 +2412,18 @@ function highlightElement(element, type = 'processing') {
     case 'processing':
       element.style.outline = '3px solid #3498db';
       element.style.backgroundColor = 'rgba(52, 152, 219, 0.1)';
+      break;
+    case 'click':
+      element.style.outline = '3px solid #f39c12';
+      element.style.backgroundColor = 'rgba(243, 156, 18, 0.2)';
+      break;
+    case 'input':
+      element.style.outline = '3px solid #9b59b6';
+      element.style.backgroundColor = 'rgba(155, 89, 182, 0.1)';
+      break;
+    case 'loop':
+      element.style.outline = '3px solid #e67e22';
+      element.style.backgroundColor = 'rgba(230, 126, 34, 0.15)';
       break;
     case 'success':
       element.style.outline = '3px solid #27ae60';
