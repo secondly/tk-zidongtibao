@@ -78,20 +78,60 @@ function convertGraphToWorkflow(graph, workflowName = '新工作流') {
             height: geometry ? geometry.height : 60
         };
 
+        // 为不同节点类型添加特定字段
+        switch (nodeData.type) {
+            case 'input':
+                if (nodeData.inputText) stepData.inputText = nodeData.inputText;
+                if (nodeData.clearFirst !== undefined) stepData.clearFirst = nodeData.clearFirst;
+                break;
+            case 'wait':
+                if (nodeData.waitType) stepData.waitType = nodeData.waitType;
+                if (nodeData.waitTime) stepData.waitTime = nodeData.waitTime;
+                break;
+            case 'smartWait':
+                if (nodeData.timeout) stepData.timeout = nodeData.timeout;
+                if (nodeData.checkInterval) stepData.checkInterval = nodeData.checkInterval;
+                break;
+            case 'extract':
+                if (nodeData.extractType) stepData.extractType = nodeData.extractType;
+                if (nodeData.attributeName) stepData.attributeName = nodeData.attributeName;
+                if (nodeData.variableName) stepData.variableName = nodeData.variableName;
+                break;
+        }
+
         // 只有循环节点才添加循环相关属性
         if (nodeData.type === 'loop') {
+            console.log('🔧 [DEBUG] 导出循环节点，原始nodeData:', nodeData);
             stepData.loopType = nodeData.loopType || 'container';
-            stepData.loopSelector = nodeData.loopSelector || '';
+            stepData.startIndex = nodeData.startIndex || 0;
+            stepData.endIndex = nodeData.endIndex || -1;
+            stepData.operationType = nodeData.operationType || 'click';
+            stepData.operationDelay = nodeData.operationDelay || 1000;
             stepData.maxIterations = nodeData.maxIterations || 10;
             stepData.subOperations = subOperations;
+            console.log('🔧 [DEBUG] 导出循环节点，最终stepData:', {
+                loopType: stepData.loopType,
+                startIndex: stepData.startIndex,
+                endIndex: stepData.endIndex,
+                operationType: stepData.operationType,
+                operationDelay: stepData.operationDelay,
+                locator: stepData.locator
+            });
         }
 
         // 只有条件节点才添加条件相关属性
         if (nodeData.type === 'condition') {
+            console.log('🔧 [DEBUG] 导出条件判断节点，原始nodeData:', nodeData);
             stepData.conditionType = nodeData.conditionType || 'element';
             stepData.attributeName = nodeData.attributeName || '';
             stepData.comparisonType = nodeData.comparisonType || 'equals';
             stepData.expectedValue = nodeData.expectedValue || '';
+            console.log('🔧 [DEBUG] 导出条件判断节点，最终stepData:', {
+                conditionType: stepData.conditionType,
+                attributeName: stepData.attributeName,
+                comparisonType: stepData.comparisonType,
+                expectedValue: stepData.expectedValue
+            });
         }
 
         console.log(`节点 ${stepData.id} 导出完成，包含 ${subOperations.length} 个子操作`);

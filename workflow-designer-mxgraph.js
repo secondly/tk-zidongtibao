@@ -1978,7 +1978,8 @@ class MxGraphWorkflowDesigner {
         this.nodeConfigs.set(cell.id, config);
         cell.nodeData = { ...config, id: cell.id }; // 同步到 nodeData
 
-        console.log(`节点配置已保存: ${cell.id}`, config);
+        console.log(`🔧 [DEBUG] 节点配置已保存: ${cell.id}`, config);
+        console.log(`🔧 [DEBUG] nodeData已同步:`, cell.nodeData);
         this.updateStatus('节点配置已保存');
     }
 
