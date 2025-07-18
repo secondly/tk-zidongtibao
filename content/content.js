@@ -40,6 +40,20 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   // 处理通用自动化工作流执行
   if (request.action === "executeWorkflow") {
     console.log("🔧 [DEBUG] 收到工作流执行请求，工作流数据:", JSON.stringify(request.workflow, null, 2));
+
+  // 验证工作流数据结构
+  if (request.workflow && request.workflow.steps) {
+    request.workflow.steps.forEach((step, index) => {
+      console.log(`🔧 [DEBUG] 步骤 ${index + 1}:`, {
+        type: step.type,
+        name: step.name,
+        locator: step.locator,
+        hasLocator: !!step.locator,
+        locatorStrategy: step.locator?.strategy || step.locator?.type,
+        locatorValue: step.locator?.value
+      });
+    });
+  }
     executeUniversalWorkflow(request.workflow)
       .then((result) => {
         sendResponse({ success: true, result });
@@ -1033,6 +1047,9 @@ async function executeSimplifiedWorkflow(workflow) {
         case 'wait':
           await executeWaitStep(step);
           break;
+        case 'smartWait':
+          await executeSmartWaitStep(step);
+          break;
         case 'loop':
           await executeLoopStep(step);
           break;
@@ -1285,13 +1302,88 @@ async function executeWaitStep(step) {
   console.log(`✅ 等待完成`);
 }
 
+async function executeSmartWaitStep(step) {
+  console.log('🔧 [DEBUG] executeSmartWaitStep 开始执行');
+
+  // 在执行具体操作前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
+  if (!step.locator) {
+    throw new Error('智能等待缺少定位器');
+  }
+
+  console.log('🔧 [DEBUG] 智能等待定位器:', step.locator);
+
+  // 检查定位器的完整性
+  if (!step.locator.strategy) {
+    // 尝试从旧格式转换
+    if (step.locator.type) {
+      console.log('🔄 检测到旧格式智能等待定位器，进行转换');
+      step.locator.strategy = step.locator.type;
+    } else {
+      throw new Error('智能等待定位器缺少策略(strategy)字段');
+    }
+  }
+
+  if (!step.locator.value) {
+    throw new Error('智能等待定位器缺少值(value)字段');
+  }
+
+  const timeout = step.timeout || 10000;
+  const checkInterval = step.checkInterval || 500;
+
+  console.log(`🔍 智能等待元素出现: ${step.locator.strategy}=${step.locator.value}, 超时: ${timeout}ms`);
+
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeout) {
+    try {
+      const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
+      if (element) {
+        console.log(`✅ 智能等待成功: 元素已出现`);
+        return;
+      }
+    } catch (error) {
+      // 继续等待
+    }
+
+    // 等待检查间隔
+    await new Promise(resolve => setTimeout(resolve, checkInterval));
+
+    // 检查暂停状态
+    if (window.simplifiedExecutionControl) {
+      await window.simplifiedExecutionControl.checkPause();
+    }
+  }
+
+  throw new Error(`智能等待超时: 元素未在 ${timeout}ms 内出现`);
+}
+
 // 执行条件判断步骤
 async function executeConditionStep(step) {
   console.log(`🧪 执行条件判断步骤:`, step);
 
   const locator = step.locator;
-  if (!locator || !locator.strategy || !locator.value) {
+  if (!locator) {
     throw new Error('条件判断步骤缺少定位器配置');
+  }
+
+  console.log('🔧 [DEBUG] 条件判断定位器:', locator);
+
+  // 检查定位器的完整性
+  if (!locator.strategy) {
+    // 尝试从旧格式转换
+    if (locator.type) {
+      console.log('🔄 检测到旧格式条件定位器，进行转换');
+      locator.strategy = locator.type;
+    } else {
+      throw new Error('条件判断定位器缺少策略(strategy)字段');
+    }
+  }
+
+  if (!locator.value) {
+    throw new Error('条件判断定位器缺少值(value)字段');
   }
 
   // 查找元素
@@ -1393,6 +1485,23 @@ async function executeConditionStep(step) {
 async function executeLoopStep(step) {
   if (!step.locator) {
     throw new Error('缺少循环定位器');
+  }
+
+  console.log('🔧 [DEBUG] 循环步骤定位器:', step.locator);
+
+  // 检查定位器的完整性
+  if (!step.locator.strategy) {
+    // 尝试从旧格式转换
+    if (step.locator.type) {
+      console.log('🔄 检测到旧格式循环定位器，进行转换');
+      step.locator.strategy = step.locator.type;
+    } else {
+      throw new Error('循环定位器缺少策略(strategy)字段');
+    }
+  }
+
+  if (!step.locator.value) {
+    throw new Error('循环定位器缺少值(value)字段');
   }
 
   const elements = await findElementsByStrategy(step.locator.strategy, step.locator.value);

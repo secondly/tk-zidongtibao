@@ -1354,13 +1354,13 @@ class MxGraphWorkflowDesigner {
                     <div class="form-group">
                         <label class="form-label">定位策略</label>
                         <select class="form-select" id="locatorType">
-                            <option value="css" ${config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: .btn-primary, #submit-btn]</option>
-                            <option value="xpath" ${config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //button[@class='btn']]</option>
-                            <option value="id" ${config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: submit-button]</option>
-                            <option value="className" ${config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: btn-primary]</option>
-                            <option value="text" ${config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 确定, 提交]</option>
-                            <option value="contains" ${config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
-                            <option value="tagName" ${config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: button, input]</option>
+                            <option value="css" ${config.locator?.strategy === 'css' || config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: .btn-primary, #submit-btn]</option>
+                            <option value="xpath" ${config.locator?.strategy === 'xpath' || config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //button[@class='btn']]</option>
+                            <option value="id" ${config.locator?.strategy === 'id' || config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: submit-button]</option>
+                            <option value="className" ${config.locator?.strategy === 'className' || config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: btn-primary]</option>
+                            <option value="text" ${config.locator?.strategy === 'text' || config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 确定, 提交]</option>
+                            <option value="contains" ${config.locator?.strategy === 'contains' || config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
+                            <option value="tagName" ${config.locator?.strategy === 'tagName' || config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: button, input]</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1602,18 +1602,18 @@ class MxGraphWorkflowDesigner {
                     <div class="form-group">
                         <label class="form-label">定位策略</label>
                         <select class="form-select" id="locatorStrategy">
-                            <option value="css" ${config.locatorStrategy === 'css' ? 'selected' : ''}>CSS选择器 [示例: .btn-primary, #submit-btn]</option>
-                            <option value="xpath" ${config.locatorStrategy === 'xpath' ? 'selected' : ''}>XPath [示例: //button[@class='btn']]</option>
-                            <option value="id" ${config.locatorStrategy === 'id' ? 'selected' : ''}>ID [示例: submit-button]</option>
-                            <option value="className" ${config.locatorStrategy === 'className' ? 'selected' : ''}>类名 [示例: btn-primary]</option>
-                            <option value="text" ${config.locatorStrategy === 'text' ? 'selected' : ''}>文本内容 [示例: 确定, 提交]</option>
-                            <option value="contains" ${config.locatorStrategy === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
-                            <option value="tagName" ${config.locatorStrategy === 'tagName' ? 'selected' : ''}>标签名 [示例: button, input]</option>
+                            <option value="css" ${config.locator?.strategy === 'css' || config.locatorStrategy === 'css' ? 'selected' : ''}>CSS选择器 [示例: .btn-primary, #submit-btn]</option>
+                            <option value="xpath" ${config.locator?.strategy === 'xpath' || config.locatorStrategy === 'xpath' ? 'selected' : ''}>XPath [示例: //button[@class='btn']]</option>
+                            <option value="id" ${config.locator?.strategy === 'id' || config.locatorStrategy === 'id' ? 'selected' : ''}>ID [示例: submit-button]</option>
+                            <option value="className" ${config.locator?.strategy === 'className' || config.locatorStrategy === 'className' ? 'selected' : ''}>类名 [示例: btn-primary]</option>
+                            <option value="text" ${config.locator?.strategy === 'text' || config.locatorStrategy === 'text' ? 'selected' : ''}>文本内容 [示例: 确定, 提交]</option>
+                            <option value="contains" ${config.locator?.strategy === 'contains' || config.locatorStrategy === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
+                            <option value="tagName" ${config.locator?.strategy === 'tagName' || config.locatorStrategy === 'tagName' ? 'selected' : ''}>标签名 [示例: button, input]</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">定位值</label>
-                        <input type="text" class="form-input" id="locatorValue" value="${config.locatorValue || ''}" placeholder="输入定位值">
+                        <input type="text" class="form-input" id="locatorValue" value="${config.locator?.value || config.locatorValue || ''}" placeholder="输入定位值">
                         <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px;">🎯 测试</button>
                         <div class="form-help">用于定位页面元素的值</div>
                     </div>
@@ -1825,7 +1825,7 @@ class MxGraphWorkflowDesigner {
 
                 if (clickLocatorType && clickLocatorValue) {
                     config.locator = {
-                        type: clickLocatorType.value,
+                        strategy: clickLocatorType.value,  // 使用 strategy 而不是 type
                         value: clickLocatorValue.value
                     };
                 }
@@ -1842,7 +1842,7 @@ class MxGraphWorkflowDesigner {
 
                 if (inputLocatorType && inputLocatorValue) {
                     config.locator = {
-                        type: inputLocatorType.value,
+                        strategy: inputLocatorType.value,  // 使用 strategy 而不是 type
                         value: inputLocatorValue.value
                     };
                 }
@@ -1868,7 +1868,7 @@ class MxGraphWorkflowDesigner {
 
                 if (smartWaitLocatorType && smartWaitLocatorValue) {
                     config.locator = {
-                        type: smartWaitLocatorType.value,
+                        strategy: smartWaitLocatorType.value,  // 使用 strategy 而不是 type
                         value: smartWaitLocatorValue.value
                     };
                 }
@@ -1886,7 +1886,7 @@ class MxGraphWorkflowDesigner {
 
                 if (checkLocatorType && checkLocatorValue) {
                     config.locator = {
-                        type: checkLocatorType.value,
+                        strategy: checkLocatorType.value,  // 使用 strategy 而不是 type
                         value: checkLocatorValue.value
                     };
                 }
@@ -1905,7 +1905,7 @@ class MxGraphWorkflowDesigner {
 
                 if (extractLocatorType && extractLocatorValue) {
                     config.locator = {
-                        type: extractLocatorType.value,
+                        strategy: extractLocatorType.value,  // 使用 strategy 而不是 type
                         value: extractLocatorValue.value
                     };
                 }
@@ -1930,8 +1930,16 @@ class MxGraphWorkflowDesigner {
                 const operationType = document.getElementById('operationType');
                 const operationDelay = document.getElementById('operationDelay');
 
-                if (locatorStrategy) config.locatorStrategy = locatorStrategy.value;
-                if (loopLocatorValue) config.locatorValue = loopLocatorValue.value;
+                // 修复：将定位器保存为标准格式
+                if (locatorStrategy && loopLocatorValue) {
+                    config.locator = {
+                        strategy: locatorStrategy.value,  // 使用 strategy 而不是 type
+                        value: loopLocatorValue.value
+                    };
+                    console.log('🔧 [DEBUG] 保存循环定位器:', config.locator);
+                }
+
+                // 保存其他循环配置
                 if (startIndex) config.startIndex = parseInt(startIndex.value);
                 if (endIndex) config.endIndex = parseInt(endIndex.value);
                 if (operationType) config.operationType = operationType.value;
@@ -1948,7 +1956,7 @@ class MxGraphWorkflowDesigner {
 
                 if (conditionLocatorType && conditionLocatorValue) {
                     config.locator = {
-                        type: conditionLocatorType.value,
+                        strategy: conditionLocatorType.value,  // 使用 strategy 而不是 type
                         value: conditionLocatorValue.value
                     };
                 }
