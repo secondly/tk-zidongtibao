@@ -1207,13 +1207,13 @@ class MxGraphWorkflowDesigner {
                     <div class="form-group">
                         <label class="form-label">定位策略</label>
                         <select class="form-select" id="locatorType">
-                            <option value="css" ${config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: input[name='username'], #email]</option>
-                            <option value="xpath" ${config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //input[@type='text']]</option>
-                            <option value="id" ${config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: username-input]</option>
-                            <option value="className" ${config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: form-control]</option>
-                            <option value="text" ${config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 用户名, 邮箱]</option>
-                            <option value="contains" ${config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
-                            <option value="tagName" ${config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: input, textarea]</option>
+                            <option value="css" ${config.locator?.strategy === 'css' || config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: input[name='username'], #email]</option>
+                            <option value="xpath" ${config.locator?.strategy === 'xpath' || config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //input[@type='text']]</option>
+                            <option value="id" ${config.locator?.strategy === 'id' || config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: username-input]</option>
+                            <option value="className" ${config.locator?.strategy === 'className' || config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: form-control]</option>
+                            <option value="text" ${config.locator?.strategy === 'text' || config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 用户名, 邮箱]</option>
+                            <option value="contains" ${config.locator?.strategy === 'contains' || config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
+                            <option value="tagName" ${config.locator?.strategy === 'tagName' || config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: input, textarea]</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1268,13 +1268,13 @@ class MxGraphWorkflowDesigner {
                     <div class="form-group">
                         <label class="form-label">定位策略</label>
                         <select class="form-select" id="locatorType">
-                            <option value="css" ${config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: .loading, #content]</option>
-                            <option value="xpath" ${config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //div[@class='loaded']]</option>
-                            <option value="id" ${config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: loading-indicator]</option>
-                            <option value="className" ${config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: content-loaded]</option>
-                            <option value="text" ${config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 加载完成]</option>
-                            <option value="contains" ${config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
-                            <option value="tagName" ${config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: div, span]</option>
+                            <option value="css" ${config.locator?.strategy === 'css' || config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: .loading, #content]</option>
+                            <option value="xpath" ${config.locator?.strategy === 'xpath' || config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //div[@class='loaded']]</option>
+                            <option value="id" ${config.locator?.strategy === 'id' || config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: loading-indicator]</option>
+                            <option value="className" ${config.locator?.strategy === 'className' || config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: content-loaded]</option>
+                            <option value="text" ${config.locator?.strategy === 'text' || config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 加载完成]</option>
+                            <option value="contains" ${config.locator?.strategy === 'contains' || config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
+                            <option value="tagName" ${config.locator?.strategy === 'tagName' || config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: div, span]</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1317,13 +1317,13 @@ class MxGraphWorkflowDesigner {
                     <div class="form-group">
                         <label class="form-label">定位策略</label>
                         <select class="form-select" id="locatorType">
-                            <option value="css" ${config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: input[type='checkbox'], .btn]</option>
-                            <option value="xpath" ${config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //button[@disabled]]</option>
-                            <option value="id" ${config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: submit-btn]</option>
-                            <option value="className" ${config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: disabled-btn]</option>
-                            <option value="text" ${config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 提交按钮]</option>
-                            <option value="contains" ${config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
-                            <option value="tagName" ${config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: button, input]</option>
+                            <option value="css" ${config.locator?.strategy === 'css' || config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: input[type='checkbox'], .btn]</option>
+                            <option value="xpath" ${config.locator?.strategy === 'xpath' || config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //button[@disabled]]</option>
+                            <option value="id" ${config.locator?.strategy === 'id' || config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: submit-btn]</option>
+                            <option value="className" ${config.locator?.strategy === 'className' || config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: disabled-btn]</option>
+                            <option value="text" ${config.locator?.strategy === 'text' || config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 提交按钮]</option>
+                            <option value="contains" ${config.locator?.strategy === 'contains' || config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
+                            <option value="tagName" ${config.locator?.strategy === 'tagName' || config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: button, input]</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1367,13 +1367,13 @@ class MxGraphWorkflowDesigner {
                     <div class="form-group">
                         <label class="form-label">定位策略</label>
                         <select class="form-select" id="locatorType">
-                            <option value="css" ${config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: .price, #title]</option>
-                            <option value="xpath" ${config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //span[@class='price']]</option>
-                            <option value="id" ${config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: product-title]</option>
-                            <option value="className" ${config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: product-price]</option>
-                            <option value="text" ${config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 价格, 标题]</option>
-                            <option value="contains" ${config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
-                            <option value="tagName" ${config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: span, div]</option>
+                            <option value="css" ${config.locator?.strategy === 'css' || config.locator?.type === 'css' ? 'selected' : ''}>CSS选择器 [示例: .price, #title]</option>
+                            <option value="xpath" ${config.locator?.strategy === 'xpath' || config.locator?.type === 'xpath' ? 'selected' : ''}>XPath [示例: //span[@class='price']]</option>
+                            <option value="id" ${config.locator?.strategy === 'id' || config.locator?.type === 'id' ? 'selected' : ''}>ID [示例: product-title]</option>
+                            <option value="className" ${config.locator?.strategy === 'className' || config.locator?.type === 'className' ? 'selected' : ''}>类名 [示例: product-price]</option>
+                            <option value="text" ${config.locator?.strategy === 'text' || config.locator?.type === 'text' ? 'selected' : ''}>文本内容 [示例: 价格, 标题]</option>
+                            <option value="contains" ${config.locator?.strategy === 'contains' || config.locator?.type === 'contains' ? 'selected' : ''}>包含文本 [示例: 部分文本匹配]</option>
+                            <option value="tagName" ${config.locator?.strategy === 'tagName' || config.locator?.type === 'tagName' ? 'selected' : ''}>标签名 [示例: span, div]</option>
                         </select>
                     </div>
                     <div class="form-group">
