@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>虚拟列表Demo - 1000条数据</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .virtual-list-container {
+            height: 500px;
+            overflow-y: auto;
+            position: relative;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .virtual-list-content {
+            position: relative;
+        }
+
+        .list-item {
+            height: 60px;
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            transition: background-color 0.2s ease;
+        }
+
+        .list-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .list-item.clicked {
+            background-color: #e8f5e8;
+        }
+
+        .item-info {
+            flex: 1;
+        }
+
+        .item-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .item-subtitle {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .item-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            min-width: 80px;
+        }
+
+        .item-button.unclicked {
+            background: #007bff;
+            color: white;
+        }
+
+        .item-button.unclicked:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        .item-button.clicked {
+            background: #28a745;
+            color: white;
+            cursor: default;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .control-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .control-btn.primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .control-btn.primary:hover {
+            background: #0056b3;
+        }
+
+        .control-btn.secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .control-btn.secondary:hover {
+            background: #545b62;
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .scroll-indicator.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 虚拟列表Demo</h1>
+            <p>1000条数据，每次显示20条，滚动加载</p>
+        </div>
+
+        <div class="stats">
+            <span>总数据: <strong id="totalCount">1000</strong></span>
+            <span>已渲染: <strong id="renderedCount">0</strong></span>
+            <span>已点击: <strong id="clickedCount">0</strong></span>
+            <span>滚动位置: <strong id="scrollPosition">0%</strong></span>
+        </div>
+
+        <div class="virtual-list-container" id="listContainer">
+            <div class="scroll-indicator" id="scrollIndicator">滚动中...</div>
+            <div class="virtual-list-content" id="listContent">
+                <!-- 动态生成的列表项 -->
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="control-btn primary" onclick="scrollToTop()">回到顶部</button>
+            <button class="control-btn primary" onclick="scrollToBottom()">滚动到底部</button>
+            <button class="control-btn secondary" onclick="resetAllClicks()">重置所有点击</button>
+            <button class="control-btn secondary" onclick="clickRandomItems()">随机点击10个</button>
+        </div>
+    </div>
+
+    <script>
+        class VirtualList {
+            constructor(container, options = {}) {
+                this.container = container;
+                this.content = container.querySelector('#listContent');
+                this.totalItems = options.totalItems || 1000;
+                this.itemHeight = options.itemHeight || 60;
+                this.visibleCount = options.visibleCount || 20;
+                this.buffer = options.buffer || 5;
+                
+                this.startIndex = 0;
+                this.endIndex = 0;
+                this.clickedItems = new Set();
+                
+                this.init();
+            }
+
+            init() {
+                this.updateVisibleRange();
+                this.render();
+                this.bindEvents();
+                this.updateStats();
+            }
+
+            updateVisibleRange() {
+                const scrollTop = this.container.scrollTop;
+                const containerHeight = this.container.clientHeight;
+                
+                this.startIndex = Math.max(0, Math.floor(scrollTop / this.itemHeight) - this.buffer);
+                this.endIndex = Math.min(
+                    this.totalItems - 1,
+                    Math.floor((scrollTop + containerHeight) / this.itemHeight) + this.buffer
+                );
+            }
+
+            render() {
+                const totalHeight = this.totalItems * this.itemHeight;
+                const offsetY = this.startIndex * this.itemHeight;
+                
+                this.content.style.height = `${totalHeight}px`;
+                this.content.style.paddingTop = `${offsetY}px`;
+                
+                let html = '';
+                for (let i = this.startIndex; i <= this.endIndex; i++) {
+                    html += this.renderItem(i);
+                }
+                
+                this.content.innerHTML = html;
+                this.updateStats();
+            }
+
+            renderItem(index) {
+                const isClicked = this.clickedItems.has(index);
+                const itemClass = isClicked ? 'list-item clicked' : 'list-item';
+                const buttonClass = isClicked ? 'item-button clicked' : 'item-button unclicked';
+                const buttonText = isClicked ? '已点击' : '点击';
+                
+                return `
+                    <div class="${itemClass}" data-index="${index}">
+                        <div class="item-info">
+                            <div class="item-title">列表项 #${String(index + 1).padStart(4, '0')}</div>
+                            <div class="item-subtitle">这是第 ${index + 1} 个列表项的描述信息</div>
+                        </div>
+                        <button class="${buttonClass}" 
+                                onclick="virtualList.handleItemClick(${index})"
+                                ${isClicked ? 'disabled' : ''}>
+                            ${buttonText}
+                        </button>
+                    </div>
+                `;
+            }
+
+            handleItemClick(index) {
+                if (!this.clickedItems.has(index)) {
+                    this.clickedItems.add(index);
+                    this.render(); // 重新渲染以更新状态
+                    console.log(`点击了列表项 #${index + 1}`);
+                }
+            }
+
+            bindEvents() {
+                let scrollTimeout;
+                const scrollIndicator = document.getElementById('scrollIndicator');
+                
+                this.container.addEventListener('scroll', () => {
+                    // 显示滚动指示器
+                    scrollIndicator.classList.add('visible');
+                    
+                    // 清除之前的定时器
+                    clearTimeout(scrollTimeout);
+                    
+                    // 更新可见范围和渲染
+                    this.updateVisibleRange();
+                    this.render();
+                    
+                    // 更新滚动位置
+                    this.updateScrollPosition();
+                    
+                    // 隐藏滚动指示器
+                    scrollTimeout = setTimeout(() => {
+                        scrollIndicator.classList.remove('visible');
+                    }, 1000);
+                });
+            }
+
+            updateScrollPosition() {
+                const scrollTop = this.container.scrollTop;
+                const maxScroll = this.container.scrollHeight - this.container.clientHeight;
+                const percentage = maxScroll > 0 ? Math.round((scrollTop / maxScroll) * 100) : 0;
+                document.getElementById('scrollPosition').textContent = `${percentage}%`;
+            }
+
+            updateStats() {
+                document.getElementById('totalCount').textContent = this.totalItems;
+                document.getElementById('renderedCount').textContent = this.endIndex - this.startIndex + 1;
+                document.getElementById('clickedCount').textContent = this.clickedItems.size;
+            }
+
+            scrollToTop() {
+                this.container.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            scrollToBottom() {
+                this.container.scrollTo({ 
+                    top: this.container.scrollHeight, 
+                    behavior: 'smooth' 
+                });
+            }
+
+            resetAllClicks() {
+                this.clickedItems.clear();
+                this.render();
+                console.log('已重置所有点击状态');
+            }
+
+            clickRandomItems() {
+                const randomIndices = [];
+                while (randomIndices.length < 10) {
+                    const randomIndex = Math.floor(Math.random() * this.totalItems);
+                    if (!randomIndices.includes(randomIndex)) {
+                        randomIndices.push(randomIndex);
+                        this.clickedItems.add(randomIndex);
+                    }
+                }
+                this.render();
+                console.log('随机点击了10个项目:', randomIndices.map(i => i + 1));
+            }
+        }
+
+        // 初始化虚拟列表
+        let virtualList;
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('listContainer');
+            virtualList = new VirtualList(container, {
+                totalItems: 1000,
+                itemHeight: 60,
+                visibleCount: 20,
+                buffer: 5
+            });
+            
+            console.log('虚拟列表初始化完成');
+        });
+
+        // 控制函数
+        function scrollToTop() {
+            virtualList.scrollToTop();
+        }
+
+        function scrollToBottom() {
+            virtualList.scrollToBottom();
+        }
+
+        function resetAllClicks() {
+            virtualList.resetAllClicks();
+        }
+
+        function clickRandomItems() {
+            virtualList.clickRandomItems();
+        }
+    </script>
+</body>
+</html>
