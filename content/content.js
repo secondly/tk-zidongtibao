@@ -39,6 +39,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
   // 处理通用自动化工作流执行
   if (request.action === "executeWorkflow") {
+    console.log("🔧 [DEBUG] 收到工作流执行请求，工作流数据:", JSON.stringify(request.workflow, null, 2));
     executeUniversalWorkflow(request.workflow)
       .then((result) => {
         sendResponse({ success: true, result });
@@ -1108,12 +1109,22 @@ async function loadUniversalAutomationEngine() {
       return;
     }
 
-    // 清理所有旧的脚本
+    // 清理所有旧的脚本和全局变量
     const oldScripts = document.querySelectorAll('script[data-automation-engine="true"]');
     oldScripts.forEach(script => {
       console.log('🗑️ 移除旧的引擎脚本');
       script.remove();
     });
+
+    // 清理全局变量，避免重复声明错误
+    if (typeof window.UniversalAutomationEngine !== 'undefined') {
+      console.log('🗑️ 清理旧的引擎全局变量');
+      delete window.UniversalAutomationEngine;
+    }
+    if (typeof window.automationEngine !== 'undefined') {
+      console.log('🗑️ 清理旧的引擎实例');
+      delete window.automationEngine;
+    }
 
     // 创建脚本标签注入到页面
     const script = document.createElement('script');
@@ -1180,6 +1191,24 @@ async function executeClickStep(step) {
   }
 
   console.log('🔧 [DEBUG] 查找元素:', step.locator);
+  console.log('🔧 [DEBUG] 定位策略:', step.locator.strategy);
+  console.log('🔧 [DEBUG] 定位值:', step.locator.value);
+
+  // 检查定位器的完整性
+  if (!step.locator.strategy) {
+    // 尝试从旧格式转换
+    if (step.locator.type) {
+      console.log('🔄 检测到旧格式定位器，进行转换');
+      step.locator.strategy = step.locator.type;
+    } else {
+      throw new Error('定位器缺少策略(strategy)字段');
+    }
+  }
+
+  if (!step.locator.value) {
+    throw new Error('定位器缺少值(value)字段');
+  }
+
   const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
   if (!element) {
     throw new Error(`找不到元素: ${step.locator.strategy}=${step.locator.value}`);
@@ -1205,6 +1234,22 @@ async function executeInputStep(step) {
   }
 
   console.log('🔧 [DEBUG] 查找输入元素:', step.locator);
+
+  // 检查定位器的完整性
+  if (!step.locator.strategy) {
+    // 尝试从旧格式转换
+    if (step.locator.type) {
+      console.log('🔄 检测到旧格式定位器，进行转换');
+      step.locator.strategy = step.locator.type;
+    } else {
+      throw new Error('定位器缺少策略(strategy)字段');
+    }
+  }
+
+  if (!step.locator.value) {
+    throw new Error('定位器缺少值(value)字段');
+  }
+
   const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
   if (!element) {
     throw new Error(`找不到元素: ${step.locator.strategy}=${step.locator.value}`);
@@ -1213,7 +1258,7 @@ async function executeInputStep(step) {
   console.log('🔧 [DEBUG] 准备输入文本:', text);
   element.value = text;
   element.dispatchEvent(new Event('input', { bubbles: true }));
-  console.log(`✅ 输入文本: ${selector} = "${text}"`);
+  console.log(`✅ 输入文本: ${step.locator.strategy}=${step.locator.value} = "${text}"`);
 }
 
 async function executeWaitStep(step) {
