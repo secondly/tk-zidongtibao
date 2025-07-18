@@ -41,6 +41,13 @@ function createNode(graph, nodeType, x, y, nodeData = {}) {
             ...nodeData
         };
 
+        console.log('🔧 [DEBUG] createNode 设置节点数据:', {
+            nodeId: nodeId,
+            nodeType: nodeType,
+            inputNodeData: nodeData,
+            finalCellData: cellData
+        });
+
         // 将数据存储到节点的自定义属性中
         vertex.nodeData = cellData;
 

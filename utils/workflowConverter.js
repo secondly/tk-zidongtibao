@@ -285,6 +285,7 @@ function convertWorkflowToGraph(graph, workflow) {
                     node = graph.insertVertex(parent, nodeId, displayText, x, y, width, height, 'loopContainer');
                 } else {
                     // 创建普通节点
+                    console.log('🔧 [DEBUG] 创建普通节点，传递的步骤数据:', step);
                     node = createNode(graph, step.type, x, y, step);
                     // 应用正确的尺寸
                     const geometry = node.getGeometry();

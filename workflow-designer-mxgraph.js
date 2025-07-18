@@ -2032,7 +2032,20 @@ class MxGraphWorkflowDesigner {
             vertices.forEach(cell => {
                 if (cell.nodeData && typeof cell.nodeData === 'object') {
                     this.nodeConfigs.set(cell.id, cell.nodeData);
-                    console.log(`重建顶层节点配置: ${cell.id} -> ${cell.nodeData.type}`);
+                    console.log(`🔧 [DEBUG] 重建顶层节点配置: ${cell.id} -> ${cell.nodeData.type}`, cell.nodeData);
+
+                    // 特别检查条件判断节点
+                    if (cell.nodeData.type === 'condition') {
+                        console.log('🔧 [DEBUG] 条件判断节点配置详情:', {
+                            conditionType: cell.nodeData.conditionType,
+                            comparisonType: cell.nodeData.comparisonType,
+                            expectedValue: cell.nodeData.expectedValue,
+                            attributeName: cell.nodeData.attributeName,
+                            locator: cell.nodeData.locator
+                        });
+                    }
+                } else {
+                    console.warn(`🔧 [DEBUG] 节点 ${cell.id} 缺少 nodeData 或 nodeData 不是对象:`, cell.nodeData);
                 }
                 // 递归处理容器内的子节点
                 rebuildConfigs(cell);
