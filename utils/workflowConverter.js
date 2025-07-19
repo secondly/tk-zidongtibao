@@ -14,11 +14,8 @@ function convertGraphToWorkflow(graph, workflowName = '新工作流') {
         throw new Error('画布中没有节点，无法生成工作流');
     }
 
-    // 验证图形连接
-    const validation = validateGraphConnections(graph);
-    if (!validation.isValid) {
-        console.warn('图形验证警告:', validation.errors);
-    }
+    // 简单的图形验证（可选，不影响导出）
+    console.log('开始导出工作流，跳过图形连接验证');
 
     console.log(`开始导出工作流，顶层节点数量: ${vertices.length}`);
 
@@ -259,15 +256,15 @@ function convertGraphToWorkflow(graph, workflowName = '新工作流') {
 function buildExecutionOrder(graph, startNode) {
     const visited = new Set();
     const executionOrder = [];
-    
+
     function traverse(node) {
         if (visited.has(node.id)) {
             return; // 避免循环引用
         }
-        
+
         visited.add(node.id);
         executionOrder.push(node);
-        
+
         // 获取输出连接（只处理顶层连接）
         const outgoingEdges = graph.getOutgoingEdges(node).filter(edge => {
             // 确保目标节点也是顶层节点
@@ -293,7 +290,7 @@ function buildExecutionOrder(graph, startNode) {
             });
         }
     }
-    
+
     traverse(startNode);
     return executionOrder;
 }
@@ -302,6 +299,8 @@ function buildExecutionOrder(graph, startNode) {
  * 将工作流数据转换为图形
  */
 function convertWorkflowToGraph(graph, workflow) {
+    console.log('🔄 convertWorkflowToGraph 开始，接收到的工作流数据:', workflow);
+
     if (!workflow) {
         throw new Error('工作流数据无效或为空');
     }
@@ -311,17 +310,26 @@ function convertWorkflowToGraph(graph, workflow) {
     let nodes = [];
     let edges = [];
 
+    console.log('🔍 分析工作流数据格式...');
+    console.log('  - workflow.steps 存在:', !!workflow.steps);
+    console.log('  - workflow.steps 是数组:', Array.isArray(workflow.steps));
+    console.log('  - workflow.nodes 存在:', !!workflow.nodes);
+    console.log('  - workflow.nodes 是数组:', Array.isArray(workflow.nodes));
+
     if (workflow.steps && Array.isArray(workflow.steps)) {
         // 新格式：标准工作流格式
         steps = workflow.steps;
-        console.log(`检测到新格式数据: ${steps.length} 个步骤, 连接数: ${workflow.connections ? workflow.connections.length : 0}`);
+        console.log(`✅ 检测到新格式数据: ${steps.length} 个步骤, 连接数: ${workflow.connections ? workflow.connections.length : 0}`);
+        console.log('🔍 步骤详情:', steps);
     } else if (workflow.nodes && Array.isArray(workflow.nodes)) {
         // 旧格式：mxGraph格式
         nodes = workflow.nodes;
         edges = workflow.edges || [];
-        console.log(`检测到旧格式数据: ${nodes.length} 个节点, ${edges.length} 个连接`);
+        console.log(`✅ 检测到旧格式数据: ${nodes.length} 个节点, ${edges.length} 个连接`);
+        console.log('🔍 节点详情:', nodes);
     } else {
-        console.error('不支持的工作流数据格式，数据结构:', Object.keys(workflow));
+        console.error('❌ 不支持的工作流数据格式，数据结构:', Object.keys(workflow));
+        console.error('完整数据:', workflow);
         throw new Error('不支持的工作流数据格式');
     }
 
@@ -641,21 +649,21 @@ function convertWorkflowToGraph(graph, workflow) {
 function exportWorkflowAsJSON(graph, workflowName) {
     try {
         const workflow = convertGraphToWorkflow(graph, workflowName);
-        
+
         const dataStr = JSON.stringify(workflow, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(dataBlob);
-        
+
         const downloadLink = document.createElement('a');
         downloadLink.href = url;
         downloadLink.download = `${workflowName || 'workflow'}_${new Date().toISOString().slice(0, 10)}.json`;
-        
+
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
-        
+
         URL.revokeObjectURL(url);
-        
+
         return workflow;
     } catch (error) {
         alert(`导出失败: ${error.message}`);
@@ -669,27 +677,27 @@ function exportWorkflowAsJSON(graph, workflowName) {
 function importWorkflowFromJSON(graph, file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        
-        reader.onload = function(e) {
+
+        reader.onload = function (e) {
             try {
                 const workflowData = JSON.parse(e.target.result);
-                
+
                 // 验证工作流数据格式
                 if (!workflowData.steps || !Array.isArray(workflowData.steps)) {
                     throw new Error('无效的工作流文件格式');
                 }
-                
+
                 convertWorkflowToGraph(graph, workflowData);
                 resolve(workflowData);
             } catch (error) {
                 reject(new Error(`导入失败: ${error.message}`));
             }
         };
-        
-        reader.onerror = function() {
+
+        reader.onerror = function () {
             reject(new Error('文件读取失败'));
         };
-        
+
         reader.readAsText(file);
     });
 }
@@ -701,14 +709,14 @@ function getGraphStatistics(graph) {
     const parent = graph.getDefaultParent();
     const vertices = graph.getChildVertices(parent);
     const edges = graph.getChildEdges(parent);
-    
+
     // 统计节点类型
     const nodeTypeCount = {};
     vertices.forEach(vertex => {
         const nodeType = vertex.value?.type || 'unknown';
         nodeTypeCount[nodeType] = (nodeTypeCount[nodeType] || 0) + 1;
     });
-    
+
     return {
         totalNodes: vertices.length,
         totalConnections: edges.length,

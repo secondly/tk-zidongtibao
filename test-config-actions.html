@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>配置操作功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .test-section h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🧪 配置操作功能测试</h1>
+
+        <div class="test-section">
+            <h3>1. 创建测试数据</h3>
+            <button class="btn btn-primary" onclick="createTestData()">创建测试工作流</button>
+            <button class="btn btn-info" onclick="viewStorageData()">查看存储数据</button>
+            <div id="createResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. 测试编辑功能</h3>
+            <button class="btn btn-success" onclick="testEditFunction()">测试编辑功能</button>
+            <div id="editResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 测试删除功能</h3>
+            <button class="btn btn-danger" onclick="testDeleteFunction()">测试删除功能</button>
+            <div id="deleteResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 打开主界面</h3>
+            <button class="btn btn-info" onclick="openMainInterface()">打开插件主界面</button>
+        </div>
+    </div>
+
+    <script>
+        // 创建测试数据
+        function createTestData() {
+            const testWorkflows = [
+                {
+                    name: "测试工作流1",
+                    steps: [
+                        {
+                            id: "step1",
+                            type: "click",
+                            name: "点击按钮",
+                            locator: { type: "css", value: "#button1" },
+                            x: 100,
+                            y: 100,
+                            width: 120,
+                            height: 60
+                        },
+                        {
+                            id: "step2",
+                            type: "input",
+                            name: "输入文本",
+                            locator: { type: "css", value: "#input1" },
+                            inputText: "测试文本",
+                            x: 300,
+                            y: 100,
+                            width: 120,
+                            height: 60
+                        }
+                    ],
+                    connections: [
+                        {
+                            id: "conn1",
+                            source: "step1",
+                            target: "step2",
+                            label: ""
+                        }
+                    ],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                },
+                {
+                    name: "测试工作流2",
+                    steps: [
+                        {
+                            id: "step3",
+                            type: "wait",
+                            name: "等待3秒",
+                            waitTime: 3,
+                            x: 100,
+                            y: 100,
+                            width: 120,
+                            height: 60
+                        },
+                        {
+                            id: "step4",
+                            type: "condition",
+                            name: "条件判断",
+                            locator: { type: "css", value: ".condition" },
+                            x: 300,
+                            y: 100,
+                            width: 120,
+                            height: 80
+                        }
+                    ],
+                    connections: [
+                        {
+                            id: "conn2",
+                            source: "step3",
+                            target: "step4",
+                            label: ""
+                        }
+                    ],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                }
+            ];
+
+            try {
+                localStorage.setItem('automationWorkflows', JSON.stringify(testWorkflows));
+
+                const result = document.getElementById('createResult');
+                result.style.display = 'block';
+                result.innerHTML = `
+                    <strong>✅ 测试数据创建成功！</strong><br>
+                    创建了 ${testWorkflows.length} 个测试工作流：<br>
+                    ${testWorkflows.map(w => `• ${w.name} (${w.steps.length} 个步骤)`).join('<br>')}
+                `;
+                result.style.background = '#d4edda';
+                result.style.borderColor = '#c3e6cb';
+                result.style.color = '#155724';
+            } catch (error) {
+                const result = document.getElementById('createResult');
+                result.style.display = 'block';
+                result.innerHTML = `<strong>❌ 创建失败：</strong>${error.message}`;
+                result.style.background = '#f8d7da';
+                result.style.borderColor = '#f5c6cb';
+                result.style.color = '#721c24';
+            }
+        }
+
+        // 查看存储数据
+        function viewStorageData() {
+            try {
+                const data = localStorage.getItem('automationWorkflows');
+                const result = document.getElementById('createResult');
+                result.style.display = 'block';
+
+                if (data) {
+                    const workflows = JSON.parse(data);
+                    result.innerHTML = `
+                        <strong>📦 当前存储数据：</strong><br>
+                        工作流数量: ${workflows.length}<br>
+                        <details>
+                            <summary>详细数据 (点击展开)</summary>
+                            <pre style="margin-top: 10px; font-size: 12px; background: #f1f1f1; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(workflows, null, 2)}</pre>
+                        </details>
+                    `;
+                } else {
+                    result.innerHTML = '<strong>⚠️ 没有找到存储数据</strong>';
+                }
+
+                result.style.background = '#d1ecf1';
+                result.style.borderColor = '#bee5eb';
+                result.style.color = '#0c5460';
+            } catch (error) {
+                const result = document.getElementById('createResult');
+                result.style.display = 'block';
+                result.innerHTML = `<strong>❌ 读取失败：</strong>${error.message}`;
+                result.style.background = '#f8d7da';
+                result.style.borderColor = '#f5c6cb';
+                result.style.color = '#721c24';
+            }
+        }
+
+        // 测试编辑功能
+        function testEditFunction() {
+            const result = document.getElementById('editResult');
+            result.style.display = 'block';
+
+            try {
+                // 模拟编辑操作：创建临时编辑数据
+                const testWorkflow = {
+                    name: "编辑测试工作流",
+                    steps: [
+                        { id: "edit_step1", type: "click", name: "编辑测试点击", locator: { type: "css", value: "#edit-test" } }
+                    ],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+
+                const tempEditData = {
+                    workflow: testWorkflow,
+                    mode: 'edit',
+                    timestamp: Date.now()
+                };
+
+                localStorage.setItem('temp_edit_workflow', JSON.stringify(tempEditData));
+
+                result.innerHTML = `
+                    <strong>✅ 编辑功能测试准备完成！</strong><br>
+                    已创建临时编辑数据：${testWorkflow.name}<br>
+                    <small>现在可以打开设计器测试编辑模式</small>
+                `;
+                result.style.background = '#d4edda';
+                result.style.borderColor = '#c3e6cb';
+                result.style.color = '#155724';
+
+            } catch (error) {
+                result.innerHTML = `<strong>❌ 编辑功能测试失败：</strong>${error.message}`;
+                result.style.background = '#f8d7da';
+                result.style.borderColor = '#f5c6cb';
+                result.style.color = '#721c24';
+            }
+        }
+
+        // 测试删除功能
+        function testDeleteFunction() {
+            const result = document.getElementById('deleteResult');
+            result.style.display = 'block';
+
+            try {
+                const data = localStorage.getItem('automationWorkflows');
+                if (!data) {
+                    result.innerHTML = '<strong>⚠️ 没有数据可删除，请先创建测试数据</strong>';
+                    result.style.background = '#fff3cd';
+                    result.style.borderColor = '#ffeaa7';
+                    result.style.color = '#856404';
+                    return;
+                }
+
+                const workflows = JSON.parse(data);
+                const originalCount = workflows.length;
+
+                if (originalCount === 0) {
+                    result.innerHTML = '<strong>⚠️ 工作流列表为空</strong>';
+                    result.style.background = '#fff3cd';
+                    result.style.borderColor = '#ffeaa7';
+                    result.style.color = '#856404';
+                    return;
+                }
+
+                // 删除第一个工作流作为测试
+                const deletedWorkflow = workflows.shift();
+                localStorage.setItem('automationWorkflows', JSON.stringify(workflows));
+
+                result.innerHTML = `
+                    <strong>✅ 删除功能测试成功！</strong><br>
+                    已删除工作流：${deletedWorkflow.name}<br>
+                    原数量：${originalCount} → 现数量：${workflows.length}
+                `;
+                result.style.background = '#d4edda';
+                result.style.borderColor = '#c3e6cb';
+                result.style.color = '#155724';
+
+            } catch (error) {
+                result.innerHTML = `<strong>❌ 删除功能测试失败：</strong>${error.message}`;
+                result.style.background = '#f8d7da';
+                result.style.borderColor = '#f5c6cb';
+                result.style.color = '#721c24';
+            }
+        }
+
+        // 打开主界面
+        function openMainInterface() {
+            window.open('plugin-automation-popup.html', 'mainInterface', 'width=800,height=600,scrollbars=yes,resizable=yes');
+        }
+
+        // 页面加载时显示当前状态
+        window.addEventListener('load', function () {
+            viewStorageData();
+        });
+    </script>
+</body>
+
+</html>

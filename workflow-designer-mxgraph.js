@@ -27,7 +27,7 @@ class MxGraphWorkflowDesigner {
         };
         this.contextMenuPoint = null;
         this.contextMenuContainer = null;
-        
+
         // 节点类型配置（使用模块中的配置）
         this.nodeTypes = nodeTypes;
 
@@ -36,10 +36,10 @@ class MxGraphWorkflowDesigner {
             element: '元素循环',
             count: '次数循环'
         };
-        
+
         this.init();
     }
-    
+
     async init() {
         try {
             // 等待mxGraph加载
@@ -71,7 +71,7 @@ class MxGraphWorkflowDesigner {
             this.updateStatus('初始化失败: ' + error.message);
         }
     }
-    
+
     waitForMxGraph() {
         return new Promise((resolve, reject) => {
             const checkMxGraph = () => {
@@ -82,12 +82,12 @@ class MxGraphWorkflowDesigner {
                 }
             };
             checkMxGraph();
-            
+
             // 10秒超时
             setTimeout(() => reject(new Error('mxGraph加载超时')), 10000);
         });
     }
-    
+
     initMxGraph() {
         // 进一步禁用资源加载，防止CORS错误
         if (typeof mxResources !== 'undefined') {
@@ -96,13 +96,13 @@ class MxGraphWorkflowDesigner {
             mxResources.loadDefaultBundle = false;
             mxResources.loadSpecialBundle = false;
             // 完全禁用资源加载
-            mxResources.add = function() { return; };
-            mxResources.get = function(key, params, defaultValue) { return defaultValue || key; };
+            mxResources.add = function () { return; };
+            mxResources.get = function (key, params, defaultValue) { return defaultValue || key; };
         }
 
         // 禁用样式表加载
         if (typeof mxClient !== 'undefined') {
-            mxClient.link = function() { return; }; // 禁用CSS加载
+            mxClient.link = function () { return; }; // 禁用CSS加载
         }
 
         // 检查浏览器支持
@@ -186,7 +186,7 @@ class MxGraphWorkflowDesigner {
         this.graph.panningHandler.useLeftButtonForPanning = true;
 
         // 配置拖动行为：只在空白区域拖动
-        this.graph.panningHandler.isPanningTrigger = function(me) {
+        this.graph.panningHandler.isPanningTrigger = function (me) {
             const cell = me.getCell();
             // 只有在没有选中任何单元格时才允许拖动
             return cell == null;
@@ -351,7 +351,7 @@ class MxGraphWorkflowDesigner {
 
         // 启用撤销重做
         const undoManager = new mxUndoManager();
-        const listener = function(sender, evt) {
+        const listener = function (sender, evt) {
             undoManager.undoableEditHappened(evt.getProperty('edit'));
         };
         this.graph.getModel().addListener(mxEvent.UNDO, listener);
@@ -487,10 +487,10 @@ class MxGraphWorkflowDesigner {
             });
         });
     }
-    
+
     setupStyles() {
         const stylesheet = this.graph.getStylesheet();
-        
+
         // 基础节点样式
         const baseNodeStyle = {
             [mxConstants.STYLE_SHAPE]: mxConstants.SHAPE_RECTANGLE,
@@ -505,7 +505,7 @@ class MxGraphWorkflowDesigner {
             [mxConstants.STYLE_WHITE_SPACE]: 'wrap', // 关键：启用文本换行
             [mxConstants.STYLE_OVERFLOW]: 'width'    // 关键：按宽度换行
         };
-        
+
         // 为每种节点类型创建样式
         Object.keys(this.nodeTypes).forEach(type => {
             const config = this.nodeTypes[type];
@@ -516,7 +516,7 @@ class MxGraphWorkflowDesigner {
             };
             stylesheet.putCellStyle(type, style);
         });
-        
+
         // 循环容器样式（swimlane）
         const loopContainerStyle = {
             [mxConstants.STYLE_SHAPE]: mxConstants.SHAPE_SWIMLANE,
@@ -550,7 +550,7 @@ class MxGraphWorkflowDesigner {
         };
         stylesheet.putCellStyle('condition', conditionStyle);
     }
-    
+
     initEventListeners() {
         // 清空画布
         document.getElementById('clearCanvas').addEventListener('click', () => {
@@ -574,15 +574,21 @@ class MxGraphWorkflowDesigner {
 
 
 
-        // 继续工作流
-        document.getElementById('resumeWorkflow').addEventListener('click', () => {
-            this.resumeWorkflow();
-        });
+        // 继续工作流 - 检查元素是否存在
+        const resumeBtn = document.getElementById('resumeWorkflow');
+        if (resumeBtn) {
+            resumeBtn.addEventListener('click', () => {
+                this.resumeWorkflow();
+            });
+        }
 
-        // 停止工作流
-        document.getElementById('stopWorkflow').addEventListener('click', () => {
-            this.stopWorkflow();
-        });
+        // 停止工作流 - 检查元素是否存在
+        const stopBtn = document.getElementById('stopWorkflow');
+        if (stopBtn) {
+            stopBtn.addEventListener('click', () => {
+                this.stopWorkflow();
+            });
+        }
 
         // 添加键盘快捷键
         document.addEventListener('keydown', async (e) => {
@@ -815,7 +821,7 @@ class MxGraphWorkflowDesigner {
             this.updateStatus(`已添加${config.name}`);
         }, 50);
     }
-    
+
     onSelectionChange() {
         const cells = this.graph.getSelectionCells();
         if (cells.length === 1 && this.graph.getModel().isVertex(cells[0])) {
@@ -826,7 +832,7 @@ class MxGraphWorkflowDesigner {
             this.hidePropertyPanel();
         }
     }
-    
+
     showPropertyPanel(cell) {
         const panel = document.getElementById('propertyPanel');
         const form = document.getElementById('propertyForm');
@@ -862,12 +868,12 @@ class MxGraphWorkflowDesigner {
         // 绑定表单事件
         this.bindPropertyFormEvents(cell);
     }
-    
+
     hidePropertyPanel() {
         const panel = document.getElementById('propertyPanel');
         panel.classList.remove('show');
     }
-    
+
     updateNodeCount() {
         const parent = this.graph.getDefaultParent();
 
@@ -881,12 +887,12 @@ class MxGraphWorkflowDesigner {
 
         document.getElementById('nodeCount').textContent = `节点: ${nodeCount} | 连线: ${edgeCount}`;
     }
-    
+
     updateStatus(message) {
         document.getElementById('statusText').textContent = message;
         console.log('状态:', message);
     }
-    
+
     clearCanvas() {
         if (confirm('确定要清空画布吗？此操作不可撤销。')) {
             this.graph.removeCells(this.graph.getChildVertices(this.graph.getDefaultParent()));
@@ -895,7 +901,7 @@ class MxGraphWorkflowDesigner {
             this.updateStatus('画布已清空');
         }
     }
-    
+
     // 带对话框的保存工作流
     saveWorkflowWithDialog() {
         try {
@@ -905,6 +911,43 @@ class MxGraphWorkflowDesigner {
                 return;
             }
 
+            // 检查是否为编辑模式
+            if (this.editMode && this.originalWorkflow) {
+                console.log('🎨 编辑模式保存，原工作流:', this.originalWorkflow.name);
+
+                // 编辑模式下，默认使用原工作流名称
+                const currentName = this.originalWorkflow.name;
+
+                // 询问是否要修改名称
+                const workflowName = prompt('工作流名称 (留空保持原名称):', currentName);
+
+                if (workflowName === null) {
+                    this.updateStatus('保存已取消');
+                    return;
+                }
+
+                const finalName = workflowName.trim() || currentName;
+
+                // 更新工作流数据
+                workflowData.name = finalName;
+                workflowData.updatedAt = new Date().toISOString();
+                workflowData.createdAt = this.originalWorkflow.createdAt || new Date().toISOString();
+
+                // 保存编辑结果到临时存储，供弹窗读取
+                const tempKey = 'temp_edit_workflow';
+                const tempData = JSON.parse(localStorage.getItem(tempKey) || '{}');
+                tempData.workflow = workflowData;
+                tempData.updated = true;
+                tempData.timestamp = Date.now();
+                localStorage.setItem(tempKey, JSON.stringify(tempData));
+
+                this.updateStatus(`✅ 工作流 "${finalName}" 编辑完成！请关闭设计器窗口以应用更改。`);
+
+                console.log('✅ 编辑模式保存完成，数据已准备好供弹窗读取');
+                return;
+            }
+
+            // 非编辑模式的常规保存逻辑
             // 获取现有的工作流列表
             let savedWorkflows = [];
             try {
@@ -989,7 +1032,7 @@ class MxGraphWorkflowDesigner {
             this.updateStatus('保存失败: ' + error.message);
         }
     }
-    
+
     loadWorkflow() {
         try {
             const data = localStorage.getItem('mxgraph_workflow');
@@ -1055,7 +1098,7 @@ class MxGraphWorkflowDesigner {
         document.body.appendChild(fileInput);
         fileInput.click();
     }
-    
+
     exportData() {
         try {
             // 检查FileExportManager是否可用
@@ -1127,7 +1170,7 @@ class MxGraphWorkflowDesigner {
             this.updateStatus('导出失败: ' + error.message);
         }
     }
-    
+
 
 
 
@@ -1188,7 +1231,7 @@ class MxGraphWorkflowDesigner {
                     </div>
                     <div class="form-group">
                         <label class="form-label">点击后等待时间(毫秒)</label>
-                        <input type="number" class="form-input" id="waitAfterClick" value="${config.waitAfterClick || 1000}" min="0">
+                        <input type="number" class="form-input" id="waitAfterClick" value="${config.waitAfterClick || config.waitTime || 1000}" min="0">
                         <div class="form-help">点击后等待页面响应的时间</div>
                     </div>
                     <div class="form-group">
@@ -1250,7 +1293,7 @@ class MxGraphWorkflowDesigner {
                 formHtml += `
                     <div class="form-group">
                         <label class="form-label">等待时间(毫秒)</label>
-                        <input type="number" class="form-input" id="waitDuration" value="${config.duration || 1000}" min="100" max="60000" step="100">
+                        <input type="number" class="form-input" id="waitDuration" value="${config.duration || config.waitTime || 1000}" min="100" max="60000" step="100">
                         <div class="form-help">固定等待的时间长度</div>
                     </div>
                     <div class="form-group">
@@ -1301,7 +1344,7 @@ class MxGraphWorkflowDesigner {
                     </div>
                     <div class="form-group">
                         <label class="form-label">超时时间(毫秒)</label>
-                        <input type="number" class="form-input" id="timeout" value="${config.timeout || 30000}" min="1000" max="60000" step="1000">
+                        <input type="number" class="form-input" id="timeout" value="${config.timeout || config.waitTime || 30000}" min="1000" max="60000" step="1000">
                         <div class="form-help">最长等待时间，超时后继续执行</div>
                     </div>
                     <div class="form-group">
@@ -1660,7 +1703,11 @@ class MxGraphWorkflowDesigner {
                         value: clickLocatorValue.value
                     };
                 }
-                if (waitAfterClick) config.waitAfterClick = parseInt(waitAfterClick.value);
+                if (waitAfterClick) {
+                    const waitValue = parseInt(waitAfterClick.value);
+                    config.waitAfterClick = waitValue;
+                    config.waitTime = waitValue; // 同时保存为waitTime，确保导出时正确
+                }
                 if (clickErrorHandling) config.errorHandling = clickErrorHandling.value;
                 break;
 
@@ -1686,7 +1733,11 @@ class MxGraphWorkflowDesigner {
                 const waitDuration = document.getElementById('waitDuration');
                 const waitErrorHandling = document.getElementById('errorHandling');
 
-                if (waitDuration) config.duration = parseInt(waitDuration.value);
+                if (waitDuration) {
+                    const durationValue = parseInt(waitDuration.value);
+                    config.duration = durationValue;
+                    config.waitTime = durationValue; // 同时保存为waitTime，确保导出时正确
+                }
                 if (waitErrorHandling) config.errorHandling = waitErrorHandling.value;
                 break;
 
@@ -1714,7 +1765,11 @@ class MxGraphWorkflowDesigner {
                     };
                 }
                 if (waitCondition) config.waitCondition = waitCondition.value;
-                if (timeout) config.timeout = parseInt(timeout.value);
+                if (timeout) {
+                    const timeoutValue = parseInt(timeout.value);
+                    config.timeout = timeoutValue;
+                    config.waitTime = timeoutValue; // 同时保存为waitTime，确保导出时正确
+                }
                 if (checkInterval) config.checkInterval = parseInt(checkInterval.value);
                 if (smartWaitAttributeName) config.attributeName = smartWaitAttributeName.value;
 
@@ -1885,8 +1940,15 @@ class MxGraphWorkflowDesigner {
     // 工作流数据导入功能已移至 utils/workflowConverter.js 中的 convertWorkflowToGraph 函数
     importWorkflowData(data) {
         try {
+            console.log('📥 importWorkflowData 开始，接收到的数据:', data);
+            console.log('🔍 数据类型:', typeof data);
+            console.log('🔍 数据结构:', Object.keys(data));
+            console.log('🔍 步骤数据:', data.steps);
+
             // 使用模块中的转换函数
+            console.log('🔄 调用 convertWorkflowToGraph...');
             convertWorkflowToGraph(this.graph, data);
+            console.log('✅ convertWorkflowToGraph 完成');
 
             // 清空节点配置并重新构建（包括容器内的子节点）
             this.nodeConfigs.clear();
@@ -2132,7 +2194,7 @@ class MxGraphWorkflowDesigner {
     setupCollapseButton() {
         // 自定义折叠按钮的渲染
         const originalCreateFoldingImage = mxGraph.prototype.createFoldingImage;
-        this.graph.createFoldingImage = function(state) {
+        this.graph.createFoldingImage = function (state) {
             const image = originalCreateFoldingImage.apply(this, arguments);
             if (image) {
                 // 大幅增加折叠按钮的大小，让它更容易点击
@@ -2166,7 +2228,7 @@ class MxGraphWorkflowDesigner {
 
         // 自定义Rubberband行为，只在Ctrl键按下时启用
         const originalIsEnabled = this.rubberband.isEnabled;
-        this.rubberband.isEnabled = function() {
+        this.rubberband.isEnabled = function () {
             // 检查是否按下Ctrl键
             const evt = this.graph.lastEvent || window.event;
             return originalIsEnabled.call(this) && (evt && evt.ctrlKey);
@@ -2754,6 +2816,48 @@ class MxGraphWorkflowDesigner {
     // 从localStorage加载工作流数据
     loadWorkflowFromStorage() {
         try {
+            // 首先检查是否有编辑模式的临时数据
+            const tempEditData = localStorage.getItem('temp_edit_workflow');
+            console.log('🔍 检查编辑模式临时数据:', tempEditData);
+
+            if (tempEditData) {
+                const editData = JSON.parse(tempEditData);
+                console.log('🎨 检测到编辑模式数据:', editData);
+                console.log('🔍 编辑数据详情:');
+                console.log('  - 模式:', editData.mode);
+                console.log('  - 时间戳:', editData.timestamp);
+                console.log('  - 工作流:', editData.workflow);
+
+                if (editData.mode === 'edit' && editData.workflow) {
+                    console.log('🔄 加载编辑模式工作流:', editData.workflow.name);
+                    console.log('🔍 工作流步骤数量:', editData.workflow.steps ? editData.workflow.steps.length : 0);
+                    console.log('🔍 工作流步骤详情:', editData.workflow.steps);
+
+                    // 转换并导入工作流数据
+                    console.log('📥 开始导入工作流数据...');
+                    this.importWorkflowData(editData.workflow);
+                    console.log('✅ 工作流数据导入完成');
+
+                    // 设置编辑模式标记
+                    this.editMode = true;
+                    this.originalWorkflow = editData.workflow;
+
+                    this.updateStatus(`编辑模式: ${editData.workflow.name}`);
+
+                    // 更新窗口标题
+                    document.title = `工作流设计器 - 编辑: ${editData.workflow.name}`;
+
+                    return; // 编辑模式优先，不再检查其他数据
+                } else {
+                    console.warn('⚠️ 编辑模式数据格式不正确');
+                    console.log('  - mode:', editData.mode);
+                    console.log('  - workflow存在:', !!editData.workflow);
+                }
+            } else {
+                console.log('ℹ️ 没有找到编辑模式临时数据');
+            }
+
+            // 检查常规的工作流数据
             const workflowData = localStorage.getItem('designer_workflow_data');
             if (workflowData) {
                 const workflow = JSON.parse(workflowData);

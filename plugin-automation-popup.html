@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +11,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             width: 800px;
             height: 600px;
@@ -19,7 +20,7 @@
             color: #333;
             overflow: hidden;
         }
-        
+
         .app-container {
             display: flex;
             flex-direction: column;
@@ -101,7 +102,8 @@
             padding: 16px;
             overflow: auto;
             min-height: 0;
-            #flowPreview{
+
+            #flowPreview {
                 width: 100%;
                 height: 100%;
             }
@@ -120,7 +122,7 @@
             width: 100%;
             padding: 0 16px;
         }
-        
+
         /* 按钮样式 */
         .btn-icon {
             width: 32px;
@@ -239,11 +241,12 @@
             font-size: 14px;
             color: #666;
         }
-            margin-bottom: 10px;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 5px;
+
+        margin-bottom: 10px;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 5px;
         }
-        
+
         .workflow-info {
             display: flex;
             gap: 10px;
@@ -253,25 +256,25 @@
             border: 1px solid #e9ecef;
             margin-bottom: 15px;
         }
-        
+
         .workflow-name {
             font-weight: bold;
             color: #2c3e50;
             margin-bottom: 5px;
         }
-        
+
         .workflow-stats {
             font-size: 12px;
             color: #7f8c8d;
         }
-        
+
         .action-buttons {
             display: flex;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
             margin-bottom: 15px;
         }
-        
+
         .btn {
             padding: 10px;
             border: none;
@@ -282,53 +285,87 @@
             transition: all 0.3s ease;
             text-align: center;
         }
-        
+
         .btn-primary {
             background: #3498db;
             color: white;
         }
-        
+
         .btn-primary:hover {
             background: #2980b9;
         }
-        
+
         .btn-success {
             background: #27ae60;
             color: white;
         }
-        
+
         .btn-success:hover {
             background: #229954;
         }
-        
+
         .btn-secondary {
             background: #95a5a6;
             color: white;
         }
-        
+
         .btn-secondary:hover {
             background: #7f8c8d;
         }
-        
+
         .btn-danger {
             background: #e74c3c;
             color: white;
         }
-        
+
         .btn-danger:hover {
             background: #c0392b;
         }
-        
+
+        /* 配置操作按钮样式 */
+        .config-actions .btn {
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .config-actions .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .config-actions .btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 编辑按钮特殊样式 */
+        #editConfigBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        }
+
+        #editConfigBtn:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%) !important;
+        }
+
+        /* 删除按钮特殊样式 */
+        #deleteConfigBtn {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%) !important;
+        }
+
+        #deleteConfigBtn:hover {
+            background: linear-gradient(135deg, #ff5252 0%, #e53935 100%) !important;
+        }
+
         .tools-section {
             margin-bottom: 20px;
         }
-        
+
         .tool-grid {
             display: flex;
             grid-template-columns: 1fr 1fr;
             gap: 8px;
         }
-        
+
         .tool-btn {
             background: white;
             border: 1px solid #dee2e6;
@@ -339,22 +376,22 @@
             text-align: center;
             transition: all 0.3s ease;
         }
-        
+
         .tool-btn:hover {
             background: #e9ecef;
             border-color: #3498db;
         }
-        
+
         .tool-btn .icon {
             font-size: 16px;
             margin-bottom: 3px;
             display: block;
         }
-        
+
         .steps-section {
             margin-bottom: 20px;
         }
-        
+
         .steps-container {
             max-height: 200px;
             overflow-y: auto;
@@ -363,7 +400,7 @@
             background: white;
             display: block;
         }
-        
+
         .step-item {
             width: 100%;
             padding: 10px;
@@ -384,28 +421,28 @@
         }
 
 
-        
+
         .step-info {
             flex: 1;
         }
-        
+
         .step-name {
             font-size: 12px;
             font-weight: bold;
             color: #2c3e50;
             margin-bottom: 2px;
         }
-        
+
         .step-details {
             font-size: 10px;
             color: #7f8c8d;
         }
-        
+
         .step-actions {
             display: flex;
             gap: 5px;
         }
-        
+
         .step-action-btn {
             background: none;
             border: none;
@@ -448,18 +485,18 @@
             background: #f8d7da;
             color: #721c24;
         }
-        
+
         .empty-steps {
             padding: 30px;
             text-align: center;
             color: #7f8c8d;
             font-size: 12px;
         }
-        
+
         .execution-section {
             margin-bottom: 15px;
         }
-        
+
         .progress-bar {
             width: 100%;
             height: 8px;
@@ -468,20 +505,20 @@
             overflow: hidden;
             margin-bottom: 10px;
         }
-        
+
         .progress-fill {
             height: 100%;
             background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
             width: 0%;
             transition: width 0.3s ease;
         }
-        
+
         .progress-text {
             font-size: 11px;
             color: #7f8c8d;
             text-align: center;
         }
-        
+
         .status-message {
             padding: 8px;
             border-radius: 4px;
@@ -489,29 +526,29 @@
             margin-bottom: 10px;
             display: none;
         }
-        
+
         .status-success {
             background: #d4edda;
             border: 1px solid #c3e6cb;
             color: #155724;
         }
-        
+
         .status-error {
             background: #f8d7da;
             border: 1px solid #f5c6cb;
             color: #721c24;
         }
-        
+
         .status-info {
             background: #d1ecf1;
             border: 1px solid #bee5eb;
             color: #0c5460;
         }
-        
+
         .form-group {
             margin-bottom: 12px;
         }
-        
+
         .form-group label {
             display: block;
             margin-bottom: 4px;
@@ -519,7 +556,7 @@
             font-weight: bold;
             color: #2c3e50;
         }
-        
+
         .form-group input,
         .form-group select {
             width: 100%;
@@ -528,13 +565,13 @@
             border-radius: 4px;
             font-size: 11px;
         }
-        
+
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
             border-color: #3498db;
         }
-        
+
         .help-text {
             font-size: 10px;
             color: #7f8c8d;
@@ -596,7 +633,7 @@
         .test-result.empty {
             display: none;
         }
-        
+
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -607,7 +644,7 @@
             z-index: 1000;
             display: none;
         }
-        
+
         .modal {
             position: absolute;
             top: 50%;
@@ -621,7 +658,7 @@
             max-height: 80%;
             overflow-y: auto;
         }
-        
+
         .modal-header {
             display: flex;
             justify-content: space-between;
@@ -630,13 +667,13 @@
             padding-bottom: 10px;
             border-bottom: 1px solid #e9ecef;
         }
-        
+
         .modal-title {
             font-size: 14px;
             font-weight: bold;
             color: #2c3e50;
         }
-        
+
         .modal-close {
             background: none;
             border: none;
@@ -644,7 +681,7 @@
             cursor: pointer;
             color: #7f8c8d;
         }
-        
+
         .modal-close:hover {
             color: #e74c3c;
         }
@@ -784,18 +821,27 @@
         }
 
         @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
         }
     </style>
 </head>
+
 <body>
     <!-- <div class="header">
         <h1>🤖 通用自动化</h1>
         <p>智能网页操作助手</p>
     </div> -->
-    
+
     <div class="app-container">
         <!-- 主内容区域 -->
         <div class="main-content">
@@ -822,28 +868,47 @@
 
                         <!-- 配置选择下拉框 -->
                         <div class="config-selector" style="margin-bottom: 16px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                <label for="configSelect" style="font-size: 14px; font-weight: 500; color: #333;">选择配置:</label>
-                                <button id="refreshConfigBtn" style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" title="刷新配置列表">
+                            <div
+                                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                <label for="configSelect"
+                                    style="font-size: 14px; font-weight: 500; color: #333;">选择配置:</label>
+                                <button id="refreshConfigBtn"
+                                    style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;"
+                                    title="刷新配置列表">
                                     🔄 刷新
                                 </button>
                             </div>
-                            <select id="configSelect" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; background: #fff; cursor: pointer;">
+                            <select id="configSelect"
+                                style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; background: #fff; cursor: pointer;">
                                 <option value="">请选择一个配置...</option>
                             </select>
                         </div>
 
                         <!-- 当前配置信息 -->
-                        <div class="current-config" id="currentConfig" style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; background: #f8f9fa; margin-bottom: 16px; display: none;">
+                        <div class="current-config" id="currentConfig"
+                            style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; background: #f8f9fa; margin-bottom: 16px; display: none;">
                             <div class="config-info" style="font-size: 13px; color: #666;">
-                                <div class="config-name" style="font-weight: 600; color: #333; margin-bottom: 4px;">未选择配置</div>
+                                <div class="config-name" style="font-weight: 600; color: #333; margin-bottom: 4px;">
+                                    未选择配置</div>
                                 <div class="config-stats">0 个步骤</div>
+                            </div>
+                            <!-- 配置操作按钮 -->
+                            <div class="config-actions" style="display: flex; gap: 8px; margin-top: 12px;">
+                                <button class="btn btn-sm" id="editConfigBtn"
+                                    style="flex: 1; background: #ff6b6b; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                    编辑
+                                </button>
+                                <button class="btn btn-sm" id="deleteConfigBtn"
+                                    style="flex: 1; background: #ff6b6b; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                    删除
+                                </button>
                             </div>
                         </div>
 
                         <!-- 执行控制按钮 -->
                         <div class="config-actions" style="margin-top: 16px;">
-                            <button class="btn btn-primary" id="executeBtn" disabled style="width: 100%; padding: 12px; margin-bottom: 8px;">
+                            <button class="btn btn-primary" id="executeBtn" disabled
+                                style="width: 100%; padding: 12px; margin-bottom: 8px;">
                                 <span class="icon">▶️</span>
                                 执行工作流
                             </button>
@@ -875,7 +940,8 @@
                     <!-- 流程图预览模块 -->
                     <div id="flowPreview">
                         <div class="flow-preview">
-                            <div id="flowGraphContainer" class="flow-graph-container" style="width: 100%; height: 100%; background: white; position: relative;">
+                            <div id="flowGraphContainer" class="flow-graph-container"
+                                style="width: 100%; height: 100%; background: white; position: relative;">
                                 <div class="loading" style="display: none;">
                                     <div class="spinner"></div>
                                     <div>正在加载...</div>
@@ -899,20 +965,26 @@
             <div class="status-content">
                 <!-- 执行状态模块 -->
                 <div id="executionStatus">
-                    <div class="execution-status" style="display: flex; align-items: center; gap: 16px; padding: 0 4px; height: 100%;">
+                    <div class="execution-status"
+                        style="display: flex; align-items: center; gap: 16px; padding: 0 4px; height: 100%;">
                         <!-- 状态指示器 -->
-                        <div class="status-indicator-section" style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
-                            <div class="status-icon" style="font-size: 20px; width: 24px; text-align: center; color: #6c757d;">⏸️</div>
+                        <div class="status-indicator-section"
+                            style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+                            <div class="status-icon"
+                                style="font-size: 20px; width: 24px; text-align: center; color: #6c757d;">⏸️</div>
                             <div class="status-info" style="display: flex; flex-direction: column; gap: 2px;">
-                                <div class="status-text" style="font-size: 14px; font-weight: 600; color: #6c757d;">空闲</div>
+                                <div class="status-text" style="font-size: 14px; font-weight: 600; color: #6c757d;">空闲
+                                </div>
                                 <div class="status-message" style="font-size: 12px; color: #666;">等待执行...</div>
                             </div>
                         </div>
 
                         <!-- 执行时间显示 -->
-                        <div class="execution-time" style="display: none; align-items: center; gap: 6px; font-size: 12px; color: #666; flex-shrink: 0; margin-left: auto;">
+                        <div class="execution-time"
+                            style="display: none; align-items: center; gap: 6px; font-size: 12px; color: #666; flex-shrink: 0; margin-left: auto;">
                             <span class="time-label" style="font-weight: 500;">执行时间:</span>
-                            <span class="time-value" style="font-family: 'Courier New', monospace; font-weight: 600; color: #333;">00:00</span>
+                            <span class="time-value"
+                                style="font-family: 'Courier New', monospace; font-weight: 600; color: #333;">00:00</span>
                         </div>
                     </div>
                 </div>
@@ -923,23 +995,31 @@
     <input type="file" id="fileInput" accept=".json" style="display: none;">
 
     <!-- 右键菜单 -->
-    <div id="contextMenu" class="context-menu hidden" style="position: fixed; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); padding: 8px 0; min-width: 180px; z-index: 10000; display: none;">
-        <div class="menu-item" id="testNodeBtn" style="padding: 10px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background-color 0.2s;">
+    <div id="contextMenu" class="context-menu hidden"
+        style="position: fixed; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); padding: 8px 0; min-width: 180px; z-index: 10000; display: none;">
+        <div class="menu-item" id="testNodeBtn"
+            style="padding: 10px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background-color 0.2s;">
             <span class="icon" style="font-size: 14px; width: 18px; text-align: center;">🧪</span>
             <span class="text" style="font-size: 13px; color: #333;">测试节点</span>
         </div>
-        <div class="menu-item" id="viewConfigBtn" style="padding: 10px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background-color 0.2s;">
+        <div class="menu-item" id="viewConfigBtn"
+            style="padding: 10px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background-color 0.2s;">
             <span class="icon" style="font-size: 14px; width: 18px; text-align: center;">⚙️</span>
             <span class="text" style="font-size: 13px; color: #333;">查看配置</span>
         </div>
     </div>
 
     <!-- 模态框 -->
-    <div class="modal-overlay" id="modalOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; display: none;">
-        <div class="modal" id="stepModal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; padding: 20px; width: 90%; max-width: 350px; max-height: 80%; overflow-y: auto;">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
-                <h3 class="modal-title" id="modalTitle" style="font-size: 14px; font-weight: bold; color: #2c3e50;">编辑步骤</h3>
-                <button class="modal-close" id="modalCloseBtn" style="background: none; border: none; font-size: 18px; cursor: pointer; color: #7f8c8d;">&times;</button>
+    <div class="modal-overlay" id="modalOverlay"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; display: none;">
+        <div class="modal" id="stepModal"
+            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; padding: 20px; width: 90%; max-width: 350px; max-height: 80%; overflow-y: auto;">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
+                <h3 class="modal-title" id="modalTitle" style="font-size: 14px; font-weight: bold; color: #2c3e50;">编辑步骤
+                </h3>
+                <button class="modal-close" id="modalCloseBtn"
+                    style="background: none; border: none; font-size: 18px; cursor: pointer; color: #7f8c8d;">&times;</button>
             </div>
             <div class="modal-content" id="modalContent">
                 <!-- 动态内容将在这里插入 -->
@@ -972,4 +1052,5 @@
     <!-- 主文件 -->
     <script src="plugin-automation-popup.js"></script>
 </body>
+
 </html>

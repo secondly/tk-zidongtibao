@@ -27,7 +27,7 @@ let flowPreview = null;
 let executionStatus = null;
 
 // 初始化
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('🤖 通用自动化插件已加载 - 三栏布局版本');
 
     // 初始化工作流管理器
@@ -51,6 +51,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初始化事件监听器
     initializeEventListeners();
+
+    // 初始化配置操作按钮事件
+    initializeConfigActionListeners();
 
     // 调试localStorage内容
     debugLocalStorage();
@@ -937,6 +940,284 @@ function clearExecutionStatus() {
     console.log('执行状态已清除');
 }
 
+// 初始化配置操作按钮事件监听器
+function initializeConfigActionListeners() {
+    // 编辑配置按钮
+    const editConfigBtn = document.getElementById('editConfigBtn');
+    if (editConfigBtn) {
+        editConfigBtn.addEventListener('click', editCurrentConfig);
+    }
+
+    // 删除配置按钮
+    const deleteConfigBtn = document.getElementById('deleteConfigBtn');
+    if (deleteConfigBtn) {
+        deleteConfigBtn.addEventListener('click', deleteCurrentConfig);
+    }
+
+    console.log('✅ 配置操作按钮事件监听器已初始化');
+}
+
+// 编辑当前配置
+function editCurrentConfig() {
+    if (!currentWorkflow) {
+        updateExecutionStatus('warning', '请先选择一个配置');
+        return;
+    }
+
+    console.log('🎨 编辑配置:', currentWorkflow.name);
+
+    try {
+        // 打开设计器并传递当前工作流数据
+        openDesignerWithWorkflow(currentWorkflow);
+
+        updateExecutionStatus('success', '正在打开设计器...');
+
+        // 2秒后恢复状态
+        setTimeout(() => {
+            updateExecutionStatus('idle', '设计器已打开');
+        }, 2000);
+
+    } catch (error) {
+        console.error('❌ 打开设计器失败:', error);
+        updateExecutionStatus('error', '打开设计器失败');
+
+        setTimeout(() => {
+            updateExecutionStatus('idle', '请重试');
+        }, 3000);
+    }
+}
+
+// 删除当前配置
+function deleteCurrentConfig() {
+    if (!currentWorkflow) {
+        updateExecutionStatus('warning', '请先选择一个配置');
+        return;
+    }
+
+    const workflowName = currentWorkflow.name || '未命名工作流';
+
+    // 确认删除
+    const confirmed = confirm(`确定要删除配置"${workflowName}"吗？\n\n此操作不可撤销。`);
+
+    if (!confirmed) {
+        console.log('🚫 用户取消删除操作');
+        return;
+    }
+
+    console.log('🗑️ 删除配置:', workflowName);
+
+    try {
+        // 获取当前工作流列表
+        const workflows = getWorkflowsFromStorage();
+
+        // 找到当前工作流的索引
+        const currentIndex = workflows.findIndex(w =>
+            w.name === currentWorkflow.name &&
+            JSON.stringify(w.steps) === JSON.stringify(currentWorkflow.steps)
+        );
+
+        if (currentIndex === -1) {
+            throw new Error('未找到要删除的配置');
+        }
+
+        // 从列表中移除
+        workflows.splice(currentIndex, 1);
+
+        // 保存更新后的列表
+        const saved = saveWorkflowsToStorage(workflows);
+
+        if (saved) {
+            console.log('✅ 配置删除成功:', workflowName);
+
+            // 清空当前选择
+            currentWorkflow = null;
+
+            // 重新加载配置列表
+            loadSavedWorkflows();
+
+            // 隐藏当前配置显示
+            hideCurrentConfigDisplay();
+
+            // 清除流程预览
+            clearFlowPreview();
+
+            // 禁用执行按钮
+            const executeBtn = document.getElementById('executeBtn');
+            if (executeBtn) {
+                executeBtn.disabled = true;
+            }
+
+            // 重置配置选择框
+            const configSelect = document.getElementById('configSelect');
+            if (configSelect) {
+                configSelect.value = '';
+            }
+
+            updateExecutionStatus('success', `配置"${workflowName}"已删除`);
+
+            // 3秒后恢复状态
+            setTimeout(() => {
+                updateExecutionStatus('idle', '请选择一个配置');
+            }, 3000);
+
+        } else {
+            throw new Error('保存配置列表失败');
+        }
+
+    } catch (error) {
+        console.error('❌ 删除配置失败:', error);
+        updateExecutionStatus('error', `删除失败: ${error.message}`);
+
+        setTimeout(() => {
+            updateExecutionStatus('idle', '请重试');
+        }, 3000);
+    }
+}
+
+// 打开设计器并传递工作流数据
+function openDesignerWithWorkflow(workflow) {
+    console.log('🎨 准备打开设计器，工作流:', workflow);
+    console.log('🔍 工作流详细数据结构:');
+    console.log('  - 名称:', workflow.name);
+    console.log('  - 步骤数量:', workflow.steps ? workflow.steps.length : 0);
+    console.log('  - 步骤详情:', workflow.steps);
+    console.log('  - 连接信息:', workflow.connections);
+    console.log('  - 完整数据:', JSON.stringify(workflow, null, 2));
+
+    try {
+        // 将工作流数据保存到一个临时的localStorage键中，供设计器读取
+        const tempKey = 'temp_edit_workflow';
+        localStorage.setItem(tempKey, JSON.stringify({
+            workflow: workflow,
+            mode: 'edit',
+            timestamp: Date.now()
+        }));
+
+        console.log('💾 工作流数据已保存到临时存储');
+
+        // 打开设计器窗口
+        const designerUrl = 'workflow-designer-mxgraph.html';
+        const designerWindow = window.open(
+            designerUrl,
+            'workflowDesigner',
+            'width=1200,height=800,scrollbars=yes,resizable=yes,status=yes,toolbar=no,menubar=no'
+        );
+
+        if (designerWindow) {
+            console.log('✅ 设计器窗口已打开');
+
+            // 监听设计器窗口关闭事件
+            const checkClosed = setInterval(() => {
+                if (designerWindow.closed) {
+                    console.log('🔄 设计器窗口已关闭，检查是否有更新的数据');
+                    clearInterval(checkClosed);
+
+                    // 检查是否有更新的工作流数据
+                    checkForUpdatedWorkflow(tempKey);
+                }
+            }, 1000);
+
+            // 设置超时清理
+            setTimeout(() => {
+                if (!designerWindow.closed) {
+                    console.log('⏰ 设计器监听超时，停止检查');
+                    clearInterval(checkClosed);
+                }
+            }, 30 * 60 * 1000); // 30分钟超时
+
+        } else {
+            throw new Error('无法打开设计器窗口，可能被浏览器阻止');
+        }
+
+    } catch (error) {
+        console.error('❌ 打开设计器失败:', error);
+        throw error;
+    }
+}
+
+// 检查更新的工作流数据
+function checkForUpdatedWorkflow(tempKey) {
+    try {
+        const tempData = localStorage.getItem(tempKey);
+        if (tempData) {
+            const parsed = JSON.parse(tempData);
+
+            // 检查是否有更新标记
+            if (parsed.updated && parsed.workflow) {
+                console.log('🔄 检测到工作流更新，应用更改...');
+
+                // 更新当前工作流
+                const updatedWorkflow = parsed.workflow;
+
+                // 获取现有工作流列表
+                const workflows = getWorkflowsFromStorage();
+
+                // 找到原工作流并替换
+                const originalName = currentWorkflow.name;
+                const index = workflows.findIndex(w => w.name === originalName);
+
+                if (index >= 0) {
+                    workflows[index] = updatedWorkflow;
+
+                    // 保存更新后的列表
+                    const saved = saveWorkflowsToStorage(workflows);
+
+                    if (saved) {
+                        console.log('✅ 工作流更新已保存');
+
+                        // 更新当前工作流引用
+                        currentWorkflow = updatedWorkflow;
+
+                        // 重新加载配置列表
+                        loadSavedWorkflows();
+
+                        // 更新显示
+                        updateCurrentConfigDisplay();
+                        renderFlowPreview(currentWorkflow);
+
+                        // 重新选中更新后的配置
+                        const configSelect = document.getElementById('configSelect');
+                        if (configSelect) {
+                            configSelect.value = index;
+                        }
+
+                        updateExecutionStatus('success', '配置已更新');
+
+                        setTimeout(() => {
+                            updateExecutionStatus('idle', '配置已选择，可以执行');
+                        }, 2000);
+
+                    } else {
+                        console.error('❌ 保存更新的工作流失败');
+                        updateExecutionStatus('error', '保存更新失败');
+                    }
+                } else {
+                    console.warn('⚠️ 未找到原工作流，作为新配置添加');
+
+                    // 作为新配置添加
+                    workflows.push(updatedWorkflow);
+                    const saved = saveWorkflowsToStorage(workflows);
+
+                    if (saved) {
+                        loadSavedWorkflows();
+                        updateExecutionStatus('success', '新配置已添加');
+                    }
+                }
+            } else {
+                console.log('ℹ️ 没有检测到工作流更新');
+            }
+
+            // 清理临时数据
+            localStorage.removeItem(tempKey);
+            console.log('🧹 临时数据已清理');
+        }
+
+    } catch (error) {
+        console.error('❌ 检查工作流更新失败:', error);
+        updateExecutionStatus('error', '检查更新失败');
+    }
+}
+
 // 新建工作流
 function newWorkflow() {
     const name = prompt('请输入工作流名称:', '新建工作流');
@@ -965,13 +1246,13 @@ function loadWorkflow() {
         return;
     }
 
-    let options = workflowList.map((wf, index) => 
+    let options = workflowList.map((wf, index) =>
         `${index + 1}. ${wf.name} (${wf.stepCount}个步骤)`
     ).join('\n');
-    
+
     const choice = prompt(`选择要加载的工作流:\n${options}\n\n请输入序号:`);
     const index = parseInt(choice) - 1;
-    
+
     if (index >= 0 && index < workflowList.length) {
         const workflowId = workflowList[index].id;
         try {
@@ -1499,7 +1780,7 @@ function setupLoopTypeHandlers() {
     const actionTypeSelect = document.getElementById('editActionType');
 
     if (loopTypeSelect) {
-        loopTypeSelect.addEventListener('change', function() {
+        loopTypeSelect.addEventListener('change', function () {
             const loopType = this.value;
             const simpleConfig = document.getElementById('simpleLoopConfig');
             const parentConfig = document.getElementById('parentLoopConfig');
@@ -1515,7 +1796,7 @@ function setupLoopTypeHandlers() {
     }
 
     if (actionTypeSelect) {
-        actionTypeSelect.addEventListener('change', function() {
+        actionTypeSelect.addEventListener('change', function () {
             const actionType = this.value;
             const inputTextGroup = document.getElementById('inputTextGroup');
 
@@ -1539,7 +1820,7 @@ function setupSubOperationHandlers() {
     // 子操作编辑和删除按钮（使用事件委托）
     const container = document.getElementById('subOperationsList');
     if (container) {
-        container.addEventListener('click', function(e) {
+        container.addEventListener('click', function (e) {
             if (e.target.classList.contains('edit-sub-op')) {
                 const index = parseInt(e.target.dataset.index);
                 editSubOperation(index);
@@ -2261,7 +2542,7 @@ async function resetEngine() {
         showStatus('🔄 正在重置自动化引擎...', 'info');
 
         // 获取当前标签页
-        const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab) {
             throw new Error('无法获取当前标签页');
         }
@@ -2431,7 +2712,7 @@ function setupSubOperationListHandlers() {
         container.parentNode.replaceChild(newContainer, container);
 
         // 添加新的监听器
-        newContainer.addEventListener('click', function(e) {
+        newContainer.addEventListener('click', function (e) {
             if (e.target.classList.contains('edit-sub-op')) {
                 const index = parseInt(e.target.dataset.index);
                 editSubOperation(index);
@@ -2545,7 +2826,7 @@ function showSubOperationModal(subOp, index) {
     `;
 
     // 添加类型变化监听
-    document.getElementById('subOpType').addEventListener('change', function() {
+    document.getElementById('subOpType').addEventListener('change', function () {
         const type = this.value;
         const needsLocator = ['click', 'input', 'waitForElement', 'check', 'select', 'autoLoop'].includes(type);
 
@@ -2571,7 +2852,7 @@ function showSubOperationModal(subOp, index) {
     // 添加自循环操作类型变化监听
     const autoLoopActionTypeSelect = document.getElementById('subOpAutoLoopActionType');
     if (autoLoopActionTypeSelect) {
-        autoLoopActionTypeSelect.addEventListener('change', function() {
+        autoLoopActionTypeSelect.addEventListener('change', function () {
             const actionType = this.value;
             const inputTextGroup = document.getElementById('subOpAutoLoopInputTextGroup');
             if (inputTextGroup) {
@@ -3092,7 +3373,7 @@ function importWorkflow(event) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         try {
             const importData = JSON.parse(e.target.result);
 
@@ -3275,7 +3556,7 @@ function handleFileSelect(event) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         try {
             const workflow = JSON.parse(e.target.result);
 
