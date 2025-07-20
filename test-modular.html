@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模块化版本测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .test-result {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .module-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .module-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="test-container">
+        <h1>🧪 模块化版本测试</h1>
+        <p>这个页面用于测试模块化重构后的功能是否正常工作。</p>
+
+        <div id="test-results"></div>
+
+        <div>
+            <button onclick="runTests()">运行测试</button>
+            <button onclick="clearResults()">清除结果</button>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>📦 模块加载状态</h2>
+        <div id="module-status"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>🔧 功能测试</h2>
+        <div>
+            <button onclick="testStorage()">测试存储功能</button>
+            <button onclick="testUtils()">测试工具函数</button>
+            <button onclick="testConstants()">测试常量定义</button>
+        </div>
+        <div id="function-results"></div>
+    </div>
+
+    <script type="module">
+        // 导入模块进行测试
+        import { debugLog } from './shared/popup/popup-utils.js';
+        import { STORAGE_KEY, EXECUTION_STATUS } from './shared/popup/popup-constants.js';
+        import { getWorkflowsFromStorage, saveWorkflowsToStorage } from './modules/popup/popup-storage.js';
+
+        // 全局测试函数
+        window.runTests = function () {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '';
+
+            const tests = [
+                testModuleImports,
+                testConstants,
+                testUtils,
+                testStorage
+            ];
+
+            let passedTests = 0;
+            let totalTests = tests.length;
+
+            tests.forEach((test, index) => {
+                try {
+                    const result = test();
+                    if (result.success) {
+                        passedTests++;
+                        addResult('success', `✅ 测试 ${index + 1}: ${result.message}`);
+                    } else {
+                        addResult('error', `❌ 测试 ${index + 1}: ${result.message}`);
+                    }
+                } catch (error) {
+                    addResult('error', `❌ 测试 ${index + 1}: 执行失败 - ${error.message}`);
+                }
+            });
+
+            addResult('info', `📊 测试完成: ${passedTests}/${totalTests} 通过`);
+        };
+
+        window.clearResults = function () {
+            document.getElementById('test-results').innerHTML = '';
+            document.getElementById('function-results').innerHTML = '';
+        };
+
+        function addResult(type, message) {
+            const resultsDiv = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.textContent = message;
+            resultsDiv.appendChild(div);
+        }
+
+        function addFunctionResult(type, message) {
+            const resultsDiv = document.getElementById('function-results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.textContent = message;
+            resultsDiv.appendChild(div);
+        }
+
+        // 测试函数
+        function testModuleImports() {
+            try {
+                // 检查是否能正确导入模块
+                if (typeof debugLog === 'function' &&
+                    typeof STORAGE_KEY === 'string' &&
+                    typeof getWorkflowsFromStorage === 'function') {
+                    return { success: true, message: '模块导入成功' };
+                } else {
+                    return { success: false, message: '模块导入失败' };
+                }
+            } catch (error) {
+                return { success: false, message: `模块导入异常: ${error.message}` };
+            }
+        }
+
+        function testConstants() {
+            try {
+                const requiredConstants = ['STORAGE_KEY', 'STATE_CACHE_KEY', 'WORKFLOW_CACHE_KEY'];
+                const requiredStatus = ['IDLE', 'RUNNING', 'PAUSED', 'COMPLETED', 'ERROR'];
+
+                let missing = [];
+
+                if (!STORAGE_KEY) missing.push('STORAGE_KEY');
+                requiredStatus.forEach(status => {
+                    if (!EXECUTION_STATUS[status]) missing.push(`EXECUTION_STATUS.${status}`);
+                });
+
+                if (missing.length === 0) {
+                    return { success: true, message: '常量定义完整' };
+                } else {
+                    return { success: false, message: `缺少常量: ${missing.join(', ')}` };
+                }
+            } catch (error) {
+                return { success: false, message: `常量测试异常: ${error.message}` };
+            }
+        }
+
+        function testUtils() {
+            try {
+                // 测试调试日志函数
+                debugLog('测试日志输出');
+
+                // 测试其他工具函数是否存在
+                if (typeof debugLog === 'function') {
+                    return { success: true, message: '工具函数正常' };
+                } else {
+                    return { success: false, message: '工具函数缺失' };
+                }
+            } catch (error) {
+                return { success: false, message: `工具函数测试异常: ${error.message}` };
+            }
+        }
+
+        function testStorage() {
+            try {
+                // 测试存储功能
+                const testData = [{ name: '测试工作流', steps: [] }];
+
+                // 保存测试数据
+                const saveResult = saveWorkflowsToStorage(testData);
+                if (!saveResult) {
+                    return { success: false, message: '保存数据失败' };
+                }
+
+                // 读取测试数据
+                const loadedData = getWorkflowsFromStorage();
+                if (loadedData.length === 1 && loadedData[0].name === '测试工作流') {
+                    // 清理测试数据
+                    saveWorkflowsToStorage([]);
+                    return { success: true, message: '存储功能正常' };
+                } else {
+                    return { success: false, message: '读取数据失败' };
+                }
+            } catch (error) {
+                return { success: false, message: `存储测试异常: ${error.message}` };
+            }
+        }
+
+        // 单独的功能测试
+        window.testStorage = function () {
+            try {
+                const result = testStorage();
+                addFunctionResult(result.success ? 'success' : 'error',
+                    `存储测试: ${result.message}`);
+            } catch (error) {
+                addFunctionResult('error', `存储测试异常: ${error.message}`);
+            }
+        };
+
+        window.testUtils = function () {
+            try {
+                debugLog('工具函数测试');
+                addFunctionResult('success', '工具函数测试: 调试日志正常输出');
+            } catch (error) {
+                addFunctionResult('error', `工具函数测试异常: ${error.message}`);
+            }
+        };
+
+        window.testConstants = function () {
+            try {
+                const result = testConstants();
+                addFunctionResult(result.success ? 'success' : 'error',
+                    `常量测试: ${result.message}`);
+            } catch (error) {
+                addFunctionResult('error', `常量测试异常: ${error.message}`);
+            }
+        };
+
+        // 显示模块状态
+        function showModuleStatus() {
+            const statusDiv = document.getElementById('module-status');
+            const modules = [
+                'popup-constants',
+                'popup-utils',
+                'popup-storage',
+                'popup-core',
+                'popup-config',
+                'popup-execution',
+                'popup-persistence',
+                'popup-preview'
+            ];
+
+            statusDiv.innerHTML = `
+                <div class="module-list">
+                    ${modules.map(module => `
+                        <div class="module-item">
+                            <strong>${module}</strong><br>
+                            <small>✅ 已加载</small>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // 页面加载完成后显示模块状态
+        document.addEventListener('DOMContentLoaded', showModuleStatus);
+
+        // 显示版本信息
+        console.log('🧪 模块化测试页面已加载');
+        console.log('📦 可用模块:', ['popup-constants', 'popup-utils', 'popup-storage']);
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>预览修复测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .preview-container {
+            width: 100%;
+            height: 400px;
+            border: 1px solid #ddd;
+            position: relative;
+        }
+
+        .test-result {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="test-container">
+        <h1>🔧 预览修复测试</h1>
+        <p>这个页面用于测试预览功能的修复效果。</p>
+
+        <div>
+            <button onclick="testMxGraphAvailability()">测试mxGraph可用性</button>
+            <button onclick="testConvertFunction()">测试转换函数</button>
+            <button onclick="testPreviewRender()">测试预览渲染</button>
+            <button onclick="clearResults()">清除结果</button>
+        </div>
+
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-container">
+        <h2>📊 预览测试区域</h2>
+        <div id="flowGraphContainer" class="preview-container"></div>
+        <div id="flowOverlay" style="display: none;"></div>
+    </div>
+
+    <!-- 加载必要的脚本 -->
+    <script src="js/mxClient.min.js"></script>
+    <script src="utils/workflowConverter.js"></script>
+
+    <script type="module">
+        import { renderFlowPreview } from './modules/popup/popup-preview.js';
+        import { debugLog } from './shared/popup/popup-utils.js';
+
+        // 全局测试函数
+        window.testMxGraphAvailability = function () {
+            const result = {
+                mxGraph: typeof window.mxGraph,
+                mxClient: typeof window.mxClient,
+                mxConstants: typeof window.mxConstants,
+                convertWorkflowToGraph: typeof window.convertWorkflowToGraph
+            };
+
+            addResult('info', `mxGraph可用性检查: ${JSON.stringify(result, null, 2)}`);
+        };
+
+        window.testConvertFunction = function () {
+            if (typeof window.convertWorkflowToGraph === 'function') {
+                addResult('success', '✅ convertWorkflowToGraph函数可用');
+            } else {
+                addResult('error', '❌ convertWorkflowToGraph函数不可用');
+            }
+        };
+
+        window.testPreviewRender = function () {
+            const testWorkflow = {
+                name: '测试工作流',
+                steps: [
+                    {
+                        id: 'step1',
+                        type: 'click',
+                        name: '点击操作',
+                        locator: { strategy: 'css', value: '#test' }
+                    },
+                    {
+                        id: 'step2',
+                        type: 'input',
+                        name: '输入文本',
+                        locator: { strategy: 'css', value: '#input' },
+                        inputText: '测试文本'
+                    },
+                    {
+                        id: 'step3',
+                        type: 'condition',
+                        name: '条件判断',
+                        conditionType: 'element',
+                        locator: { strategy: 'css', value: '#condition' }
+                    }
+                ]
+            };
+
+            try {
+                renderFlowPreview(testWorkflow);
+                addResult('success', '✅ 预览渲染测试完成');
+            } catch (error) {
+                addResult('error', `❌ 预览渲染失败: ${error.message}`);
+                console.error('预览渲染错误:', error);
+            }
+        };
+
+        window.clearResults = function () {
+            document.getElementById('test-results').innerHTML = '';
+        };
+
+        function addResult(type, message) {
+            const resultsDiv = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.textContent = message;
+            resultsDiv.appendChild(div);
+        }
+
+        // 页面加载完成后自动运行基础测试
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🧪 预览修复测试页面已加载');
+
+            // 等待一段时间让所有脚本加载完成
+            setTimeout(() => {
+                testMxGraphAvailability();
+                testConvertFunction();
+            }, 1000);
+        });
+    </script>
+</body>
+
+</html>
