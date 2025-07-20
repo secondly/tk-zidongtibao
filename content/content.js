@@ -6,7 +6,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   // 处理ping请求，用于检测content script是否已加载
   if (request.action === "ping") {
     console.log("收到ping请求");
-    sendResponse({ success: true, message: "Content script已加载" });
+    sendResponse({ success: true, status: "ready", message: "Content script已加载" });
     return true;
   }
 
@@ -39,22 +39,22 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
   // 处理通用自动化工作流执行
   if (request.action === "executeWorkflow") {
-    console.log("🔧 [DEBUG] 收到工作流执行请求，工作流数据:", JSON.stringify(request.workflow, null, 2));
+    console.log("🔧 [DEBUG] 收到工作流执行请求，工作流数据:", JSON.stringify(request.data, null, 2));
 
-  // 验证工作流数据结构
-  if (request.workflow && request.workflow.steps) {
-    request.workflow.steps.forEach((step, index) => {
-      console.log(`🔧 [DEBUG] 步骤 ${index + 1}:`, {
-        type: step.type,
-        name: step.name,
-        locator: step.locator,
-        hasLocator: !!step.locator,
-        locatorStrategy: step.locator?.strategy || step.locator?.type,
-        locatorValue: step.locator?.value
+    // 验证工作流数据结构
+    if (request.data && request.data.steps) {
+      request.data.steps.forEach((step, index) => {
+        console.log(`🔧 [DEBUG] 步骤 ${index + 1}:`, {
+          type: step.type,
+          name: step.name,
+          locator: step.locator,
+          hasLocator: !!step.locator,
+          locatorStrategy: step.locator?.strategy || step.locator?.type,
+          locatorValue: step.locator?.value
+        });
       });
-    });
-  }
-    executeUniversalWorkflow(request.workflow)
+    }
+    executeUniversalWorkflow(request.data)
       .then((result) => {
         sendResponse({ success: true, result });
       })
@@ -1373,9 +1373,9 @@ async function executeClickStep(step) {
   // 检查元素是否可见和可点击
   const rect = element.getBoundingClientRect();
   const isVisible = rect.width > 0 && rect.height > 0 &&
-                   rect.top >= 0 && rect.left >= 0 &&
-                   rect.bottom <= window.innerHeight &&
-                   rect.right <= window.innerWidth;
+    rect.top >= 0 && rect.left >= 0 &&
+    rect.bottom <= window.innerHeight &&
+    rect.right <= window.innerWidth;
 
   console.log('🔧 [DEBUG] 元素可见性检查:', {
     isVisible,

@@ -1,385 +1,394 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>工作流设计器 - mxGraph版本</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
-            height: 100vh;
-            overflow: hidden;
-        }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f5f5f5;
+        height: 100vh;
+        overflow: hidden;
+      }
 
-        .container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
+      .container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
 
-        /* 顶部工具栏 */
-        .top-toolbar {
-            background: #2c3e50;
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+      /* 顶部工具栏 */
+      .top-toolbar {
+        background: #2c3e50;
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
 
-        .toolbar-left {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
+      .toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
 
-        .toolbar-title {
-            color: white;
-            font-size: 16px;
-            font-weight: 600;
-        }
+      .toolbar-title {
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+      }
 
-        .toolbar-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
+      .toolbar-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
 
-        /* 执行状态显示 */
-        .execution-status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 8px 12px;
-            border-radius: 6px;
-            color: white;
-            font-size: 14px;
-        }
+      /* 执行状态显示 */
+      .execution-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 8px 12px;
+        border-radius: 6px;
+        color: white;
+        font-size: 14px;
+      }
 
-        .status-indicator {
-            font-size: 16px;
-        }
+      .status-indicator {
+        font-size: 16px;
+      }
 
-        .status-text {
-            min-width: 120px;
-        }
+      .status-text {
+        min-width: 120px;
+      }
 
-        .progress-bar {
-            width: 150px;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
-            overflow: hidden;
-        }
+      .progress-bar {
+        width: 150px;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+        overflow: hidden;
+      }
 
-        .progress-fill {
-            height: 100%;
-            background: #3498db;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
+      .progress-fill {
+        height: 100%;
+        background: #3498db;
+        width: 0%;
+        transition: width 0.3s ease;
+      }
 
-        /* 执行控制按钮组 */
-        .execution-controls {
-            display: flex;
-            gap: 4px;
-        }
+      /* 执行控制按钮组 */
+      .execution-controls {
+        display: flex;
+        gap: 4px;
+      }
 
-        .btn {
-            padding: 6px 12px;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: background 0.2s;
-        }
+      .btn {
+        padding: 6px 12px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.2s;
+      }
 
-        .btn:hover {
-            background: #2980b9;
-        }
+      .btn:hover {
+        background: #2980b9;
+      }
 
-        .btn.secondary {
-            background: #95a5a6;
-        }
+      .btn.secondary {
+        background: #95a5a6;
+      }
 
-        .btn.secondary:hover {
-            background: #7f8c8d;
-        }
+      .btn.secondary:hover {
+        background: #7f8c8d;
+      }
 
-        .btn.success {
-            background: #27ae60;
-        }
+      .btn.success {
+        background: #27ae60;
+      }
 
-        .btn.success:hover {
-            background: #229954;
-        }
+      .btn.success:hover {
+        background: #229954;
+      }
 
-        .btn.warning {
-            background: #f39c12;
-        }
+      .btn.warning {
+        background: #f39c12;
+      }
 
-        .btn.warning:hover {
-            background: #e67e22;
-        }
+      .btn.warning:hover {
+        background: #e67e22;
+      }
 
-        .btn.danger {
-            background: #e74c3c;
-        }
+      .btn.danger {
+        background: #e74c3c;
+      }
 
-        .btn.danger:hover {
-            background: #c0392b;
-        }
+      .btn.danger:hover {
+        background: #c0392b;
+      }
 
-        /* 主内容区域 */
-        .main-content {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
+      /* 主内容区域 */
+      .main-content {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
 
-        /* mxGraph画布容器 */
-        .graph-container {
-            width: calc(100% - 250px);
-            position: relative;
-            background: white;
-        }
+      /* mxGraph画布容器 */
+      .graph-container {
+        width: calc(100% - 250px);
+        position: relative;
+        background: white;
+      }
 
-        #graphContainer {
-            width: 100%;
-            height: 100%;
-            background: white;
-            cursor: default;
-        }
+      #graphContainer {
+        width: 100%;
+        height: 100%;
+        background: white;
+        cursor: default;
+      }
 
-        /* 属性面板 */
-        .property-panel {
-            width: 250px;
-            background: white;
-            border-left: 1px solid #e0e0e0;
-            padding: 15px;
-            overflow-y: auto;
-            display: none;
-        }
+      /* 属性面板 */
+      .property-panel {
+        width: 250px;
+        background: white;
+        border-left: 1px solid #e0e0e0;
+        padding: 15px;
+        overflow-y: auto;
+        display: none;
+      }
 
-        .property-panel.show {
-            display: block;
-        }
+      .property-panel.show {
+        display: block;
+      }
 
-        .property-panel h3 {
-            color: #333;
-            margin-bottom: 12px;
-            font-size: 15px;
-        }
+      .property-panel h3 {
+        color: #333;
+        margin-bottom: 12px;
+        font-size: 15px;
+      }
 
-        .form-group {
-            margin-bottom: 12px;
-        }
+      .form-group {
+        margin-bottom: 12px;
+      }
 
-        .form-label {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 13px;
-            color: #555;
-            font-weight: 500;
-        }
+      .form-label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 13px;
+        color: #555;
+        font-weight: 500;
+      }
 
-        .form-input, .form-select, .form-textarea {
-            width: 100%;
-            padding: 6px 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 13px;
-            transition: border-color 0.2s;
-        }
+      .form-input,
+      .form-select,
+      .form-textarea {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 13px;
+        transition: border-color 0.2s;
+      }
 
-        .form-input:focus, .form-select:focus, .form-textarea:focus {
-            outline: none;
-            border-color: #3498db;
-        }
+      .form-input:focus,
+      .form-select:focus,
+      .form-textarea:focus {
+        outline: none;
+        border-color: #3498db;
+      }
 
-        .form-textarea {
-            resize: vertical;
-            min-height: 60px;
-        }
+      .form-textarea {
+        resize: vertical;
+        min-height: 60px;
+      }
 
-        .form-help {
-            font-size: 11px;
-            color: #666;
-            margin-top: 3px;
-        }
+      .form-help {
+        font-size: 11px;
+        color: #666;
+        margin-top: 3px;
+      }
 
-        /* 状态栏 */
-        .status-bar {
-            background: #2c3e50;
-            color: white;
-            padding: 6px 10px;
-            font-size: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+      /* 状态栏 */
+      .status-bar {
+        background: #2c3e50;
+        color: white;
+        padding: 6px 10px;
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
 
-        /* 右键菜单 */
-        .context-menu {
-            position: absolute;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            padding: 6px 0;
-            z-index: 1000;
-            min-width: 180px;
-            font-size: 13px;
-        }
+      /* 右键菜单 */
+      .context-menu {
+        position: absolute;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        padding: 6px 0;
+        z-index: 1000;
+        min-width: 180px;
+        font-size: 13px;
+      }
 
-        .context-menu-item {
-            padding: 8px 12px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: background 0.2s;
-        }
+      .context-menu-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: background 0.2s;
+      }
 
-        .context-menu-item:hover {
-            background: #f0f7ff;
-        }
+      .context-menu-item:hover {
+        background: #f0f7ff;
+      }
 
-        .context-menu-item .shortcut {
-            color: #999;
-            font-size: 11px;
-            margin-left: 15px;
-        }
+      .context-menu-item .shortcut {
+        color: #999;
+        font-size: 11px;
+        margin-left: 15px;
+      }
 
-        /* 加载提示 */
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: #666;
-        }
+      /* 加载提示 */
+      .loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #666;
+      }
 
-        .loading .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
+      .loading .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+      }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
         }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <!-- 顶部工具栏 -->
-        <div class="top-toolbar">
-            <div class="toolbar-left">
-                <div class="toolbar-title">工作流设计器</div>
-                <!-- 执行状态显示 -->
-                <div class="execution-status" id="executionStatus" style="display: none;">
-                    <span class="status-indicator" id="statusIndicator">⏸️</span>
-                    <span class="status-text" id="statusText">准备就绪</span>
-                    <div class="progress-bar" id="progressBar">
-                        <div class="progress-fill" id="progressFill"></div>
-                    </div>
-                </div>
+      <!-- 顶部工具栏 -->
+      <div class="top-toolbar">
+        <div class="toolbar-left">
+          <div class="toolbar-title">工作流设计器</div>
+          <!-- 执行状态显示 -->
+          <div
+            class="execution-status"
+            id="executionStatus"
+            style="display: none"
+          >
+            <span class="status-indicator" id="statusIndicator">⏸️</span>
+            <span class="status-text" id="statusText">准备就绪</span>
+            <div class="progress-bar" id="progressBar">
+              <div class="progress-fill" id="progressFill"></div>
             </div>
-            <div class="toolbar-actions">
-                <button class="btn" id="clearCanvas">🗑️ 清空</button>
-                <button class="btn" id="saveWorkflow">💾 保存</button>
-                <button class="btn" id="loadWorkflow">📁 加载</button>
-                <button class="btn" id="exportData">📤 导出</button>
-                <!-- 执行控制按钮组 -->
-                <div class="execution-controls">
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <button class="btn" id="clearCanvas">🗑️ 清空</button>
+          <button class="btn" id="saveWorkflow">💾 保存</button>
+          <button class="btn" id="loadWorkflow">📁 加载</button>
+          <button class="btn" id="exportData">📤 导出</button>
+          <!-- 执行控制按钮组 -->
+          <div class="execution-controls"></div>
+        </div>
+      </div>
 
-                </div>
+      <!-- 主内容区域 -->
+      <div class="main-content">
+        <!-- mxGraph画布 -->
+        <div class="graph-container">
+          <div id="graphContainer">
+            <div class="loading">
+              <div class="spinner"></div>
+              <div>正在加载...</div>
             </div>
+          </div>
+
+          <!-- 右键菜单 (初始隐藏) -->
+          <div class="context-menu" id="contextMenu" style="display: none">
+            <div class="context-menu-item" data-type="click">
+              <span>👆 点击操作</span>
+              <span class="shortcut">Ctrl+1</span>
+            </div>
+            <div class="context-menu-item" data-type="input">
+              <span>⌨️ 输入文本</span>
+              <span class="shortcut">Ctrl+2</span>
+            </div>
+            <div class="context-menu-item" data-type="wait">
+              <span>⏱️ 等待时间</span>
+              <span class="shortcut">Ctrl+3</span>
+            </div>
+            <div class="context-menu-item" data-type="smartWait">
+              <span>🔍 智能等待</span>
+              <span class="shortcut">Ctrl+4</span>
+            </div>
+            <div class="context-menu-item" data-type="loop">
+              <span>🔄 循环操作</span>
+              <span class="shortcut">Ctrl+5</span>
+            </div>
+            <div class="context-menu-item" data-type="condition">
+              <span>❓ 条件判断</span>
+              <span class="shortcut">Ctrl+6</span>
+            </div>
+            <div class="context-menu-item" data-type="checkState">
+              <span>🔍 节点检测</span>
+              <span class="shortcut">Ctrl+7</span>
+            </div>
+          </div>
         </div>
 
-        <!-- 主内容区域 -->
-        <div class="main-content">
-            <!-- mxGraph画布 -->
-            <div class="graph-container">
-                <div id="graphContainer">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        <div>正在加载...</div>
-                    </div>
-                </div>
-
-                <!-- 右键菜单 (初始隐藏) -->
-                <div class="context-menu" id="contextMenu" style="display: none;">
-                    <div class="context-menu-item" data-type="click">
-                        <span>👆 点击操作</span>
-                        <span class="shortcut">Ctrl+1</span>
-                    </div>
-                    <div class="context-menu-item" data-type="input">
-                        <span>⌨️ 输入文本</span>
-                        <span class="shortcut">Ctrl+2</span>
-                    </div>
-                    <div class="context-menu-item" data-type="wait">
-                        <span>⏱️ 等待时间</span>
-                        <span class="shortcut">Ctrl+3</span>
-                    </div>
-                    <div class="context-menu-item" data-type="smartWait">
-                        <span>🔍 智能等待</span>
-                        <span class="shortcut">Ctrl+4</span>
-                    </div>
-                    <div class="context-menu-item" data-type="loop">
-                        <span>🔄 循环操作</span>
-                        <span class="shortcut">Ctrl+5</span>
-                    </div>
-                    <div class="context-menu-item" data-type="condition">
-                        <span>❓ 条件判断</span>
-                        <span class="shortcut">Ctrl+6</span>
-                    </div>
-                    <div class="context-menu-item" data-type="checkState">
-                        <span>🔍 节点检测</span>
-                        <span class="shortcut">Ctrl+7</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 右侧属性面板 -->
-            <div class="property-panel" id="propertyPanel">
-                <h3>📝 节点属性</h3>
-                <div id="propertyForm">
-                    <p style="color: #666; text-align: center; margin-top: 30px;">
-                        请选择一个节点来编辑属性
-                    </p>
-                </div>
-            </div>
+        <!-- 右侧属性面板 -->
+        <div class="property-panel" id="propertyPanel">
+          <h3>📝 节点属性</h3>
+          <div id="propertyForm">
+            <p style="color: #666; text-align: center; margin-top: 30px">
+              请选择一个节点来编辑属性
+            </p>
+          </div>
         </div>
+      </div>
 
-        <!-- 状态栏 -->
-        <div class="status-bar">
-            <span id="statusText">就绪</span>
-            <span id="nodeCount">节点: 0 | 连线: 0</span>
-        </div>
+      <!-- 状态栏 -->
+      <div class="status-bar">
+        <span id="statusText">就绪</span>
+        <span id="nodeCount">节点: 0 | 连线: 0</span>
+      </div>
     </div>
 
     <!-- 模块化工具类 -->
     <script src="utils/mxGraphConfig.js"></script>
     <script src="utils/mxGraphOperations.js"></script>
     <script src="utils/workflowConverter.js"></script>
-    <script src="utils/mxGraphExecution.js"></script>
     <script src="utils/testValidator.js"></script>
     <script src="utils/tabSelector.js"></script>
     <script src="utils/locatorTester.js"></script>
@@ -387,12 +396,13 @@
     <script src="utils/dialogManager.js"></script>
     <script src="utils/fileExportManager.js"></script>
 
+    <!-- 设计器模块 -->
+    <script src="modules/designer/designer-nodes.js"></script>
+
     <!-- 工作流设计器脚本（包含mxGraph配置） -->
     <script src="workflow-designer-mxgraph.js"></script>
 
     <!-- 引入本地mxGraph -->
     <script src="js/mxClient.min.js"></script>
-
-
-</body>
+  </body>
 </html>

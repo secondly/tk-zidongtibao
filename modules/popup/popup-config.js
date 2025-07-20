@@ -105,6 +105,9 @@ export function selectConfig(index) {
         // 更新UI显示
         updateCurrentConfigDisplay();
 
+        // 启用执行按钮
+        enableExecuteButton();
+
         // 触发配置选择事件
         const event = new CustomEvent('configSelected', {
             detail: { workflow: selectedWorkflow, index: index }
@@ -133,6 +136,7 @@ export function handleConfigSelectChange(event) {
         setCurrentWorkflow(null);
         hideCurrentConfigDisplay();
         clearFlowPreview();
+        disableExecuteButton();
         updateExecutionStatus(EXECUTION_STATUS.IDLE, '请选择一个配置');
         return;
     }
@@ -243,6 +247,28 @@ function hideCurrentConfigDisplay() {
     const currentConfig = getElement('#currentConfig');
     if (currentConfig) {
         currentConfig.style.display = 'none';
+    }
+}
+
+/**
+ * 启用执行按钮
+ */
+function enableExecuteButton() {
+    const executeBtn = getElement('#executeBtn');
+    if (executeBtn) {
+        executeBtn.disabled = false;
+        debugLog('执行按钮已启用');
+    }
+}
+
+/**
+ * 禁用执行按钮
+ */
+function disableExecuteButton() {
+    const executeBtn = getElement('#executeBtn');
+    if (executeBtn) {
+        executeBtn.disabled = true;
+        debugLog('执行按钮已禁用');
     }
 }
 

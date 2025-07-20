@@ -86,7 +86,9 @@ async function handleStepsExecution(steps) {
     }
 
     if (!contentScriptReady) {
-      throw new Error("无法与内容脚本建立通信，请刷新页面后重试");
+      throw new Error(
+        "无法与页面脚本建立通信。请尝试以下解决方案：\n1. 刷新目标页面后重试\n2. 确保目标页面是普通网页（http/https）\n3. 重新加载浏览器扩展"
+      );
     }
 
     // 2. 依次执行每个步骤
