@@ -5,6 +5,8 @@
 
 import { debugLog, getElement } from '../../shared/popup/popup-utils.js';
 import { UI_CONSTANTS } from '../../shared/popup/popup-constants.js';
+import { performanceMonitor, memoryManager } from '../../shared/popup/popup-performance.js';
+import { errorHandler, handleError, ERROR_TYPES } from '../../shared/popup/popup-error-handler.js';
 
 // 全局变量
 export let automationEngine;
@@ -23,21 +25,30 @@ export let executionStatus = null;
  * 初始化弹窗应用
  */
 export function initializePopup() {
-    debugLog('通用自动化插件已加载 - 三栏布局版本');
+    try {
+        performanceMonitor.startMeasure('popup-initialization');
+        debugLog('通用自动化插件已加载 - 三栏布局版本');
 
-    // 初始化工作流管理器
-    initializeWorkflowManager();
+        // 初始化工作流管理器
+        initializeWorkflowManager();
 
-    // 初始化自动化引擎
-    initializeAutomationEngine();
+        // 初始化自动化引擎
+        initializeAutomationEngine();
 
-    // 初始化三栏布局
-    initializeLayout();
+        // 初始化三栏布局
+        initializeLayout();
 
-    // 初始化事件监听器
-    initializeEventListeners();
+        // 初始化事件监听器
+        initializeEventListeners();
 
-    debugLog('弹窗初始化完成');
+        // 初始化性能监控
+        initializePerformanceMonitoring();
+
+        performanceMonitor.endMeasure('popup-initialization');
+        debugLog('弹窗初始化完成');
+    } catch (error) {
+        handleError(error, { context: 'popup-initialization' });
+    }
 }
 
 /**
@@ -283,4 +294,74 @@ export function getWorkflowManager() {
  */
 export function getAutomationEngine() {
     return automationEngine;
+}
+
+/**
+ * 初始化性能监控
+ */
+function initializePerformanceMonitoring() {
+    debugLog('初始化性能监控');
+
+    // 添加性能监控观察者
+    performanceMonitor.addObserver((name, metric) => {
+        if (metric.duration > 500) { // 超过500ms的操作记录警告
+            console.warn(`性能警告: ${name} 耗时 ${metric.duration.toFixed(2)}ms`);
+        }
+    });
+
+    // 启动内存管理
+    memoryManager.start();
+
+    // 添加内存清理任务
+    memoryManager.addCleanupTask('dom-cleanup', () => {
+        // 清理可能的DOM引用
+        const unusedElements = document.querySelectorAll('.temp-element');
+        unusedElements.forEach(el => el.remove());
+    });
+
+    // 定期生成性能报告
+    setInterval(() => {
+        const report = performanceMonitor.getReport();
+        if (report.recommendations.length > 0) {
+            debugLog('性能建议:', report.recommendations);
+        }
+    }, 60000); // 每分钟检查一次
+
+    debugLog('性能监控已启动');
+}
+
+/**
+ * 获取性能统计信息
+ */
+export function getPerformanceStats() {
+    return {
+        monitor: performanceMonitor.getReport(),
+        memory: performanceMonitor.getMemoryUsage(),
+        errors: errorHandler.getErrorStats()
+    };
+}
+
+/**
+ * 清理资源
+ */
+export function cleanup() {
+    debugLog('开始清理资源');
+
+    try {
+        // 停止性能监控
+        memoryManager.stop();
+
+        // 清理事件监听器
+        window.removeEventListener('resize', handleWindowResize);
+        document.removeEventListener('keydown', handleKeyboardShortcuts);
+
+        // 清理全局变量
+        currentWorkflow = null;
+        editingStep = null;
+        selectedNode = null;
+
+        debugLog('资源清理完成');
+    } catch (error) {
+        handleError(error, { context: 'cleanup' });
+    }
 }

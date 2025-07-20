@@ -1,16 +1,19 @@
 /**
- * 基于mxGraph的工作流设计器 - 重构版本
+ * 基于mxGraph的工作流设计器 - 模块化版本
  * 支持循环操作带子操作、文本自动换行等功能
  *
  * 依赖的模块文件（通过HTML script标签加载）：
  * - utils/mxGraphConfig.js - mxGraph配置和节点样式
  * - utils/mxGraphOperations.js - 图形操作功能
  * - utils/workflowConverter.js - 工作流转换功能
+ * - modules/designer/designer-core.js - 核心功能
+ * - modules/designer/designer-ui.js - UI交互
+ * - modules/designer/designer-nodes.js - 节点管理
+ * - modules/designer/designer-workflow.js - 工作流管理
  */
 
-// mxGraph配置在 utils/mxGraphConfig.js 中处理
-// 立即配置mxGraph，防止CORS错误
-configureMxGraph();
+// 注意：这个文件不使用ES6模块导入，避免CORS问题
+// 所有功能都集成在这个文件中，确保在Chrome扩展环境中正常工作
 class MxGraphWorkflowDesigner {
     constructor() {
         this.graph = null;
