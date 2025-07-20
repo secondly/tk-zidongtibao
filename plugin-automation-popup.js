@@ -55,6 +55,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // 初始化配置操作按钮事件
     initializeConfigActionListeners();
 
+    // 初始化状态持久化
+    initializeStatePersistence();
+
     // 调试localStorage内容
     debugLocalStorage();
 
@@ -63,6 +66,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 加载保存的工作流
     loadSavedWorkflows();
+
+    // 恢复上次的执行状态和流程缓存
+    restoreExecutionState();
 });
 
 // 初始化三栏布局
@@ -938,6 +944,392 @@ function drawSimpleFlowChart(ctx, steps) {
 function clearExecutionStatus() {
     updateExecutionStatus('idle', '等待执行...');
     console.log('执行状态已清除');
+}
+
+// 处理清除缓存按钮点击
+function handleClearCache() {
+    console.log('🧹 用户点击清除缓存按钮');
+
+    const confirmed = confirm('确定要清除所有状态缓存吗？\n\n这将清除：\n- 执行状态缓存\n- 工作流缓存\n\n此操作不可撤销。');
+
+    if (confirmed) {
+        const success = clearStateCache();
+        if (success) {
+            updateExecutionStatus('success', '状态缓存已清除');
+            console.log('✅ 用户确认清除缓存，操作完成');
+
+            // 3秒后恢复状态
+            setTimeout(() => {
+                updateExecutionStatus('idle', '等待执行...');
+            }, 3000);
+        } else {
+            updateExecutionStatus('error', '清除缓存失败');
+
+            setTimeout(() => {
+                updateExecutionStatus('idle', '等待执行...');
+            }, 3000);
+        }
+    } else {
+        console.log('🚫 用户取消清除缓存操作');
+    }
+}
+
+// ==================== 状态持久化功能 ====================
+
+// 状态持久化相关常量
+const STATE_CACHE_KEY = 'automation_state_cache';
+const WORKFLOW_CACHE_KEY = 'automation_workflow_cache';
+
+// 初始化状态持久化
+function initializeStatePersistence() {
+    console.log('🔄 初始化状态持久化功能...');
+
+    // 监听窗口关闭事件
+    window.addEventListener('beforeunload', saveStateBeforeClose);
+
+    // 监听页面隐藏事件（用于处理标签页切换等情况）
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    console.log('✅ 状态持久化事件监听器已设置');
+}
+
+// 窗口关闭前保存状态
+function saveStateBeforeClose(event) {
+    console.log('💾 窗口即将关闭，保存当前状态...');
+
+    try {
+        // 保存执行状态
+        saveExecutionStateToCache();
+
+        // 保存当前工作流缓存
+        saveWorkflowCache();
+
+        console.log('✅ 状态保存完成');
+    } catch (error) {
+        console.error('❌ 保存状态失败:', error);
+    }
+}
+
+// 处理页面可见性变化
+function handleVisibilityChange() {
+    if (document.hidden) {
+        // 页面被隐藏时保存状态
+        console.log('📱 页面被隐藏，保存当前状态...');
+        saveStateBeforeClose();
+    } else {
+        // 页面重新可见时检查是否需要恢复状态
+        console.log('👁️ 页面重新可见，检查状态恢复...');
+        setTimeout(() => {
+            restoreExecutionState();
+        }, 100);
+    }
+}
+
+// 保存执行状态到缓存
+function saveExecutionStateToCache() {
+    try {
+        const stateCache = {
+            executionState: { ...executionState },
+            currentWorkflowName: currentWorkflow ? currentWorkflow.name : null,
+            selectedConfigIndex: getSelectedConfigIndex(),
+            timestamp: Date.now(),
+            version: '1.0.0'
+        };
+
+        localStorage.setItem(STATE_CACHE_KEY, JSON.stringify(stateCache));
+        console.log('💾 执行状态已保存到缓存:', stateCache);
+
+        return true;
+    } catch (error) {
+        console.error('❌ 保存执行状态失败:', error);
+        return false;
+    }
+}
+
+// 保存工作流缓存
+function saveWorkflowCache() {
+    try {
+        if (!currentWorkflow) {
+            console.log('ℹ️ 没有当前工作流，跳过缓存保存');
+            return true;
+        }
+
+        const workflowCache = {
+            workflow: { ...currentWorkflow },
+            timestamp: Date.now(),
+            version: '1.0.0'
+        };
+
+        localStorage.setItem(WORKFLOW_CACHE_KEY, JSON.stringify(workflowCache));
+        console.log('💾 工作流缓存已保存:', workflowCache.workflow.name);
+
+        return true;
+    } catch (error) {
+        console.error('❌ 保存工作流缓存失败:', error);
+        return false;
+    }
+}
+
+// 恢复执行状态
+function restoreExecutionState() {
+    console.log('🔄 开始恢复执行状态...');
+
+    try {
+        // 恢复工作流缓存
+        const workflowRestored = restoreWorkflowCache();
+
+        // 恢复执行状态缓存
+        const stateRestored = restoreExecutionStateCache();
+
+        if (workflowRestored || stateRestored) {
+            console.log('✅ 状态恢复完成');
+            updateExecutionStatus('success', '已恢复上次状态');
+
+            // 3秒后恢复正常状态显示
+            setTimeout(() => {
+                if (!executionState.isRunning) {
+                    updateExecutionStatus('idle', '等待执行...');
+                }
+            }, 3000);
+        } else {
+            console.log('ℹ️ 没有找到需要恢复的状态');
+        }
+
+    } catch (error) {
+        console.error('❌ 恢复执行状态失败:', error);
+        updateExecutionStatus('error', '状态恢复失败');
+    }
+}
+
+// 恢复工作流缓存
+function restoreWorkflowCache() {
+    try {
+        const cacheData = localStorage.getItem(WORKFLOW_CACHE_KEY);
+        if (!cacheData) {
+            console.log('ℹ️ 没有找到工作流缓存');
+            return false;
+        }
+
+        const cache = JSON.parse(cacheData);
+        console.log('📦 找到工作流缓存:', cache);
+
+        // 检查缓存是否过期（24小时）
+        const cacheAge = Date.now() - cache.timestamp;
+        const maxAge = 24 * 60 * 60 * 1000; // 24小时
+
+        if (cacheAge > maxAge) {
+            console.log('⏰ 工作流缓存已过期，清除缓存');
+            localStorage.removeItem(WORKFLOW_CACHE_KEY);
+            return false;
+        }
+
+        // 恢复工作流
+        if (cache.workflow) {
+            console.log('🔄 恢复工作流:', cache.workflow.name);
+
+            // 查找对应的工作流在当前列表中的位置
+            const workflows = getWorkflowsFromStorage();
+            const workflowIndex = workflows.findIndex(w => w.name === cache.workflow.name);
+
+            if (workflowIndex >= 0) {
+                // 找到对应的工作流，选择它
+                console.log('✅ 找到对应工作流，索引:', workflowIndex);
+
+                const configSelect = document.getElementById('configSelect');
+                if (configSelect) {
+                    configSelect.value = workflowIndex;
+                    selectConfig(workflowIndex);
+                }
+
+                return true;
+            } else {
+                console.log('⚠️ 缓存的工作流在当前列表中未找到:', cache.workflow.name);
+                // 清除过期的缓存
+                localStorage.removeItem(WORKFLOW_CACHE_KEY);
+                return false;
+            }
+        }
+
+        return false;
+    } catch (error) {
+        console.error('❌ 恢复工作流缓存失败:', error);
+        return false;
+    }
+}
+
+// 恢复执行状态缓存
+function restoreExecutionStateCache() {
+    try {
+        const cacheData = localStorage.getItem(STATE_CACHE_KEY);
+        if (!cacheData) {
+            console.log('ℹ️ 没有找到执行状态缓存');
+            return false;
+        }
+
+        const cache = JSON.parse(cacheData);
+        console.log('📦 找到执行状态缓存:', cache);
+
+        // 检查缓存是否过期（1小时）
+        const cacheAge = Date.now() - cache.timestamp;
+        const maxAge = 60 * 60 * 1000; // 1小时
+
+        if (cacheAge > maxAge) {
+            console.log('⏰ 执行状态缓存已过期，清除缓存');
+            localStorage.removeItem(STATE_CACHE_KEY);
+            return false;
+        }
+
+        // 恢复执行状态
+        if (cache.executionState) {
+            console.log('🔄 恢复执行状态...');
+
+            // 合并执行状态（保留当前的一些状态，恢复关键状态）
+            const cachedState = cache.executionState;
+
+            if (cachedState.isRunning) {
+                console.log('🔄 检测到上次正在执行的状态');
+
+                // 恢复执行状态
+                executionState.isRunning = cachedState.isRunning;
+                executionState.isPaused = cachedState.isPaused;
+                executionState.totalSteps = cachedState.totalSteps;
+                executionState.completedSteps = cachedState.completedSteps;
+                executionState.currentMainLoop = cachedState.currentMainLoop || 0;
+                executionState.totalMainLoops = cachedState.totalMainLoops || 0;
+                executionState.currentSubOperation = cachedState.currentSubOperation || 0;
+                executionState.totalSubOperations = cachedState.totalSubOperations || 0;
+
+                // 更新UI状态
+                updateExecutionUI();
+
+                if (cachedState.isPaused) {
+                    updateExecutionStatus('warning', '执行已暂停 (已恢复)');
+                } else {
+                    updateExecutionStatus('executing', '执行中 (已恢复)');
+                }
+
+                console.log('✅ 执行状态已恢复');
+                return true;
+            } else {
+                console.log('ℹ️ 上次未在执行状态，无需恢复执行状态');
+            }
+        }
+
+        // 清除已使用的缓存
+        localStorage.removeItem(STATE_CACHE_KEY);
+        return false;
+
+    } catch (error) {
+        console.error('❌ 恢复执行状态缓存失败:', error);
+        return false;
+    }
+}
+
+// 获取当前选中的配置索引
+function getSelectedConfigIndex() {
+    const configSelect = document.getElementById('configSelect');
+    if (configSelect && configSelect.value !== '') {
+        return parseInt(configSelect.value);
+    }
+    return null;
+}
+
+// 清除状态缓存
+function clearStateCache() {
+    try {
+        localStorage.removeItem(STATE_CACHE_KEY);
+        localStorage.removeItem(WORKFLOW_CACHE_KEY);
+        console.log('🧹 状态缓存已清除');
+        return true;
+    } catch (error) {
+        console.error('❌ 清除状态缓存失败:', error);
+        return false;
+    }
+}
+
+// 清除执行状态
+function clearExecutionStatus() {
+    updateExecutionStatus('idle', '等待执行...');
+    console.log('执行状态已清除');
+}
+
+
+
+
+
+// 初始化状态持久化
+
+
+// 窗口关闭前保存状态
+
+
+// 处理页面可见性变化
+
+
+// 保存执行状态到缓存
+
+
+// 保存工作流缓存
+
+
+// 恢复执行状态
+
+
+// 恢复工作流缓存
+
+
+// 恢复执行状态缓存
+
+
+// 获取当前选中的配置索引
+
+
+// 清除状态缓存
+
+
+
+
+// 初始化状态持久化
+
+
+// 窗口关闭前保存状态
+
+
+// 处理页面可见性变化
+
+
+// 保存执行状态到缓存
+
+
+// 保存工作流缓存
+
+
+// 恢复执行状态
+
+
+// 恢复工作流缓存
+
+
+// 恢复执行状态缓存
+
+
+// 获取当前选中的配置索引
+
+
+// 清除状态缓存
+
+
+// 手动保存状态（供调试使用）
+function manualSaveState() {
+    console.log('🔧 手动保存状态...');
+    saveStateBeforeClose();
+    updateExecutionStatus('success', '状态已手动保存');
+}
+
+// 手动恢复状态（供调试使用）
+function manualRestoreState() {
+    console.log('🔧 手动恢复状态...');
+    restoreExecutionState();
 }
 
 // 初始化配置操作按钮事件监听器
@@ -3682,6 +4074,15 @@ function initializeEventListeners() {
         console.log('✅ 文件输入事件已绑定');
     } else {
         console.error('❌ 未找到文件输入元素');
+    }
+
+    // 清除缓存按钮
+    const clearCacheBtn = document.getElementById('clearCacheBtn');
+    if (clearCacheBtn) {
+        clearCacheBtn.addEventListener('click', handleClearCache);
+        console.log('✅ 清除缓存按钮事件已绑定');
+    } else {
+        console.error('❌ 未找到清除缓存按钮');
     }
 
     // 模态框关闭按钮
