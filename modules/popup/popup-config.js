@@ -13,9 +13,35 @@ import { setCurrentWorkflow, getCurrentWorkflow } from './popup-core.js';
  */
 export function loadSavedWorkflows() {
     debugLog('开始加载保存的工作流列表...');
+    console.log('🔍 [DEBUG] loadSavedWorkflows 被调用');
 
     try {
-        const workflows = getWorkflowsFromStorage();
+        // 尝试从多个可能的存储位置加载数据
+        let workflows = getWorkflowsFromStorage();
+        console.log('🔍 [DEBUG] 从主存储获取:', workflows);
+
+        // 如果主存储为空，尝试从设计器存储位置获取
+        if (!workflows || workflows.length === 0) {
+            console.log('🔍 [DEBUG] 主存储为空，尝试从设计器存储获取...');
+            const designerData = localStorage.getItem('mxgraph_workflows');
+            if (designerData) {
+                try {
+                    const designerWorkflows = JSON.parse(designerData);
+                    if (Array.isArray(designerWorkflows) && designerWorkflows.length > 0) {
+                        console.log('🔍 [DEBUG] 从设计器存储找到数据:', designerWorkflows);
+                        workflows = designerWorkflows;
+
+                        // 同步到主存储
+                        saveWorkflowsToStorage(workflows);
+                        console.log('✅ 已同步设计器数据到主存储');
+                    }
+                } catch (error) {
+                    console.warn('解析设计器存储数据失败:', error);
+                }
+            }
+        }
+
+        console.log('🔍 [DEBUG] 最终工作流数据:', workflows);
         debugLog(`找到 ${workflows.length} 个保存的工作流`);
 
         // 渲染配置选择框
@@ -38,24 +64,57 @@ export function loadSavedWorkflows() {
  */
 export function renderConfigSelect(workflows) {
     debugLog('开始渲染配置选择框，工作流数量:', workflows ? workflows.length : 0);
+    console.log('🔍 [DEBUG] renderConfigSelect 被调用，参数:', workflows);
 
     const configSelect = getElement('#configSelect');
+    console.log('🔍 [DEBUG] configSelect 元素:', configSelect);
+
     if (!configSelect) {
-        console.error('配置选择框元素未找到');
+        console.error('❌ 配置选择框元素未找到，检查HTML中是否存在id="configSelect"的元素');
         return;
     }
 
     // 清空现有选项
     configSelect.innerHTML = '<option value="">请选择一个配置...</option>';
+    console.log('🔍 [DEBUG] 已清空选择框，设置默认选项');
 
-    if (!workflows || workflows.length === 0) {
+    // 验证工作流数据
+    if (!workflows) {
+        console.warn('⚠️ workflows 参数为 null 或 undefined');
+        debugLog('没有工作流数据');
+        return;
+    }
+
+    if (!Array.isArray(workflows)) {
+        console.error('❌ workflows 不是数组类型:', typeof workflows, workflows);
+        debugLog('工作流数据格式错误');
+        return;
+    }
+
+    if (workflows.length === 0) {
+        console.log('ℹ️ 工作流数组为空');
         debugLog('没有工作流可显示');
         return;
     }
 
+    console.log('🔍 [DEBUG] 开始添加工作流选项...');
+    let addedCount = 0;
+
     // 添加工作流选项
     workflows.forEach((workflow, index) => {
-        if (workflow && workflow.name) {
+        console.log(`🔍 [DEBUG] 处理工作流 ${index}:`, workflow);
+
+        if (!workflow) {
+            console.warn(`⚠️ 工作流 ${index} 为空`);
+            return;
+        }
+
+        if (!workflow.name) {
+            console.warn(`⚠️ 工作流 ${index} 缺少名称:`, workflow);
+            return;
+        }
+
+        try {
             const option = document.createElement('option');
             option.value = index;
             option.textContent = `${workflow.name} (${workflow.steps?.length || 0}步)`;
@@ -66,10 +125,24 @@ export function renderConfigSelect(workflows) {
             }
 
             configSelect.appendChild(option);
+            addedCount++;
+            console.log(`✅ 已添加工作流选项: ${workflow.name}`);
+
+        } catch (error) {
+            console.error(`❌ 添加工作流选项失败 ${index}:`, error);
         }
     });
 
-    debugLog(`已渲染 ${workflows.length} 个配置选项`);
+    console.log(`🔍 [DEBUG] 渲染完成，共添加 ${addedCount} 个选项`);
+    debugLog(`已渲染 ${addedCount} 个配置选项`);
+
+    // 验证渲染结果
+    const totalOptions = configSelect.options.length;
+    console.log(`🔍 [DEBUG] 选择框总选项数: ${totalOptions} (包含默认选项)`);
+
+    if (totalOptions === 1) {
+        console.warn('⚠️ 只有默认选项，没有添加任何工作流选项');
+    }
 }
 
 /**
@@ -108,7 +181,7 @@ export function selectConfig(index) {
         // 启用执行按钮
         enableExecuteButton();
 
-        // 触发配置选择事件
+        // 触发配置选择事件（包含流程预览更新）
         const event = new CustomEvent('configSelected', {
             detail: { workflow: selectedWorkflow, index: index }
         });
@@ -150,10 +223,15 @@ export function handleConfigSelectChange(event) {
  */
 export function refreshConfigList() {
     debugLog('手动刷新配置列表...');
+    console.log('🔄 开始刷新配置列表...');
 
     try {
         // 保存当前选中的配置索引
         const currentIndex = getSelectedConfigIndex();
+        console.log('🔍 当前选中索引:', currentIndex);
+
+        // 强制同步所有存储位置的数据
+        syncAllStorageData();
 
         // 重新加载工作流列表
         loadSavedWorkflows();
@@ -164,6 +242,7 @@ export function refreshConfigList() {
             if (configSelect && configSelect.options[currentIndex + 1]) {
                 configSelect.selectedIndex = currentIndex + 1;
                 selectConfig(currentIndex);
+                console.log('✅ 已恢复选中的配置');
             }
         }
 
@@ -173,6 +252,67 @@ export function refreshConfigList() {
     } catch (error) {
         console.error('刷新配置列表失败:', error);
         updateExecutionStatus(EXECUTION_STATUS.ERROR, '刷新失败');
+    }
+}
+
+/**
+ * 同步所有存储位置的数据
+ */
+export function syncAllStorageData() {
+    console.log('🔄 开始同步所有存储数据...');
+
+    try {
+        // 收集所有可能位置的工作流数据
+        const sources = [
+            { key: 'automationWorkflows', name: '主存储' },
+            { key: 'mxgraph_workflows', name: '设计器存储' }
+        ];
+
+        let allWorkflows = [];
+        let latestTimestamp = 0;
+        let latestSource = null;
+
+        sources.forEach(source => {
+            const data = localStorage.getItem(source.key);
+            if (data) {
+                try {
+                    const workflows = JSON.parse(data);
+                    if (Array.isArray(workflows) && workflows.length > 0) {
+                        console.log(`📦 ${source.name} 找到 ${workflows.length} 个工作流`);
+
+                        // 找到最新的数据源
+                        const timestamp = workflows.reduce((max, w) => {
+                            const wTime = new Date(w.updatedAt || w.createdAt || 0).getTime();
+                            return Math.max(max, wTime);
+                        }, 0);
+
+                        if (timestamp > latestTimestamp) {
+                            latestTimestamp = timestamp;
+                            latestSource = source;
+                            allWorkflows = workflows;
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`解析 ${source.name} 数据失败:`, error);
+                }
+            }
+        });
+
+        if (allWorkflows.length > 0 && latestSource) {
+            console.log(`✅ 使用 ${latestSource.name} 的数据作为主数据源`);
+
+            // 同步到所有存储位置
+            sources.forEach(source => {
+                localStorage.setItem(source.key, JSON.stringify(allWorkflows));
+            });
+
+            console.log('✅ 数据同步完成');
+        } else {
+            console.log('ℹ️ 没有找到任何工作流数据');
+        }
+
+    } catch (error) {
+        console.error('同步存储数据失败:', error);
     }
 }
 
@@ -340,6 +480,30 @@ export function initializeConfigActionListeners() {
     if (configSelect) {
         configSelect.addEventListener('change', handleConfigSelectChange);
     }
+
+    // 监听工作流数据更新事件（来自storage监听器）
+    window.addEventListener('workflowsUpdated', (event) => {
+        console.log('🔄 收到工作流数据更新事件，自动刷新配置列表');
+        debugLog('工作流数据已更新，刷新配置列表');
+
+        // 保存当前选中的配置
+        const currentIndex = getSelectedConfigIndex();
+
+        // 重新加载配置列表
+        loadSavedWorkflows();
+
+        // 尝试恢复选择
+        if (currentIndex !== null) {
+            setTimeout(() => {
+                const configSelect = getElement('#configSelect');
+                if (configSelect && configSelect.options[currentIndex + 1]) {
+                    configSelect.selectedIndex = currentIndex + 1;
+                    selectConfig(currentIndex);
+                    console.log('✅ 已恢复选中的配置');
+                }
+            }, 100);
+        }
+    });
 
     debugLog('配置操作事件监听器已设置');
 }
@@ -540,14 +704,8 @@ function checkForUpdatedWorkflow(tempKey) {
 function handleOpenDesigner() {
     debugLog('用户点击打开设计器按钮');
 
-    // 如果有选中的配置，编辑该配置
-    const currentWorkflow = getCurrentWorkflow();
-    if (currentWorkflow) {
-        editCurrentConfig();
-    } else {
-        // 没有选中配置，创建新的工作流
-        createNewWorkflow();
-    }
+    // 总是打开空白的设计器画布，不传递任何工作流数据
+    createNewWorkflow();
 }
 
 /**
@@ -560,16 +718,36 @@ function createNewWorkflow() {
     const windowFeatures = 'width=1200,height=800,scrollbars=yes,resizable=yes';
 
     try {
+        // 确保清理任何可能的编辑模式数据，强制新建模式
+        console.log('🧹 清理编辑模式数据，确保新建模式');
+        localStorage.removeItem('temp_edit_workflow');
+        localStorage.removeItem('designer_workflow_data');
+        localStorage.removeItem('mxgraph_workflow');
+
         // 打开设计器窗口（新建模式）
         const designerWindow = window.open(
             designerUrl,
-            'workflowDesigner',
+            'workflowDesigner_' + Date.now(), // 使用时间戳确保每次都是新窗口
             windowFeatures
         );
 
         if (designerWindow) {
             debugLog('设计器窗口已打开（新建模式）');
             updateExecutionStatus(EXECUTION_STATUS.IDLE, '正在打开设计器...');
+
+            // 监听设计器窗口关闭，检查是否有新保存的工作流
+            const checkInterval = setInterval(() => {
+                if (designerWindow.closed) {
+                    clearInterval(checkInterval);
+                    debugLog('设计器窗口已关闭，刷新配置列表');
+
+                    // 延迟刷新，确保数据已保存
+                    setTimeout(() => {
+                        refreshConfigList();
+                    }, 500);
+                }
+            }, 1000);
+
         } else {
             throw new Error('无法打开设计器窗口，可能被浏览器阻止');
         }
@@ -703,4 +881,66 @@ function handleClearCache() {
         updateExecutionStatus(EXECUTION_STATUS.ERROR, '清除缓存失败');
         alert('清除缓存失败，请检查浏览器控制台获取详细信息。');
     }
+}
+
+/**
+ * 调试配置加载问题的专用函数
+ * 在浏览器控制台中调用 window.debugConfigLoading() 来使用
+ */
+export function debugConfigLoading() {
+    console.log('=== 配置加载调试信息 ===');
+
+    // 1. 检查HTML元素
+    const configSelect = document.getElementById('configSelect');
+    console.log('1. configSelect 元素:', configSelect);
+    console.log('   - 是否存在:', !!configSelect);
+    console.log('   - 选项数量:', configSelect ? configSelect.options.length : 'N/A');
+    console.log('   - 当前值:', configSelect ? configSelect.value : 'N/A');
+
+    // 2. 检查localStorage数据
+    console.log('2. localStorage 数据:');
+    const storageKeys = ['automationWorkflows', 'mxgraph_workflows', 'mxgraph_workflow', 'temp_edit_workflow'];
+    storageKeys.forEach(key => {
+        const data = localStorage.getItem(key);
+        console.log(`   - ${key}:`, data ? `${data.length}字符` : 'null');
+        if (data) {
+            try {
+                const parsed = JSON.parse(data);
+                console.log(`     解析结果:`, parsed);
+                if (Array.isArray(parsed)) {
+                    console.log(`     数组长度: ${parsed.length}`);
+                }
+            } catch (error) {
+                console.log(`     解析失败:`, error.message);
+            }
+        }
+    });
+
+    // 3. 测试数据加载函数
+    console.log('3. 测试数据加载:');
+    try {
+        const workflows = getWorkflowsFromStorage();
+        console.log('   - getWorkflowsFromStorage 返回:', workflows);
+        console.log('   - 数据类型:', typeof workflows);
+        console.log('   - 是否为数组:', Array.isArray(workflows));
+        console.log('   - 数组长度:', workflows ? workflows.length : 'N/A');
+    } catch (error) {
+        console.log('   - getWorkflowsFromStorage 失败:', error);
+    }
+
+    // 4. 手动触发渲染
+    console.log('4. 手动触发渲染:');
+    try {
+        loadSavedWorkflows();
+        console.log('   - loadSavedWorkflows 执行完成');
+    } catch (error) {
+        console.log('   - loadSavedWorkflows 失败:', error);
+    }
+
+    console.log('=== 调试信息结束 ===');
+}
+
+// 将调试函数暴露到全局
+if (typeof window !== 'undefined') {
+    window.debugConfigLoading = debugConfigLoading;
 }

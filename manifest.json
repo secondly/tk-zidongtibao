@@ -25,8 +25,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content/content.js"]
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/content-modular.js"
+      ]
     }
   ],
   "icons": {
@@ -45,9 +49,17 @@
         "workflow-designer-mxgraph.html",
         "workflow-designer-mxgraph.js",
         "js/logic-flow.js",
-        "js/mxClient.min.js"
+        "js/mxClient.min.js",
+        "content/content.js",
+        "modules/content/content-core.js",
+        "modules/content/content-automation.js",
+        "modules/designer/designer-core.js",
+        "modules/designer/designer-nodes.js",
+        "modules/designer/designer-workflow.js"
       ],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

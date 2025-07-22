@@ -13,17 +13,24 @@ import { STORAGE_KEY } from '../../shared/popup/popup-constants.js';
 export function getWorkflowsFromStorage() {
     try {
         debugLog('正在读取localStorage，键名:', STORAGE_KEY);
+        console.log('🔍 [DEBUG] getWorkflowsFromStorage 开始执行，键名:', STORAGE_KEY);
 
         const data = localStorage.getItem(STORAGE_KEY);
+        console.log('🔍 [DEBUG] localStorage.getItem 返回:', data ? `${data.length}字符的数据` : 'null');
+        
         if (!data) {
             debugLog('localStorage中没有找到工作流数据');
+            console.log('🔍 [DEBUG] 没有找到数据，返回空数组');
             return [];
         }
 
         const workflows = safeJsonParse(data, []);
+        console.log('🔍 [DEBUG] safeJsonParse 解析结果:', workflows);
         debugLog(`从localStorage读取到 ${workflows.length} 个工作流`);
 
-        return Array.isArray(workflows) ? workflows : [];
+        const result = Array.isArray(workflows) ? workflows : [];
+        console.log('🔍 [DEBUG] 最终返回结果:', result);
+        return result;
     } catch (error) {
         console.error('读取工作流数据失败:', error);
         return [];

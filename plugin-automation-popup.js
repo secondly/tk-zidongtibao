@@ -75,8 +75,9 @@ function initializeApp() {
         // 6. 调试localStorage内容
         debugLocalStorage();
 
-        // 7. 加载保存的工作流
-        loadSavedWorkflows();
+        // 7. 强制刷新配置列表（包含数据同步）
+        console.log('🔄 应用启动时强制刷新配置列表...');
+        refreshConfigList();
 
         // 8. 恢复上次的执行状态和流程缓存
         restoreExecutionState();

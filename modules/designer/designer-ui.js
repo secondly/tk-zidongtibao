@@ -6,7 +6,7 @@
 /**
  * UI交互管理器
  */
-export class DesignerUIManager {
+class DesignerUIManager {
     constructor(designer) {
         this.designer = designer;
         this.graph = designer.graph;
@@ -441,10 +441,10 @@ export class DesignerUIManager {
         }
 
         // 生成属性表单
-        form.innerHTML = this.designer.generatePropertyForm(cell, config);
+        form.innerHTML = this.designer.nodes.generatePropertyForm(cell, config);
 
         // 绑定表单事件
-        this.designer.bindPropertyFormEvents(cell);
+        this.designer.nodes.bindPropertyFormEvents(cell);
 
         // 显示面板
         panel.classList.add('show');

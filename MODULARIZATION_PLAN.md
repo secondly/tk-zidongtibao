@@ -5,8 +5,8 @@
 | 文件名 | 原始行数 | 当前状态 | 优化状态 | 优先级 | 备注 |
 |--------|----------|----------|----------|--------|------|
 | **plugin-automation-popup.js** | ~4,200行 | ✅ 已拆分 | 🎉 完成 | P0 | 已拆分为6个模块，主文件仅150行 |
-| **workflow-designer-mxgraph.js** | 2,684行 | 🔴 3,106行 | ❌ 未拆分 | P0 | **需要拆分** - 反而增加了400+行 |
-| **content/content.js** | 2,200行 | 🔴 2,200行+ | ❌ 未拆分 | P1 | **需要拆分** - 仍然超大 |
+| **workflow-designer-mxgraph.js** | 2,684行 | ✅ 已拆分 | 🎉 完成 | P0 | 已拆分为3个模块，主文件400行 |
+| **content/content.js** | 2,574行 | ✅ 已拆分 | 🎉 完成 | P1 | 已拆分为2个模块，主文件150行 |
 | universal-automation-engine.js | 1,201行 | 🟡 ~1,200行 | ⚠️ 接近临界 | P2 | 需要监控，接近1500行 |
 | workflow-designer.js | 1,386行 | 🟡 1,386行 | ⚠️ 接近临界 | P2 | 需要监控，接近1500行 |
 
@@ -24,14 +24,21 @@
   - `shared/popup/popup-utils.js` (~200行)
   - 主文件 `plugin-automation-popup.js` 现在只有150行导入和初始化代码
 
-#### 🔴 仍需优化的文件 (紧急)
-1. **workflow-designer-mxgraph.js** (3,106行) - **最高优先级**
-   - 比原计划增加了400+行，情况恶化
-   - 需要立即拆分为3个模块
+#### ✅ 已完成的优化 (阶段2)
+1. **workflow-designer-mxgraph.js** (3,839行 → 400行) - **已完成拆分** ✅
+   - 原文件从3,839行优化到400行，减少了89.6%的代码量
+   - 已拆分为3个模块 + 1个主文件：
+   - `modules/designer/designer-core.js` (~1,063行) - 核心功能和mxGraph初始化
+   - `modules/designer/designer-nodes.js` (~1,475行) - 节点管理和属性面板
+   - `modules/designer/designer-workflow.js` (~500行) - 工作流导入导出管理
+   - `workflow-designer-mxgraph.js` (~400行) - 模块化主文件（已替换原文件）
    
-2. **content/content.js** (2,200行+) - **高优先级**  
-   - 仍然是超大文件
-   - 需要拆分为2个模块
+2. **content/content.js** (2,574行 → 150行) - **已完成拆分** ✅
+   - 原文件从2,574行拆分为2个模块 + 1个主文件，减少了94.2%的代码量
+   - 已拆分为2个模块 + 1个主文件：
+   - `modules/content/content-core.js` (~1,300行) - 核心功能、消息处理、元素查找
+   - `modules/content/content-automation.js` (~1,200行) - 自动化执行、工作流处理
+   - `content/content-modular.js` (~150行) - 模块化主文件
 
 #### ⚠️ 需要监控的文件
 - `universal-automation-engine.js` (~1,200行) - 接近1500行临界值
@@ -421,55 +428,29 @@ graph TD
 - ✅ Bug修复时间减少50%
 - ✅ 代码审查时间减少40%
 
-## 🚀 下一步行动计划 (更新于 2025年7月20日)
+## 🚀 下一步行动计划 (更新于 2025年7月22日)
 
-### 🔥 紧急优化任务 (本周内完成)
+### ✅ 已完成的优化任务
 
-#### 1. **workflow-designer-mxgraph.js** 拆分 (最高优先级)
-**当前状态**: 🔴 3,106行 (比原计划增加400+行)
-**目标**: 拆分为3个文件，每个<1,500行
+#### 1. **workflow-designer-mxgraph.js** 拆分 - **已完成** ✅
+**状态**: 从 2,684行 拆分为 3个模块 + 1个主文件
+- `modules/designer/designer-core.js` (~1,063行) - 核心功能和mxGraph初始化
+- `modules/designer/designer-nodes.js` (~1,475行) - 节点管理和属性面板  
+- `modules/designer/designer-workflow.js` (~500行) - 工作流导入导出管理
+- `workflow-designer-mxgraph.js` (~400行) - 模块化主文件
 
-**具体行动**:
-```
-📅 Day 1-2: 分析和准备
-- 🔍 分析当前3,106行代码结构
-- 📋 识别功能模块边界
-- 🏗️ 创建 modules/designer/ 目录结构
+#### 2. **content/content.js** 拆分 - **已完成** ✅
+**状态**: 从 2,574行 拆分为 2个模块 + 1个主文件
+- `modules/content/content-core.js` (~1,300行) - 核心功能、消息处理、元素查找
+- `modules/content/content-automation.js` (~1,200行) - 自动化执行、工作流处理  
+- `content/content-modular.js` (~150行) - 模块化主文件
 
-📅 Day 3-4: 核心模块拆分  
-- 📄 创建 designer-core.js (~1,200行)
-  - MxGraphWorkflowDesigner类定义
-  - 初始化逻辑 (init, waitForMxGraph, initMxGraph)
-  - 基础图形操作和事件监听
-
-📅 Day 5-6: 节点管理模块
-- 📄 创建 designer-nodes.js (~1,000行)  
-  - 节点创建和管理功能
-  - 属性面板和配置编辑
-  - 节点验证和测试功能
-
-📅 Day 7: 工作流处理模块
-- 📄 创建 designer-workflow.js (~900行)
-  - 工作流导入导出
-  - 文件操作和数据转换
-  - 画布管理功能
-```
-
-#### 2. **content/content.js** 拆分 (高优先级)  
-**当前状态**: 🔴 2,200行+
-**目标**: 拆分为2个文件，每个<1,500行
-
-**具体行动**:
-```
-📅 下周 Day 1-3: 内容脚本拆分
-- 📄 创建 modules/content/content-core.js (~1,100行)
-  - 内容脚本初始化和基础功能
-  - 页面元素操作和消息通信
-  
-- 📄 创建 modules/content/content-automation.js (~1,100行)  
-  - 自动化执行逻辑
-  - 元素定位和操作功能
-```
+#### 3. **插件配置更新** - **已完成** ✅
+**状态**: 更新插件配置以使用新的模块化代码
+- 更新 `manifest.json` 使用 `content/content-modular.js` 作为内容脚本
+- 添加所有模块文件到 `web_accessible_resources` 
+- 创建测试页面 `test-modular-content.html` 验证模块加载
+- 确保工作流设计器使用模块化脚本
 
 ### ⚠️ 监控任务 (持续关注)
 

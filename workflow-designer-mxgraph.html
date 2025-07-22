@@ -380,10 +380,13 @@
 
       <!-- 状态栏 -->
       <div class="status-bar">
-        <span id="statusText">就绪</span>
+        <span id="statusBarText">就绪</span>
         <span id="nodeCount">节点: 0 | 连线: 0</span>
       </div>
     </div>
+
+    <!-- 引入本地mxGraph (必须最先加载) -->
+    <script src="js/mxClient.min.js"></script>
 
     <!-- 模块化工具类 -->
     <script src="utils/mxGraphConfig.js"></script>
@@ -397,12 +400,12 @@
     <script src="utils/fileExportManager.js"></script>
 
     <!-- 设计器模块 -->
+    <script src="modules/designer/designer-core.js"></script>
     <script src="modules/designer/designer-nodes.js"></script>
+    <script src="modules/designer/designer-workflow.js"></script>
+    <script src="modules/designer/designer-ui.js"></script>
 
     <!-- 工作流设计器脚本（包含mxGraph配置） -->
     <script src="workflow-designer-mxgraph.js"></script>
-
-    <!-- 引入本地mxGraph -->
-    <script src="js/mxClient.min.js"></script>
   </body>
 </html>
