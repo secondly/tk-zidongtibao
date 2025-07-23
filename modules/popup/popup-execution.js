@@ -70,6 +70,11 @@ export async function executeWorkflow() {
     updateExecutionUI();
     updateExecutionStatus(EXECUTION_STATUS.RUNNING, "正在执行工作流...");
 
+    // 立即保存执行状态（包含selectedConfigIndex）
+    if (typeof window.saveExecutionStateToCache === 'function') {
+      window.saveExecutionStateToCache();
+    }
+
     // 显示标签页选择器让用户选择目标页面
     const tab = await selectTargetTab();
     if (!tab) {
@@ -285,7 +290,13 @@ function updateExecutionUI() {
 
   if (executeBtn) {
     executeBtn.disabled = executionState.isRunning;
-    executeBtn.textContent = executionState.isRunning ? "执行中..." : "执行";
+    executeBtn.textContent = executionState.isRunning ? "执行中..." : "执行工作流";
+    // 控制执行按钮的显示/隐藏
+    if (executionState.isRunning) {
+      executeBtn.style.display = "none";
+    } else {
+      executeBtn.style.display = "block";
+    }
   }
 
   if (pauseResumeBtn) {
@@ -296,6 +307,23 @@ function updateExecutionUI() {
   if (stopBtn) {
     stopBtn.disabled = !executionState.isRunning;
   }
+
+  // 控制执行控制按钮的显示/隐藏
+  const executionControls = document.getElementById("executionControls");
+  if (executionControls) {
+    if (executionState.isRunning) {
+      executionControls.style.display = "flex";
+    } else {
+      executionControls.style.display = "none";
+    }
+  }
+
+  debugLog("UI更新完成:", {
+    isRunning: executionState.isRunning,
+    isPaused: executionState.isPaused,
+    executeBtn: executeBtn ? executeBtn.style.display : 'not found',
+    executionControls: executionControls ? executionControls.style.display : 'not found'
+  });
 
   // 更新进度显示
   updateProgressDisplay();
@@ -637,6 +665,83 @@ export function handleExecutionProgress(progressData) {
 }
 
 /**
+ * 从缓存恢复执行状态
+ * @param {Object} cachedState - 缓存的执行状态
+ */
+export function restoreExecutionStateFromCache(cachedState) {
+  debugLog("从缓存恢复执行状态:", cachedState);
+
+  // 恢复执行状态
+  executionState.isRunning = cachedState.isRunning || false;
+  executionState.isPaused = cachedState.isPaused || false;
+  executionState.currentStep = cachedState.currentStep || 0;
+  executionState.startTime = cachedState.startTime || null;
+  executionState.totalSteps = cachedState.totalSteps || 0;
+  executionState.completedSteps = cachedState.completedSteps || 0;
+  executionState.errors = cachedState.errors || [];
+
+  // 恢复配置选择（延迟执行确保DOM已加载）
+  if (cachedState.selectedConfigIndex !== undefined) {
+    setTimeout(() => {
+      const configSelect = document.getElementById('configSelect');
+      if (configSelect) {
+        configSelect.value = cachedState.selectedConfigIndex;
+        debugLog("恢复配置选择:", cachedState.selectedConfigIndex);
+
+        // 触发配置变更事件以更新预览
+        const event = new Event('change', { bubbles: true });
+        configSelect.dispatchEvent(event);
+
+        // 如果有预览更新函数，也调用一下
+        if (typeof window.updateWorkflowPreview === 'function') {
+          window.updateWorkflowPreview();
+        }
+      } else {
+        debugLog("配置选择元素未找到，稍后重试");
+        // 再次尝试
+        setTimeout(() => {
+          const configSelect2 = document.getElementById('configSelect');
+          if (configSelect2) {
+            configSelect2.value = cachedState.selectedConfigIndex;
+            const event2 = new Event('change', { bubbles: true });
+            configSelect2.dispatchEvent(event2);
+          }
+        }, 500);
+      }
+    }, 100);
+  }
+
+  // 更新UI
+  updateExecutionUI();
+
+  // 更新状态显示
+  if (executionState.isRunning) {
+    let statusMessage = "";
+    if (cachedState.currentOperation) {
+      statusMessage = cachedState.currentOperation;
+    } else if (executionState.isPaused) {
+      statusMessage = "执行已暂停 - 可以继续执行";
+    } else {
+      statusMessage = "正在执行工作流...";
+    }
+
+    if (executionState.isPaused) {
+      updateExecutionStatus(EXECUTION_STATUS.PAUSED, statusMessage);
+    } else {
+      updateExecutionStatus(EXECUTION_STATUS.RUNNING, statusMessage);
+    }
+  }
+
+  // 显示执行控制按钮
+  const executionControls = document.getElementById("executionControls");
+  if (executionControls && executionState.isRunning) {
+    executionControls.style.display = "flex";
+  }
+
+  debugLog("执行状态恢复完成");
+}
+
+/**
  * 初始化执行模块事件监听器
  */
 export function initializeExecutionListeners() {
@@ -665,6 +770,24 @@ export function initializeExecutionListeners() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === "executionProgress") {
         handleExecutionProgress(message.data);
+        sendResponse({ received: true });
+      } else if (message.action === "executionStopped") {
+        debugLog("收到执行停止消息");
+        resetExecutionState();
+        updateExecutionStatus(EXECUTION_STATUS.IDLE, "执行已停止");
+        updateExecutionUI();
+        sendResponse({ received: true });
+      } else if (message.action === "executionPaused") {
+        debugLog("收到执行暂停消息");
+        executionState.isPaused = true;
+        updateExecutionStatus(EXECUTION_STATUS.PAUSED, "执行已暂停");
+        updateExecutionUI();
+        sendResponse({ received: true });
+      } else if (message.action === "executionResumed") {
+        debugLog("收到执行继续消息");
+        executionState.isPaused = false;
+        updateExecutionStatus(EXECUTION_STATUS.RUNNING, "正在执行工作流...");
+        updateExecutionUI();
         sendResponse({ received: true });
       }
     });

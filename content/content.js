@@ -189,6 +189,73 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     return true;
   }
 
+  // 处理获取执行状态请求
+  if (request.action === "getExecutionStatus") {
+    try {
+      let executionStatus = {
+        isRunning: false,
+        isPaused: false,
+        currentStep: 0,
+        totalSteps: 0,
+        completedSteps: 0,
+        startTime: null,
+        currentOperation: null
+      };
+
+      if (window.automationEngine) {
+        // 高级引擎模式
+        executionStatus = {
+          isRunning: window.automationEngine.isRunning,
+          isPaused: window.automationEngine.isPaused,
+          currentStep: window.automationEngine.executionStats?.currentStep || 0,
+          totalSteps: window.automationEngine.executionStats?.totalSteps || 0,
+          completedSteps: window.automationEngine.executionStats?.completedSteps || 0,
+          startTime: window.automationEngine.executionStats?.startTime,
+          currentOperation: window.automationEngine.executionStats?.currentOperation
+        };
+      } else if (window.simplifiedExecutionControl) {
+        // 简化模式
+        executionStatus = {
+          isRunning: window.simplifiedExecutionControl.isRunning,
+          isPaused: window.simplifiedExecutionControl.isPaused,
+          currentStep: window.simplifiedExecutionControl.currentStep || 0,
+          totalSteps: window.simplifiedExecutionControl.totalSteps || 0,
+          completedSteps: window.simplifiedExecutionControl.completedSteps || 0,
+          startTime: window.simplifiedExecutionControl.startTime,
+          currentOperation: window.simplifiedExecutionControl.currentOperation
+        };
+      }
+
+      console.log('🔧 [DEBUG] 返回执行状态:', executionStatus);
+      sendResponse({ success: true, ...executionStatus });
+    } catch (error) {
+      console.error('获取执行状态失败:', error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
+  // 处理停止执行请求
+  if (request.action === "stopExecution") {
+    try {
+      if (window.automationEngine) {
+        // 高级引擎模式
+        window.automationEngine.stop();
+        sendResponse({ success: true });
+      } else if (window.simplifiedExecutionControl) {
+        // 简化模式
+        window.simplifiedExecutionControl.stop();
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: "没有找到执行控制器" });
+      }
+    } catch (error) {
+      console.error('停止执行失败:', error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
   if (request.action === "findAllElements") {
     findAllElements(request.locator)
       .then((result) => {
@@ -1054,9 +1121,15 @@ async function executeSimplifiedWorkflow(workflow) {
 
   // 创建简化模式的执行控制对象
   window.simplifiedExecutionControl = {
+    isRunning: true,
     isPaused: false,
     pausePromise: null,
     pauseResolve: null,
+    currentStep: 0,
+    totalSteps: totalSteps,
+    completedSteps: 0,
+    startTime: Date.now(),
+    currentOperation: '开始执行工作流...',
 
     pause() {
       console.log('🔧 [DEBUG] 简化模式 pause() 被调用');
@@ -1091,7 +1164,19 @@ async function executeSimplifiedWorkflow(workflow) {
     },
 
     async checkPause() {
-      console.log('🔧 [DEBUG] checkPause 被调用，当前暂停状态:', this.isPaused);
+      console.log('🔧 [DEBUG] checkPause 被调用，当前状态:', {
+        isRunning: this.isRunning,
+        isPaused: this.isPaused
+      });
+
+      // 首先检查是否已停止
+      if (!this.isRunning) {
+        console.log('🔧 [DEBUG] 检测到停止状态，抛出停止信号');
+        const stopError = new Error('EXECUTION_STOPPED');
+        stopError.isStopSignal = true;
+        throw stopError;
+      }
+
       if (this.isPaused) {
         console.log('🔧 [DEBUG] 检测到暂停状态，开始等待...');
         if (!this.pausePromise) {
@@ -1103,7 +1188,48 @@ async function executeSimplifiedWorkflow(workflow) {
         console.log('🔧 [DEBUG] 等待暂停Promise解决...');
         await this.pausePromise;
         console.log('🔧 [DEBUG] 暂停Promise已解决，继续执行');
+
+        // 暂停解除后再次检查是否已停止
+        if (!this.isRunning) {
+          console.log('🔧 [DEBUG] 暂停解除后检测到停止状态，抛出停止信号');
+          const stopError = new Error('EXECUTION_STOPPED');
+          stopError.isStopSignal = true;
+          throw stopError;
+        }
       }
+    },
+
+    updateProgress(stepIndex, operation) {
+      this.currentStep = stepIndex;
+      this.completedSteps = stepIndex;
+      if (operation) {
+        this.currentOperation = operation;
+      }
+      console.log('🔧 [DEBUG] 更新执行进度:', {
+        currentStep: this.currentStep,
+        completedSteps: this.completedSteps,
+        currentOperation: this.currentOperation
+      });
+    },
+
+    stop() {
+      console.log('🔧 [DEBUG] 简化模式停止被调用');
+      this.isRunning = false;
+      this.isPaused = false;
+      this.currentOperation = '执行已停止';
+
+      // 解决暂停Promise，让等待的代码继续执行并检查停止状态
+      if (this.pauseResolve) {
+        this.pauseResolve();
+        this.pausePromise = null;
+        this.pauseResolve = null;
+      }
+
+      // 发送停止确认消息
+      chrome.runtime.sendMessage({
+        action: 'executionStopped',
+        data: { isRunning: false, isStopped: true }
+      }).catch(err => console.error('发送停止消息失败:', err));
     }
   };
 
@@ -1146,6 +1272,11 @@ async function executeSimplifiedWorkflow(workflow) {
           currentOperation: `执行步骤: ${step.name || step.type}`
         }
       });
+
+      // 更新简化执行控制器的进度
+      if (window.simplifiedExecutionControl) {
+        window.simplifiedExecutionControl.updateProgress(i + 1, `执行步骤: ${step.name || step.type}`);
+      }
 
       // 为每个步骤设置超时
       const stepTimeout = new Promise((_, reject) => {
@@ -1219,6 +1350,19 @@ async function executeSimplifiedWorkflow(workflow) {
     return { success: true, message: '工作流执行完成' };
 
   } catch (error) {
+    // 检查是否是停止信号
+    if (error.isStopSignal) {
+      console.log('✅ 执行已正常停止');
+
+      // 发送停止完成消息
+      chrome.runtime.sendMessage({
+        action: 'executionStopped',
+        data: { message: '执行已停止' }
+      });
+
+      return { success: true, message: '执行已停止' };
+    }
+
     console.error('❌ 简化模式执行失败:', error);
 
     // 发送错误消息
@@ -1229,6 +1373,11 @@ async function executeSimplifiedWorkflow(workflow) {
 
     throw error;
   } finally {
+    // 标记执行完成
+    if (window.simplifiedExecutionControl) {
+      window.simplifiedExecutionControl.isRunning = false;
+    }
+
     // 清理简化执行控制对象
     window.simplifiedExecutionControl = null;
     console.log('🧹 简化模式执行控制已清理');

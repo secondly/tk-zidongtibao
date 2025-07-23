@@ -71,7 +71,8 @@ function saveExecutionStateToCache() {
             timestamp: Date.now(),
             executionState: executionState,
             url: window.location.href,
-            userAgent: navigator.userAgent
+            userAgent: navigator.userAgent,
+            selectedConfigIndex: getSelectedConfigIndex()
         };
 
         const cacheData = safeJsonStringify(stateCache);
@@ -201,31 +202,96 @@ function restoreExecutionStateCache() {
         const cachedState = cache.executionState;
 
         if (cachedState.isRunning) {
-            debugLog('检测到上次正在执行的状态');
+            debugLog('检测到上次正在执行的状态，尝试恢复执行界面');
 
-            // 由于页面刷新，执行状态实际上已经中断
-            // 这里只恢复部分状态信息，不恢复运行状态
-
-            // 触发执行状态恢复事件
-            const event = new CustomEvent('executionStateRestored', {
-                detail: {
-                    previousState: cachedState,
-                    wasRunning: true
-                }
-            });
-            window.dispatchEvent(event);
-
-            if (cachedState.isPaused) {
-                showRestorationNotice('上次执行已暂停，状态已恢复');
-            } else {
-                showRestorationNotice('检测到上次正在执行，但已中断');
-            }
+            // 检查content script是否还在执行，传递完整的缓存对象
+            checkAndRestoreExecutionState(cachedState, cache);
         }
 
         debugLog('执行状态缓存处理完成');
 
     } catch (error) {
         console.error('恢复执行状态缓存失败:', error);
+    }
+}
+
+/**
+ * 检查并恢复执行状态
+ * @param {Object} cachedState - 缓存的执行状态
+ * @param {Object} fullCache - 完整的缓存对象
+ */
+async function checkAndRestoreExecutionState(cachedState, fullCache) {
+    try {
+        debugLog('开始检查content script执行状态...');
+
+        // 获取当前活动标签页
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tabs || tabs.length === 0) {
+            debugLog('无法获取当前标签页，无法恢复执行状态');
+            showRestorationNotice('检测到上次正在执行，但无法连接到页面');
+            return;
+        }
+
+        const tab = tabs[0];
+
+        try {
+            // 尝试获取content script的执行状态
+            const response = await chrome.tabs.sendMessage(tab.id, {
+                action: 'getExecutionStatus'
+            });
+
+            if (response && response.isRunning) {
+                debugLog('Content script仍在执行，恢复执行状态UI');
+
+                // 恢复执行状态到popup，传递完整缓存
+                await restoreExecutionUI(cachedState, response, fullCache);
+
+                if (response.isPaused) {
+                    showRestorationNotice('上次执行已暂停，状态已恢复，可以继续执行');
+                } else {
+                    showRestorationNotice('检测到正在执行的工作流，状态已恢复');
+                }
+            } else {
+                debugLog('Content script未在执行，显示中断提示');
+                showRestorationNotice('检测到上次正在执行，但已中断');
+            }
+        } catch (error) {
+            debugLog('无法连接到content script:', error.message);
+            showRestorationNotice('检测到上次正在执行，但页面已刷新或关闭');
+        }
+
+    } catch (error) {
+        console.error('检查执行状态失败:', error);
+        showRestorationNotice('恢复执行状态时出错');
+    }
+}
+
+/**
+ * 恢复执行状态UI
+ * @param {Object} cachedState - 缓存的执行状态
+ * @param {Object} currentState - 当前content script状态
+ * @param {Object} fullCache - 完整的缓存对象
+ */
+async function restoreExecutionUI(cachedState, currentState, fullCache) {
+    try {
+        // 导入执行模块
+        const { restoreExecutionStateFromCache } = await import('./popup-execution.js');
+
+        // 合并状态信息
+        const mergedState = {
+            ...cachedState,
+            ...currentState,
+            isRunning: true, // 确保标记为运行中
+            selectedConfigIndex: fullCache.selectedConfigIndex // 添加配置索引
+        };
+
+        debugLog('恢复执行状态UI:', mergedState);
+
+        // 恢复执行状态
+        restoreExecutionStateFromCache(mergedState);
+
+    } catch (error) {
+        console.error('恢复执行UI失败:', error);
     }
 }
 
