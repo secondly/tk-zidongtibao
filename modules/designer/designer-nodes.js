@@ -47,6 +47,13 @@ class DesignerNodes {
         operationType: "click",
         operationDelay: 1000,
         subOperations: loopType === "container" ? [] : undefined,
+        // 虚拟列表相关配置
+        isVirtualList: false,
+        virtualListContainer: { strategy: "css", value: "" },
+        virtualListTitleLocator: { strategy: "css", value: "" },
+        virtualListScrollDistance: 100,
+        virtualListWaitTime: 1000,
+        virtualListMaxRetries: 10,
       };
 
       const cell = createNode(this.graph, nodeType, x, y, nodeData);
@@ -863,16 +870,25 @@ nditionForm(config) {
           <select class="form-select" id="locatorType">
               <option value="css" ${
                 config.locator?.strategy === "css" ? "selected" : ""
-              }>CSS选择器</option>
+              }>CSS选择器 [示例: .list-item, .btn-action]</option>
               <option value="xpath" ${
                 config.locator?.strategy === "xpath" ? "selected" : ""
-              }>XPath</option>
+              }>XPath [示例: //div[@class='list-item']]</option>
               <option value="id" ${
                 config.locator?.strategy === "id" ? "selected" : ""
-              }>ID</option>
+              }>ID [示例: list-item]</option>
               <option value="className" ${
                 config.locator?.strategy === "className" ? "selected" : ""
-              }>类名</option>
+              }>类名 [示例: list-item]</option>
+              <option value="text" ${
+                config.locator?.strategy === "text" ? "selected" : ""
+              }>文本内容 [示例: 按钮文本]</option>
+              <option value="contains" ${
+                config.locator?.strategy === "contains" ? "selected" : ""
+              }>包含文本 [示例: 部分文本匹配]</option>
+              <option value="tagName" ${
+                config.locator?.strategy === "tagName" ? "selected" : ""
+              }>标签名 [示例: button, div]</option>
           </select>
       </div>
       <div class="form-group">
@@ -907,6 +923,67 @@ nditionForm(config) {
             config.operationDelay || config.waitTime || 1000
           }" min="100" max="60000" step="100">
           <div class="form-help">每次循环操作后的等待时间</div>
+      </div>
+
+      <!-- 虚拟列表配置 -->
+      <div class="form-group">
+          <label class="form-label">
+              <input type="checkbox" id="isVirtualList" ${config.isVirtualList ? 'checked' : ''} style="margin-right: 8px;">
+              启用虚拟列表模式
+          </label>
+          <div class="form-help">适用于需要滚动加载的长列表，自动遍历所有项目</div>
+      </div>
+
+      <div id="virtualListConfig" style="display: ${config.isVirtualList ? 'block' : 'none'}; margin-left: 20px; border-left: 3px solid #3498db; padding-left: 15px;">
+          <div class="form-group">
+              <label class="form-label">容器定位策略</label>
+              <select class="form-select" id="virtualListContainerStrategy">
+                  <option value="css" ${config.virtualListContainer?.strategy === "css" ? "selected" : ""}>CSS选择器 [示例: .list-container, #virtual-list]</option>
+                  <option value="xpath" ${config.virtualListContainer?.strategy === "xpath" ? "selected" : ""}>XPath [示例: //div[@class='list-container']]</option>
+                  <option value="id" ${config.virtualListContainer?.strategy === "id" ? "selected" : ""}>ID [示例: virtual-list-container]</option>
+                  <option value="className" ${config.virtualListContainer?.strategy === "className" ? "selected" : ""}>类名 [示例: list-container]</option>
+                  <option value="text" ${config.virtualListContainer?.strategy === "text" ? "selected" : ""}>文本内容 [示例: 列表容器]</option>
+                  <option value="contains" ${config.virtualListContainer?.strategy === "contains" ? "selected" : ""}>包含文本 [示例: 部分文本匹配]</option>
+                  <option value="tagName" ${config.virtualListContainer?.strategy === "tagName" ? "selected" : ""}>标签名 [示例: div, ul]</option>
+              </select>
+          </div>
+          <div class="form-group">
+              <label class="form-label">容器定位值</label>
+              <input type="text" class="form-input" id="virtualListContainerValue" value="${config.virtualListContainer?.value || ""}" placeholder="虚拟列表容器的选择器">
+              <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🎯 测试容器</button>
+          </div>
+          <div class="form-group">
+              <label class="form-label">标题定位策略</label>
+              <select class="form-select" id="virtualListTitleStrategy">
+                  <option value="css" ${config.virtualListTitleLocator?.strategy === "css" ? "selected" : ""}>CSS选择器 [示例: .item-title, .list-item h3]</option>
+                  <option value="xpath" ${config.virtualListTitleLocator?.strategy === "xpath" ? "selected" : ""}>XPath [示例: //div[@class='item-title']]</option>
+                  <option value="id" ${config.virtualListTitleLocator?.strategy === "id" ? "selected" : ""}>ID [示例: item-title]</option>
+                  <option value="className" ${config.virtualListTitleLocator?.strategy === "className" ? "selected" : ""}>类名 [示例: item-title]</option>
+                  <option value="text" ${config.virtualListTitleLocator?.strategy === "text" ? "selected" : ""}>文本内容 [示例: 标题文本]</option>
+                  <option value="contains" ${config.virtualListTitleLocator?.strategy === "contains" ? "selected" : ""}>包含文本 [示例: 部分标题文本]</option>
+                  <option value="tagName" ${config.virtualListTitleLocator?.strategy === "tagName" ? "selected" : ""}>标签名 [示例: h1, h2, span]</option>
+              </select>
+          </div>
+          <div class="form-group">
+              <label class="form-label">标题定位值</label>
+              <input type="text" class="form-input" id="virtualListTitleValue" value="${config.virtualListTitleLocator?.value || ""}" placeholder="列表项标题元素的选择器">
+              <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🎯 测试标题</button>
+          </div>
+          <div class="form-group">
+              <label class="form-label">滚动距离(px)</label>
+              <input type="number" class="form-input" id="virtualListScrollDistance" value="${config.virtualListScrollDistance || 100}" min="10" max="1000" step="10">
+              <div class="form-help">每次滚动的像素距离</div>
+          </div>
+          <div class="form-group">
+              <label class="form-label">滚动等待时间(毫秒)</label>
+              <input type="number" class="form-input" id="virtualListWaitTime" value="${config.virtualListWaitTime || 1000}" min="100" max="10000" step="100">
+              <div class="form-help">滚动后等待新内容渲染的时间</div>
+          </div>
+          <div class="form-group">
+              <label class="form-label">最大重试次数</label>
+              <input type="number" class="form-input" id="virtualListMaxRetries" value="${config.virtualListMaxRetries || 10}" min="1" max="100">
+              <div class="form-help">防止死循环的保护机制</div>
+          </div>
       </div>
       ${config.loopType === "self" ? `
       <div class="form-group">
@@ -943,6 +1020,15 @@ nditionForm(config) {
         this.testLocator(button);
       });
     });
+
+    // 绑定虚拟列表复选框事件监听器
+    const virtualListCheckbox = document.getElementById('isVirtualList');
+    const virtualListConfig = document.getElementById('virtualListConfig');
+    if (virtualListCheckbox && virtualListConfig) {
+      virtualListCheckbox.addEventListener('change', (e) => {
+        virtualListConfig.style.display = e.target.checked ? 'block' : 'none';
+      });
+    }
 
     // 绑定测试条件按钮
     const testConditionButtons = document.querySelectorAll(".test-condition-btn");
@@ -1202,6 +1288,52 @@ nditionForm(config) {
     if (operationDelay) {
       config.operationDelay = parseInt(operationDelay.value) || 1000;
     }
+
+    // 保存虚拟列表配置
+    const isVirtualList = document.getElementById("isVirtualList");
+    if (isVirtualList) {
+      config.isVirtualList = isVirtualList.checked;
+    }
+
+    if (config.isVirtualList) {
+      // 容器定位配置
+      const containerStrategy = document.getElementById("virtualListContainerStrategy");
+      const containerValue = document.getElementById("virtualListContainerValue");
+      if (containerStrategy && containerValue) {
+        config.virtualListContainer = {
+          strategy: containerStrategy.value,
+          value: containerValue.value.trim()
+        };
+      }
+
+      // 标题定位配置
+      const titleStrategy = document.getElementById("virtualListTitleStrategy");
+      const titleValue = document.getElementById("virtualListTitleValue");
+      if (titleStrategy && titleValue) {
+        config.virtualListTitleLocator = {
+          strategy: titleStrategy.value,
+          value: titleValue.value.trim()
+        };
+      }
+
+      // 滚动配置
+      const scrollDistance = document.getElementById("virtualListScrollDistance");
+      if (scrollDistance) {
+        config.virtualListScrollDistance = parseInt(scrollDistance.value) || 100;
+      }
+
+      const waitTime = document.getElementById("virtualListWaitTime");
+      if (waitTime) {
+        config.virtualListWaitTime = parseInt(waitTime.value) || 1000;
+      }
+
+      const maxRetries = document.getElementById("virtualListMaxRetries");
+      if (maxRetries) {
+        config.virtualListMaxRetries = parseInt(maxRetries.value) || 10;
+      }
+    }
+
+    console.log("保存循环配置:", config);
   }
 
   updateNodeDisplay(cell) {
@@ -1337,6 +1469,7 @@ nditionForm(config) {
     console.log("🔧 [DEBUG] 初始查找结果:");
     console.log("  - strategySelect存在:", !!strategySelect);
     console.log("  - valueInput存在:", !!valueInput);
+    console.log("  - 按钮文本:", button.textContent || button.innerText || '');
 
     // 特殊处理：如果是循环操作表单，使用loopSelector作为定位值
     if (strategySelect && !valueInput) {
@@ -1367,6 +1500,18 @@ nditionForm(config) {
       valueInput = document.getElementById("locatorValue");
     }
 
+    // 特殊处理虚拟列表的测试按钮
+    const buttonText = button.textContent || button.innerText || '';
+    if (buttonText.includes('测试容器')) {
+      strategySelect = document.getElementById("virtualListContainerStrategy");
+      valueInput = document.getElementById("virtualListContainerValue");
+      console.log("🔧 [DEBUG] 虚拟列表容器测试按钮");
+    } else if (buttonText.includes('测试标题')) {
+      strategySelect = document.getElementById("virtualListTitleStrategy");
+      valueInput = document.getElementById("virtualListTitleValue");
+      console.log("🔧 [DEBUG] 虚拟列表标题测试按钮");
+    }
+
     // 如果还是找不到，尝试在容器内查找
     if (!strategySelect || !valueInput) {
       strategySelect = container.querySelector(
@@ -1378,12 +1523,22 @@ nditionForm(config) {
     }
 
     if (!strategySelect || !valueInput) {
+      console.error("🔧 [DEBUG] 最终查找失败:");
+      console.error("  - strategySelect:", strategySelect);
+      console.error("  - valueInput:", valueInput);
+      console.error("  - 按钮文本:", button.textContent || button.innerText || '');
       alert("请先选择定位策略和输入定位值");
       return;
     }
 
     const strategy = strategySelect.value;
     const value = valueInput.value.trim();
+
+    console.log("🔧 [DEBUG] 最终使用的配置:");
+    console.log("  - strategy:", strategy);
+    console.log("  - value:", value);
+    console.log("  - strategySelect ID:", strategySelect.id);
+    console.log("  - valueInput ID:", valueInput.id);
 
     if (!value) {
       alert("请输入定位值");

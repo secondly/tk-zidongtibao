@@ -172,12 +172,24 @@ function convertGraphToWorkflow(graph, workflowName = '新工作流') {
             stepData.operationDelay = nodeData.operationDelay || 1000;
             stepData.maxIterations = nodeData.maxIterations || 10;
             stepData.subOperations = subOperations;
+
+            // 虚拟列表相关配置
+            if (nodeData.isVirtualList) {
+                stepData.isVirtualList = true;
+                stepData.virtualListContainer = nodeData.virtualListContainer;
+                stepData.virtualListTitleLocator = nodeData.virtualListTitleLocator;
+                stepData.virtualListScrollDistance = nodeData.virtualListScrollDistance || 100;
+                stepData.virtualListWaitTime = nodeData.virtualListWaitTime || 1000;
+                stepData.virtualListMaxRetries = nodeData.virtualListMaxRetries || 10;
+            }
+
             console.log('🔧 [DEBUG] 导出循环节点，最终stepData:', {
                 loopType: stepData.loopType,
                 startIndex: stepData.startIndex,
                 endIndex: stepData.endIndex,
                 operationType: stepData.operationType,
                 operationDelay: stepData.operationDelay,
+                isVirtualList: stepData.isVirtualList,
                 locator: stepData.locator
             });
         }

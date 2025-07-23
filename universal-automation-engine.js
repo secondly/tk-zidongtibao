@@ -382,6 +382,13 @@ class UniversalAutomationEngine {
 
         this.log(`🔄 开始执行${loopType === 'simpleLoop' ? '简单' : '父级'}循环: ${loopName}`, 'info');
 
+        // 检查是否为虚拟列表模式
+        if (step.isVirtualList) {
+            this.log(`📜 检测到虚拟列表模式，开始智能遍历`, 'info');
+            await this.executeVirtualListLoop(step, context);
+            return;
+        }
+
         // 获取目标元素
         const elements = await this.findElements(step.locator);
         if (elements.length === 0) {
@@ -1392,6 +1399,196 @@ class UniversalAutomationEngine {
         }
 
         return `"${str}"`;
+    }
+
+    /**
+     * 执行虚拟列表循环
+     * 智能遍历虚拟列表，自动滚动并点击所有未处理的项目
+     */
+    async executeVirtualListLoop(step, context) {
+        const loopName = step.name || `虚拟列表循环${context.join('.')}`;
+        this.log(`📜 开始执行虚拟列表循环: ${loopName}`, 'info');
+
+        // 验证配置
+        if (!step.virtualListContainer || !step.virtualListContainer.value) {
+            throw new Error('虚拟列表容器定位配置缺失');
+        }
+        if (!step.virtualListTitleLocator || !step.virtualListTitleLocator.value) {
+            throw new Error('虚拟列表标题定位配置缺失');
+        }
+
+        // 获取容器元素
+        const containerElements = await this.findElements(step.virtualListContainer);
+        if (containerElements.length === 0) {
+            throw new Error(`未找到虚拟列表容器: ${step.virtualListContainer.value}`);
+        }
+        const container = containerElements[0];
+        this.log(`📦 找到虚拟列表容器`, 'info');
+
+        // 初始化状态
+        const processedTitles = new Set();
+        const scrollDistance = step.virtualListScrollDistance || 100;
+        const waitTime = step.virtualListWaitTime || 1000;
+        const maxRetries = step.virtualListMaxRetries || 10;
+        let retryCount = 0;
+        let noNewItemsCount = 0;
+        let totalProcessed = 0;
+
+        this.log(`⚙️ 配置: 滚动距离=${scrollDistance}px, 等待时间=${waitTime}ms, 最大重试=${maxRetries}`, 'info');
+
+        while (retryCount < maxRetries && noNewItemsCount < 3) {
+            if (!this.isRunning) {
+                throw new Error('执行已被停止');
+            }
+
+            await this.checkPause();
+
+            try {
+                // 收集当前可见的标题
+                const visibleTitles = await this.collectVisibleTitles(step.virtualListTitleLocator);
+                this.log(`👀 当前可见 ${visibleTitles.length} 个标题`, 'info');
+
+                // 查找第一个未处理的标题
+                const unprocessedTitle = visibleTitles.find(title => !processedTitles.has(title.text));
+
+                if (unprocessedTitle) {
+                    this.log(`🎯 处理标题: "${unprocessedTitle.text}"`, 'info');
+
+                    try {
+                        // 点击对应的按钮（使用循环操作的定位器）
+                        await this.clickVirtualListItem(unprocessedTitle, step);
+
+                        // 标记为已处理
+                        processedTitles.add(unprocessedTitle.text);
+                        totalProcessed++;
+                        noNewItemsCount = 0;
+
+                        this.log(`✅ 已处理: "${unprocessedTitle.text}" (总计: ${totalProcessed})`, 'success');
+
+                        // 更新进度
+                        this.updateProgress({
+                            currentOperation: `虚拟列表处理: ${totalProcessed} 项已完成`
+                        });
+
+                    } catch (clickError) {
+                        this.log(`❌ 点击失败: "${unprocessedTitle.text}" - ${clickError.message}`, 'error');
+
+                        // 标记红色边框
+                        try {
+                            unprocessedTitle.element.style.border = '2px solid red';
+                            setTimeout(() => {
+                                if (unprocessedTitle.element.style) {
+                                    unprocessedTitle.element.style.border = '';
+                                }
+                            }, 3000);
+                        } catch (e) {
+                            // 忽略样式设置错误
+                        }
+
+                        // 仍然标记为已处理，避免重复尝试
+                        processedTitles.add(unprocessedTitle.text);
+                    }
+
+                    // 操作后等待
+                    if (step.operationDelay) {
+                        await this.sleep(step.operationDelay);
+                    }
+
+                } else {
+                    noNewItemsCount++;
+                    this.log(`ℹ️ 当前可见项目都已处理 (连续 ${noNewItemsCount}/3 次)`, 'info');
+                }
+
+                // 滚动容器
+                this.log(`📜 滚动容器 ${scrollDistance}px`, 'info');
+                container.scrollTop += scrollDistance;
+
+                // 等待新内容渲染
+                await this.sleep(waitTime);
+
+                retryCount++;
+
+            } catch (error) {
+                this.log(`❌ 虚拟列表处理出错: ${error.message}`, 'error');
+                retryCount++;
+
+                if (retryCount >= maxRetries) {
+                    throw new Error(`虚拟列表处理失败，已达到最大重试次数: ${error.message}`);
+                }
+
+                // 短暂等待后重试
+                await this.sleep(1000);
+            }
+        }
+
+        this.log(`🎉 虚拟列表循环完成，共处理 ${totalProcessed} 个项目`, 'success');
+    }
+
+    /**
+     * 收集当前可见的标题元素
+     */
+    async collectVisibleTitles(titleLocator) {
+        const titleElements = await this.findElements(titleLocator);
+        const visibleTitles = [];
+
+        for (const element of titleElements) {
+            // 检查元素是否在视口中可见
+            const rect = element.getBoundingClientRect();
+            const isVisible = rect.top >= 0 && rect.left >= 0 &&
+                            rect.bottom <= window.innerHeight &&
+                            rect.right <= window.innerWidth;
+
+            if (isVisible && element.innerText && element.innerText.trim()) {
+                visibleTitles.push({
+                    text: element.innerText.trim(),
+                    element: element
+                });
+            }
+        }
+
+        return visibleTitles;
+    }
+
+    /**
+     * 点击虚拟列表项对应的按钮
+     */
+    async clickVirtualListItem(titleInfo, step) {
+        // 从标题元素开始，查找对应的可点击按钮
+        // 使用循环操作的定位器来找到按钮
+        const buttonElements = await this.findElements(step.locator);
+
+        // 尝试找到与当前标题相关的按钮
+        // 这里使用简单的策略：找到距离标题最近的按钮
+        let targetButton = null;
+        let minDistance = Infinity;
+
+        const titleRect = titleInfo.element.getBoundingClientRect();
+        const titleCenterX = titleRect.left + titleRect.width / 2;
+        const titleCenterY = titleRect.top + titleRect.height / 2;
+
+        for (const button of buttonElements) {
+            const buttonRect = button.getBoundingClientRect();
+            const buttonCenterX = buttonRect.left + buttonRect.width / 2;
+            const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+
+            // 计算距离
+            const distance = Math.sqrt(
+                Math.pow(titleCenterX - buttonCenterX, 2) +
+                Math.pow(titleCenterY - buttonCenterY, 2)
+            );
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                targetButton = button;
+            }
+        }
+
+        if (!targetButton) {
+            throw new Error(`未找到与标题 "${titleInfo.text}" 对应的按钮`);
+        }
+
+        // 点击按钮
+        await this.clickElement(targetButton);
     }
 } // 结束类定义
 
