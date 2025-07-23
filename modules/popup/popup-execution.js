@@ -318,12 +318,8 @@ function updateExecutionUI() {
     }
   }
 
-  debugLog("UI更新完成:", {
-    isRunning: executionState.isRunning,
-    isPaused: executionState.isPaused,
-    executeBtn: executeBtn ? executeBtn.style.display : 'not found',
-    executionControls: executionControls ? executionControls.style.display : 'not found'
-  });
+  // 简化日志输出
+  debugLog(`UI更新: 运行=${executionState.isRunning}, 暂停=${executionState.isPaused}`);
 
   // 更新进度显示
   updateProgressDisplay();
@@ -649,6 +645,10 @@ export function handleExecutionProgress(progressData) {
     executionState.completedSteps = progressData.completedSteps;
   }
 
+  if (progressData.totalSteps !== undefined) {
+    executionState.totalSteps = progressData.totalSteps;
+  }
+
   if (progressData.error) {
     executionState.errors.push(progressData.error);
   }
@@ -656,12 +656,18 @@ export function handleExecutionProgress(progressData) {
   // 更新UI
   updateProgressDisplay();
 
-  // 更新状态消息
-  if (progressData.message) {
-    updateExecutionStatus(EXECUTION_STATUS.RUNNING, progressData.message);
+  // 更新状态消息 - 支持详细信息
+  if (progressData.currentOperation || progressData.message) {
+    const message = progressData.currentOperation || progressData.message;
+    const detailInfo = progressData.loopInfo || null;
+
+    updateExecutionStatus(EXECUTION_STATUS.RUNNING, message, detailInfo);
   }
 
-  debugLog("执行进度更新:", progressData);
+  // 简化日志输出，只在重要变化时输出
+  if (progressData.stepName || progressData.currentStep) {
+    debugLog(`进度: 步骤${progressData.currentStep}/${progressData.totalSteps} - ${progressData.stepName || progressData.stepType}`);
+  }
 }
 
 /**

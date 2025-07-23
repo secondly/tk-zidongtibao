@@ -1199,17 +1199,36 @@ async function executeSimplifiedWorkflow(workflow) {
       }
     },
 
-    updateProgress(stepIndex, operation) {
+    updateProgress(stepIndex, operation, loopInfo = null) {
       this.currentStep = stepIndex;
       this.completedSteps = stepIndex;
       if (operation) {
         this.currentOperation = operation;
       }
-      console.log('🔧 [DEBUG] 更新执行进度:', {
-        currentStep: this.currentStep,
-        completedSteps: this.completedSteps,
-        currentOperation: this.currentOperation
-      });
+
+      // 如果有循环信息，添加到当前操作中
+      if (loopInfo) {
+        this.loopInfo = loopInfo;
+        this.currentOperation = this.formatOperationWithLoop(operation, loopInfo);
+      }
+    },
+
+    formatOperationWithLoop(operation, loopInfo) {
+      let formattedOperation = operation || '执行中';
+
+      if (loopInfo.parentLoop) {
+        formattedOperation += ` | 循环 ${loopInfo.parentLoop.current}/${loopInfo.parentLoop.total}`;
+      }
+
+      if (loopInfo.subLoop) {
+        formattedOperation += ` | 子循环 ${loopInfo.subLoop.current}/${loopInfo.subLoop.total}`;
+      }
+
+      if (loopInfo.subOperation) {
+        formattedOperation += ` | 子操作 ${loopInfo.subOperation.current}/${loopInfo.subOperation.total}`;
+      }
+
+      return formattedOperation;
     },
 
     stop() {
@@ -1256,20 +1275,22 @@ async function executeSimplifiedWorkflow(workflow) {
     }, 5 * 60 * 1000);
 
     for (let i = 0; i < workflow.steps.length; i++) {
-      console.log(`🔧 [DEBUG] 准备执行步骤 ${i + 1}/${totalSteps}`);
       // 检查是否需要暂停
       await checkPause();
-      console.log(`🔧 [DEBUG] 暂停检查完成，继续执行步骤 ${i + 1}`);
 
       const step = workflow.steps[i];
-      console.log(`🎯 执行步骤 ${i + 1}/${totalSteps}: ${step.name} (${step.type})`);
+      console.log(`🎯 执行步骤 ${i + 1}/${totalSteps}: ${step.name || step.type}`);
 
       // 更新进度
       chrome.runtime.sendMessage({
         action: 'executionProgress',
         data: {
           completedSteps: i,
-          currentOperation: `执行步骤: ${step.name || step.type}`
+          currentOperation: `执行步骤: ${step.name || step.type}`,
+          currentStep: i + 1,
+          totalSteps: totalSteps,
+          stepName: step.name,
+          stepType: step.type
         }
       });
 
@@ -1862,15 +1883,33 @@ async function executeLoopStep(step) {
   console.log(`🔄 开始执行${step.loopType === 'simpleLoop' ? '简单' : '父级'}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`);
 
   for (let i = startIndex; i <= actualEndIndex; i++) {
-    console.log(`🔧 [DEBUG] 循环第 ${i + 1} 个元素前检查暂停状态`);
-
     // 在每个循环迭代前检查暂停状态
     if (window.simplifiedExecutionControl) {
       await window.simplifiedExecutionControl.checkPause();
     }
 
     const element = elements[i];
-    console.log(`🎯 处理第 ${i + 1}/${elements.length} 个元素`);
+    const currentLoop = i - startIndex + 1;
+    const totalLoops = actualEndIndex - startIndex + 1;
+
+    console.log(`🎯 处理第 ${i + 1}/${elements.length} 个元素 (循环 ${currentLoop}/${totalLoops})`);
+
+    // 更新详细的循环进度
+    if (window.simplifiedExecutionControl) {
+      const loopInfo = {
+        parentLoop: {
+          current: currentLoop,
+          total: totalLoops,
+          elementIndex: i + 1,
+          totalElements: elements.length
+        }
+      };
+      window.simplifiedExecutionControl.updateProgress(
+        window.simplifiedExecutionControl.currentStep,
+        `循环操作: ${step.name || '循环'} - 处理第 ${currentLoop}/${totalLoops} 个元素`,
+        loopInfo
+      );
+    }
 
     // 记录当前页面滚动位置
     const scrollBefore = {
@@ -2053,7 +2092,26 @@ async function executeParentLoopAction(element, step) {
 
     for (let i = 0; i < step.subOperations.length; i++) {
       const subOp = step.subOperations[i];
-      console.log(`🎯 执行子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator}`);
+      console.log(`🎯 执行子操作 ${i + 1}/${step.subOperations.length}: ${subOp.type}`);
+
+      // 更新子操作进度
+      if (window.simplifiedExecutionControl) {
+        const currentLoopInfo = window.simplifiedExecutionControl.loopInfo || {};
+        const enhancedLoopInfo = {
+          ...currentLoopInfo,
+          subOperation: {
+            current: i + 1,
+            total: step.subOperations.length,
+            name: subOp.name || subOp.type
+          }
+        };
+
+        window.simplifiedExecutionControl.updateProgress(
+          window.simplifiedExecutionControl.currentStep,
+          `子操作: ${subOp.name || subOp.type}`,
+          enhancedLoopInfo
+        );
+      }
 
       try {
         // 传递父级元素上下文给子操作
@@ -2232,7 +2290,31 @@ async function executeSubOperationAutoLoop(operation, parentElement = null) {
   let errorCount = 0;
 
   for (let i = startIndex; i <= actualEndIndex; i++) {
-    console.log(`🎯 自循环处理第 ${i + 1}/${actualEndIndex + 1} 个元素`);
+    const currentAutoLoop = i - startIndex + 1;
+    const totalAutoLoops = actualEndIndex - startIndex + 1;
+
+    console.log(`🎯 自循环处理第 ${i + 1}/${actualEndIndex + 1} 个元素 (${currentAutoLoop}/${totalAutoLoops})`);
+
+    // 更新自循环进度
+    if (window.simplifiedExecutionControl) {
+      const currentLoopInfo = window.simplifiedExecutionControl.loopInfo || {};
+      const enhancedLoopInfo = {
+        ...currentLoopInfo,
+        subLoop: {
+          current: currentAutoLoop,
+          total: totalAutoLoops,
+          actionType: actionType,
+          elementIndex: i + 1,
+          totalElements: elements.length
+        }
+      };
+
+      window.simplifiedExecutionControl.updateProgress(
+        window.simplifiedExecutionControl.currentStep,
+        `自循环: ${actionType} 操作`,
+        enhancedLoopInfo
+      );
+    }
 
     try {
       const element = elements[i];

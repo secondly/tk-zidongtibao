@@ -41,8 +41,12 @@ export function showStatus(message, type = 'info') {
  * @param {string} status - 执行状态
  * @param {string} message - 状态消息
  */
-export function updateExecutionStatus(status, message) {
-    debugLog(`更新执行状态: ${status} - ${message}`);
+export function updateExecutionStatus(status, message, detailInfo = null) {
+    // 只在状态变化时输出日志
+    const currentStatus = document.querySelector('.status-text')?.textContent;
+    if (currentStatus !== message) {
+        debugLog(`执行状态: ${status} - ${message}`);
+    }
 
     const statusIcon = document.querySelector('.status-icon');
     const statusText = document.querySelector('.status-text');
@@ -51,8 +55,15 @@ export function updateExecutionStatus(status, message) {
         // 更新图标
         statusIcon.className = `status-icon status-${status}`;
 
-        // 更新文本
-        statusText.textContent = message || STATUS_MESSAGES[status] || message;
+        // 更新文本 - 支持详细信息
+        let displayMessage = message || STATUS_MESSAGES[status] || message;
+
+        // 如果有详细信息，格式化显示
+        if (detailInfo) {
+            displayMessage = formatDetailedStatus(displayMessage, detailInfo);
+        }
+
+        statusText.innerHTML = displayMessage; // 使用innerHTML支持HTML格式
         statusText.className = `status-text status-${status}`;
 
         // 根据状态设置不同的样式
@@ -76,6 +87,30 @@ export function updateExecutionStatus(status, message) {
                 statusIcon.innerHTML = '⏳';
         }
     }
+}
+
+/**
+ * 格式化详细状态信息
+ * @param {string} baseMessage - 基础消息
+ * @param {object} detailInfo - 详细信息
+ * @returns {string} 格式化后的消息
+ */
+function formatDetailedStatus(baseMessage, detailInfo) {
+    let formatted = baseMessage;
+
+    if (detailInfo.parentLoop) {
+        formatted += `<br><small>循环: ${detailInfo.parentLoop.current}/${detailInfo.parentLoop.total}</small>`;
+    }
+
+    if (detailInfo.subLoop) {
+        formatted += `<br><small>自循环: ${detailInfo.subLoop.current}/${detailInfo.subLoop.total} (${detailInfo.subLoop.actionType})</small>`;
+    }
+
+    if (detailInfo.subOperation) {
+        formatted += `<br><small>子操作: ${detailInfo.subOperation.current}/${detailInfo.subOperation.total} - ${detailInfo.subOperation.name}</small>`;
+    }
+
+    return formatted;
 }
 
 /**

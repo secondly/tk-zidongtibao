@@ -886,7 +886,6 @@ class UniversalAutomationEngine {
      * 支持暂停检查的延迟函数
      */
     async sleepWithPauseCheck(ms) {
-        console.log(`🔧 [DEBUG] 高级引擎开始等待 ${ms}ms（支持暂停）`);
         const startTime = Date.now();
         while (Date.now() - startTime < ms) {
             // 每100ms检查一次暂停状态
@@ -894,7 +893,6 @@ class UniversalAutomationEngine {
             const remainingTime = ms - (Date.now() - startTime);
             await this.sleep(Math.min(100, remainingTime));
         }
-        console.log(`🔧 [DEBUG] 高级引擎等待完成`);
     }
 
     /**
