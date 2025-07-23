@@ -174,13 +174,25 @@ function convertGraphToWorkflow(graph, workflowName = '新工作流') {
             stepData.subOperations = subOperations;
 
             // 虚拟列表相关配置
+            console.log('🔍 [DEBUG] 检查虚拟列表配置:', {
+                isVirtualList: nodeData.isVirtualList,
+                type: typeof nodeData.isVirtualList,
+                container: nodeData.virtualListContainer,
+                titleLocator: nodeData.virtualListTitleLocator
+            });
+
+            // 始终传递虚拟列表配置，便于调试
+            stepData.isVirtualList = nodeData.isVirtualList;
+            stepData.virtualListContainer = nodeData.virtualListContainer;
+            stepData.virtualListTitleLocator = nodeData.virtualListTitleLocator;
+            stepData.virtualListScrollDistance = nodeData.virtualListScrollDistance || 100;
+            stepData.virtualListWaitTime = nodeData.virtualListWaitTime || 1000;
+            stepData.virtualListMaxRetries = nodeData.virtualListMaxRetries || 10;
+
             if (nodeData.isVirtualList) {
-                stepData.isVirtualList = true;
-                stepData.virtualListContainer = nodeData.virtualListContainer;
-                stepData.virtualListTitleLocator = nodeData.virtualListTitleLocator;
-                stepData.virtualListScrollDistance = nodeData.virtualListScrollDistance || 100;
-                stepData.virtualListWaitTime = nodeData.virtualListWaitTime || 1000;
-                stepData.virtualListMaxRetries = nodeData.virtualListMaxRetries || 10;
+                console.log('✅ [DEBUG] 虚拟列表已启用，配置已添加到stepData');
+            } else {
+                console.log('❌ [DEBUG] 虚拟列表未启用，但配置已传递便于调试');
             }
 
             console.log('🔧 [DEBUG] 导出循环节点，最终stepData:', {

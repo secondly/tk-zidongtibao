@@ -1293,6 +1293,13 @@ nditionForm(config) {
     const isVirtualList = document.getElementById("isVirtualList");
     if (isVirtualList) {
       config.isVirtualList = isVirtualList.checked;
+      console.log('🔍 [DEBUG] 保存虚拟列表配置:', {
+        checkboxExists: !!isVirtualList,
+        isChecked: isVirtualList.checked,
+        configValue: config.isVirtualList
+      });
+    } else {
+      console.log('🔍 [DEBUG] 虚拟列表复选框未找到');
     }
 
     if (config.isVirtualList) {

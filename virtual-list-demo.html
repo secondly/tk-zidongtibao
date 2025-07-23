@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>虚拟列表Demo - 1000条数据</title>
+    <title>虚拟列表Demo - 200条数据</title>
     <style>
         * {
             margin: 0;
@@ -186,11 +186,11 @@
     <div class="container">
         <div class="header">
             <h1>🚀 虚拟列表Demo</h1>
-            <p>1000条数据，每次显示20条，滚动加载</p>
+            <p>200条数据，每次显示20条，滚动加载</p>
         </div>
 
         <div class="stats">
-            <span>总数据: <strong id="totalCount">1000</strong></span>
+            <span>总数据: <strong id="totalCount">200</strong></span>
             <span>已渲染: <strong id="renderedCount">0</strong></span>
             <span>已点击: <strong id="clickedCount">0</strong></span>
             <span>滚动位置: <strong id="scrollPosition">0%</strong></span>
@@ -216,7 +216,7 @@
             constructor(container, options = {}) {
                 this.container = container;
                 this.content = container.querySelector('#listContent');
-                this.totalItems = options.totalItems || 1000;
+                this.totalItems = options.totalItems || 200;
                 this.itemHeight = options.itemHeight || 60;
                 this.visibleCount = options.visibleCount || 20;
                 this.buffer = options.buffer || 5;
@@ -366,7 +366,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const container = document.getElementById('listContainer');
             virtualList = new VirtualList(container, {
-                totalItems: 1000,
+                totalItems: 200,
                 itemHeight: 60,
                 visibleCount: 20,
                 buffer: 5

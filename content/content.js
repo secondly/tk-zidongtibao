@@ -990,7 +990,7 @@ async function executeUniversalWorkflow(workflow) {
       useAdvancedEngine = true;
       console.log('✅ 使用高级自动化引擎');
     } catch (error) {
-      console.log('⚠️ 引擎加载失败，使用简化执行模式:', error.message);
+      console.log('✅ 使用增强的简化执行模式（包含完整功能）');
       useAdvancedEngine = false;
     }
 
@@ -1239,7 +1239,7 @@ async function executeSimplifiedWorkflow(workflow) {
  * 动态加载通用自动化引擎
  */
 async function loadUniversalAutomationEngine() {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     console.log('🔄 开始加载通用自动化引擎...');
 
     // 检查是否已经加载
@@ -1272,36 +1272,9 @@ async function loadUniversalAutomationEngine() {
       delete window.automationEngine;
     }
 
-    // 创建脚本标签注入到页面
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('universal-automation-engine.js');
-    script.setAttribute('data-automation-engine', 'true');
-
-    // 监听脚本加载事件
-    script.onload = () => {
-      console.log('📜 引擎脚本文件加载完成');
-      // 给一点时间让脚本执行
-      setTimeout(() => {
-        if (window.UniversalAutomationEngine && typeof window.UniversalAutomationEngine === 'function') {
-          console.log('✅ 引擎加载成功');
-          clearTimeout(timeoutId);
-          resolve();
-        } else {
-          console.error('❌ 引擎脚本加载后仍不可用');
-          clearTimeout(timeoutId);
-          reject(new Error('引擎脚本加载后不可用'));
-        }
-      }, 200);
-    };
-
-    script.onerror = (error) => {
-      console.error('❌ 引擎脚本加载失败:', error);
-      clearTimeout(timeoutId);
-      reject(new Error('引擎脚本加载失败'));
-    };
-
-    // 注入到页面而不是content script上下文
-    document.documentElement.appendChild(script);
+    // 暂时禁用高级引擎，直接使用增强的简化模式
+    console.log('✅ 使用增强的简化模式（包含延迟和虚拟列表功能）');
+    reject(new Error('使用增强的简化模式'));
   });
 }
 
@@ -1723,6 +1696,20 @@ async function executeLoopStep(step) {
   const endIndex = step.endIndex === -1 ? elements.length - 1 : (step.endIndex || elements.length - 1);
   const actualEndIndex = Math.min(endIndex, elements.length - 1);
 
+  // 检查是否为虚拟列表模式
+  console.log('🔍 [DEBUG] 检查虚拟列表模式:', {
+    isVirtualList: step.isVirtualList,
+    stepType: typeof step.isVirtualList,
+    virtualListContainer: step.virtualListContainer,
+    virtualListTitleLocator: step.virtualListTitleLocator
+  });
+
+  if (step.isVirtualList) {
+    console.log(`📜 检测到虚拟列表模式，开始智能遍历`);
+    await executeVirtualListLoop(step);
+    return;
+  }
+
   console.log(`🔄 开始执行${step.loopType === 'simpleLoop' ? '简单' : '父级'}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`);
 
   for (let i = startIndex; i <= actualEndIndex; i++) {
@@ -1875,17 +1862,18 @@ async function executeSimpleLoopAction(element, step) {
   }
 
   // 操作后等待（支持暂停）
-  if (step.actionDelay) {
-    console.log(`🔧 [DEBUG] 操作后延迟开始: ${step.actionDelay}ms`);
+  const delay = step.operationDelay || step.actionDelay || step.loopDelay;
+  if (delay) {
+    console.log(`🔧 [DEBUG] 简单循环延迟开始: ${delay}ms`);
     const delayStartTime = Date.now();
-    while (Date.now() - delayStartTime < step.actionDelay) {
+    while (Date.now() - delayStartTime < delay) {
       // 在延迟期间检查暂停状态
       if (window.simplifiedExecutionControl) {
         await window.simplifiedExecutionControl.checkPause();
       }
-      await new Promise(resolve => setTimeout(resolve, Math.min(100, step.actionDelay - (Date.now() - delayStartTime))));
+      await new Promise(resolve => setTimeout(resolve, Math.min(100, delay - (Date.now() - delayStartTime))));
     }
-    console.log(`🔧 [DEBUG] 操作后延迟完成`);
+    console.log(`🔧 [DEBUG] 简单循环延迟完成`);
   }
 }
 
@@ -1935,6 +1923,14 @@ async function executeParentLoopAction(element, step) {
     }
 
     console.log(`✅ 所有子操作执行完成`);
+  }
+
+  // 4. 父级循环操作延迟
+  const delay = step.operationDelay || step.loopDelay || step.actionDelay;
+  if (delay) {
+    console.log(`⏳ 父级循环延迟 ${delay}ms`);
+    await new Promise(resolve => setTimeout(resolve, delay));
+    console.log(`✅ 父级循环延迟完成`);
   }
 }
 
@@ -2570,4 +2566,252 @@ function clearExecutionProgress(element) {
   // 清除标记和保存的样式
   delete element._executionOriginalStyle;
   delete element._isExecutionHighlighted;
+}
+
+/**
+ * 执行虚拟列表循环
+ * 智能遍历虚拟列表，自动滚动并点击所有未处理的项目
+ */
+async function executeVirtualListLoop(step) {
+  const loopName = step.name || `虚拟列表循环`;
+  console.log(`📜 开始执行虚拟列表循环: ${loopName}`);
+
+  // 验证配置
+  if (!step.virtualListContainer || !step.virtualListContainer.value) {
+    throw new Error('虚拟列表容器定位配置缺失');
+  }
+  if (!step.virtualListTitleLocator || !step.virtualListTitleLocator.value) {
+    throw new Error('虚拟列表标题定位配置缺失');
+  }
+
+  // 获取容器元素
+  const containerElements = await findElementsByStrategy(
+    step.virtualListContainer.strategy,
+    step.virtualListContainer.value
+  );
+  if (containerElements.length === 0) {
+    throw new Error(`未找到虚拟列表容器: ${step.virtualListContainer.value}`);
+  }
+  const container = containerElements[0];
+  console.log(`📦 找到虚拟列表容器`);
+
+  // 初始化状态
+  const processedTitles = new Set();
+  const scrollDistance = step.virtualListScrollDistance || 100;
+  const waitTime = step.virtualListWaitTime || 1000;
+  const maxRetries = step.virtualListMaxRetries || 10;
+  let retryCount = 0;
+  let noNewItemsCount = 0;
+  let totalProcessed = 0;
+
+  console.log(`⚙️ 配置: 滚动距离=${scrollDistance}px, 等待时间=${waitTime}ms, 最大重试=${maxRetries}`);
+
+  while (retryCount < maxRetries && noNewItemsCount < 5) {
+    // 检查暂停状态
+    if (window.simplifiedExecutionControl) {
+      await window.simplifiedExecutionControl.checkPause();
+    }
+
+    try {
+      // 收集当前可见的标题
+      const visibleTitles = await collectVisibleTitles(step.virtualListTitleLocator);
+      console.log(`👀 当前可见 ${visibleTitles.length} 个标题`);
+
+      // 逐一检查每个可见标题，找到第一个未处理的
+      let unprocessedTitle = null;
+      for (const title of visibleTitles) {
+        if (!processedTitles.has(title.text)) {
+          unprocessedTitle = title;
+          console.log(`🔍 找到未处理标题: "${title.text}"`);
+          break;
+        } else {
+          console.log(`⏭️ 跳过已处理标题: "${title.text}"`);
+        }
+      }
+
+      if (unprocessedTitle) {
+        console.log(`🎯 处理标题: "${unprocessedTitle.text}"`);
+
+        try {
+          // 点击对应的按钮（使用循环操作的定位器）
+          await clickVirtualListItem(unprocessedTitle, step);
+
+          // 标记为已处理
+          processedTitles.add(unprocessedTitle.text);
+          totalProcessed++;
+          noNewItemsCount = 0;
+
+          console.log(`✅ 已处理: "${unprocessedTitle.text}" (总计: ${totalProcessed})`);
+
+          // 操作后等待
+          if (step.operationDelay) {
+            console.log(`⏳ 操作延迟 ${step.operationDelay}ms`);
+            await new Promise(resolve => setTimeout(resolve, step.operationDelay));
+          }
+
+          // 处理完一个项目后立即滚动
+          const beforeScroll = container.scrollTop;
+          console.log(`📜 处理完项目后滚动容器 ${scrollDistance}px (当前位置: ${beforeScroll})`);
+          container.scrollTop += scrollDistance;
+          const afterScroll = container.scrollTop;
+          console.log(`📜 滚动完成，位置: ${beforeScroll} → ${afterScroll}`);
+
+          // 等待新内容渲染
+          console.log(`⏳ 等待新内容渲染 ${waitTime}ms`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+
+        } catch (clickError) {
+          console.log(`❌ 点击失败: "${unprocessedTitle.text}" - ${clickError.message}`);
+
+          // 标记红色边框
+          try {
+            unprocessedTitle.element.style.border = '2px solid red';
+            setTimeout(() => {
+              if (unprocessedTitle.element.style) {
+                unprocessedTitle.element.style.border = '';
+              }
+            }, 3000);
+          } catch (e) {
+            // 忽略样式设置错误
+          }
+
+          // 仍然标记为已处理，避免重复尝试
+          processedTitles.add(unprocessedTitle.text);
+
+          // 即使失败也要滚动，继续处理下一个
+          console.log(`📜 点击失败后滚动容器 ${scrollDistance}px`);
+          container.scrollTop += scrollDistance;
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+
+      } else {
+        noNewItemsCount++;
+        console.log(`ℹ️ 当前可见项目都已处理 (连续 ${noNewItemsCount}/5 次)`);
+
+        // 即使没有新项目也要滚动，尝试加载更多内容
+        console.log(`📜 尝试滚动加载更多内容 ${scrollDistance}px (总已处理: ${totalProcessed})`);
+        container.scrollTop += scrollDistance;
+
+        // 等待新内容渲染
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+
+      // retryCount 不在这里增加，只在出错时增加
+
+    } catch (error) {
+      console.log(`❌ 虚拟列表处理出错: ${error.message}`);
+      retryCount++;
+
+      if (retryCount >= maxRetries) {
+        throw new Error(`虚拟列表处理失败，已达到最大重试次数: ${error.message}`);
+      }
+
+      // 短暂等待后重试
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+  console.log(`🎉 虚拟列表循环完成，共处理 ${totalProcessed} 个项目`);
+}
+
+/**
+ * 收集当前可见的标题元素
+ */
+async function collectVisibleTitles(titleLocator) {
+  const titleElements = await findElementsByStrategy(titleLocator.strategy, titleLocator.value);
+  const visibleTitles = [];
+
+  for (const element of titleElements) {
+    // 检查元素是否在视口中可见（放宽条件，只要部分可见即可）
+    const rect = element.getBoundingClientRect();
+    const isVisible = rect.bottom > 0 && rect.top < window.innerHeight &&
+                    rect.right > 0 && rect.left < window.innerWidth;
+
+    if (isVisible && element.innerText && element.innerText.trim()) {
+      visibleTitles.push({
+        text: element.innerText.trim(),
+        element: element
+      });
+    }
+  }
+
+  return visibleTitles;
+}
+
+/**
+ * 点击虚拟列表项对应的按钮
+ */
+async function clickVirtualListItem(titleInfo, step) {
+  // 从标题元素开始，查找对应的可点击按钮
+  // 使用循环操作的定位器来找到按钮
+  const buttonElements = await findElementsByStrategy(step.locator.strategy, step.locator.value);
+
+  console.log(`🔍 找到 ${buttonElements.length} 个可点击按钮，正在匹配标题: "${titleInfo.text}"`);
+
+  // 尝试找到与当前标题相关的按钮
+  // 策略1：查找同一个父容器内的按钮
+  let targetButton = null;
+
+  // 首先尝试在标题元素的父容器中查找按钮
+  let currentElement = titleInfo.element;
+  for (let level = 0; level < 5; level++) { // 最多向上查找5层
+    if (!currentElement || !currentElement.parentElement) break;
+    currentElement = currentElement.parentElement;
+
+    // 在当前容器内查找按钮
+    for (const button of buttonElements) {
+      if (currentElement.contains(button)) {
+        targetButton = button;
+        console.log(`✅ 在第${level + 1}层父容器中找到匹配按钮`);
+        break;
+      }
+    }
+    if (targetButton) break;
+  }
+
+  // 策略2：如果没找到，使用距离匹配
+  if (!targetButton) {
+    console.log(`🔍 使用距离匹配策略查找按钮`);
+    let minDistance = Infinity;
+
+    const titleRect = titleInfo.element.getBoundingClientRect();
+    const titleCenterX = titleRect.left + titleRect.width / 2;
+    const titleCenterY = titleRect.top + titleRect.height / 2;
+
+    for (const button of buttonElements) {
+      const buttonRect = button.getBoundingClientRect();
+
+      // 只考虑可见的按钮
+      if (buttonRect.width === 0 || buttonRect.height === 0) continue;
+
+      const buttonCenterX = buttonRect.left + buttonRect.width / 2;
+      const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+
+      // 计算距离
+      const distance = Math.sqrt(
+        Math.pow(titleCenterX - buttonCenterX, 2) +
+        Math.pow(titleCenterY - buttonCenterY, 2)
+      );
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        targetButton = button;
+      }
+    }
+
+    if (targetButton) {
+      console.log(`✅ 通过距离匹配找到按钮，距离: ${Math.round(minDistance)}px`);
+    }
+  }
+
+  if (!targetButton) {
+    throw new Error(`未找到与标题 "${titleInfo.text}" 对应的按钮`);
+  }
+
+  // 滚动到按钮可见位置
+  targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await new Promise(resolve => setTimeout(resolve, 200)); // 等待滚动完成
+
+  // 点击按钮
+  targetButton.click();
 }

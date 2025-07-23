@@ -378,15 +378,56 @@ class UniversalAutomationEngine {
      */
     async executeGenericLoopStep(step, context) {
         const loopName = step.name || `循环${context.join('.')}`;
-        const loopType = step.loopType || 'parentLoop';
+
+        // 映射设计器的循环类型到执行引擎的类型
+        let loopType = step.loopType || 'parentLoop';
+        if (loopType === 'self') {
+            loopType = 'simpleLoop';
+        } else if (loopType === 'container') {
+            loopType = 'parentLoop';
+        }
 
         this.log(`🔄 开始执行${loopType === 'simpleLoop' ? '简单' : '父级'}循环: ${loopName}`, 'info');
+        console.log('🔍 [DEBUG] 循环类型映射:', {
+            originalType: step.loopType,
+            mappedType: loopType
+        });
+
+        console.log('🔍 [DEBUG] 完整step对象:', {
+            name: step.name,
+            type: step.type,
+            loopType: step.loopType,
+            operationDelay: step.operationDelay,
+            actionDelay: step.actionDelay,
+            loopDelay: step.loopDelay,
+            isVirtualList: step.isVirtualList,
+            locator: step.locator,
+            subOperations: step.subOperations?.length || 0,
+            allKeys: Object.keys(step)
+        });
 
         // 检查是否为虚拟列表模式
+        console.log('🔍 [DEBUG] 检查虚拟列表模式:', {
+            isVirtualList: step.isVirtualList,
+            stepType: typeof step.isVirtualList,
+            stepKeys: Object.keys(step),
+            virtualListContainer: step.virtualListContainer,
+            virtualListTitleLocator: step.virtualListTitleLocator
+        });
+
         if (step.isVirtualList) {
             this.log(`📜 检测到虚拟列表模式，开始智能遍历`, 'info');
+            console.log('🔍 [DEBUG] 虚拟列表配置:', {
+                container: step.virtualListContainer,
+                titleLocator: step.virtualListTitleLocator,
+                scrollDistance: step.virtualListScrollDistance,
+                waitTime: step.virtualListWaitTime,
+                maxRetries: step.virtualListMaxRetries
+            });
             await this.executeVirtualListLoop(step, context);
             return;
+        } else {
+            console.log('🔍 [DEBUG] 未检测到虚拟列表模式，使用普通循环');
         }
 
         // 获取目标元素
@@ -432,15 +473,16 @@ class UniversalAutomationEngine {
 
                 if (loopType === 'simpleLoop') {
                     // Type B: 简单元素循环
+                    console.log('🔍 [DEBUG] 执行简单循环操作');
                     await this.executeSimpleLoopAction(element, step);
+                    console.log('🔍 [DEBUG] 简单循环操作完成');
                 } else if (loopType === 'parentLoop') {
                     // Type A: 父级循环（带子操作）
+                    console.log('🔍 [DEBUG] 执行父级循环操作');
                     await this.executeParentLoopWithSubOperations(element, step);
-                }
-
-                // 循环间隔
-                if (step.loopDelay) {
-                    await this.sleep(step.loopDelay);
+                    console.log('🔍 [DEBUG] 父级循环操作完成');
+                } else {
+                    console.log('🔍 [DEBUG] 未知的循环类型:', loopType);
                 }
 
             } catch (error) {
@@ -532,8 +574,9 @@ class UniversalAutomationEngine {
             }
 
             // 循环间隔
-            if (step.loopDelay && i < endIndex) {
-                await this.sleep(step.loopDelay);
+            const delay = step.loopDelay || step.operationDelay;
+            if (delay && i < endIndex) {
+                await this.sleep(delay);
             }
         }
     }
@@ -614,8 +657,9 @@ class UniversalAutomationEngine {
             }
 
             // 操作间隔
-            if (step.actionDelay && i < endIndex) {
-                await this.sleep(step.actionDelay);
+            const delay = step.actionDelay || step.operationDelay;
+            if (delay && i < endIndex) {
+                await this.sleep(delay);
             }
         }
     }
@@ -955,9 +999,21 @@ class UniversalAutomationEngine {
                 throw new Error(`不支持的简单循环操作类型: ${actionType}`);
         }
 
-        // 操作后等待
-        if (step.actionDelay) {
-            await this.sleep(step.actionDelay);
+        // 操作后等待（简单循环延迟）
+        const delay = step.actionDelay || step.operationDelay;
+        console.log('🔍 [DEBUG] 简单循环延迟检查:', {
+            actionDelay: step.actionDelay,
+            operationDelay: step.operationDelay,
+            finalDelay: delay
+        });
+
+        if (delay) {
+            this.log(`⏳ 简单循环延迟 ${delay}ms`, 'info');
+            console.log('🔍 [DEBUG] 开始延迟等待...');
+            await this.sleep(delay);
+            console.log('🔍 [DEBUG] 延迟等待完成');
+        } else {
+            console.log('🔍 [DEBUG] 没有配置延迟，跳过等待');
         }
     }
 
@@ -1035,6 +1091,13 @@ class UniversalAutomationEngine {
             if (step.returnOperation) {
                 this.log(`🔙 执行返回操作`, 'info');
                 await this.executeSubOperation(step.returnOperation);
+            }
+
+            // 5. 容器循环延迟（所有子操作完成后）
+            const delay = step.loopDelay || step.operationDelay;
+            if (delay) {
+                this.log(`⏳ 容器循环延迟 ${delay}ms`, 'info');
+                await this.sleep(delay);
             }
 
         } catch (error) {
@@ -1470,6 +1533,23 @@ class UniversalAutomationEngine {
                             currentOperation: `虚拟列表处理: ${totalProcessed} 项已完成`
                         });
 
+                        // 操作后等待
+                        if (step.operationDelay) {
+                            this.log(`⏳ 操作延迟 ${step.operationDelay}ms`, 'info');
+                            await this.sleep(step.operationDelay);
+                        }
+
+                        // 处理完一个项目后立即滚动
+                        const beforeScroll = container.scrollTop;
+                        this.log(`📜 处理完项目后滚动容器 ${scrollDistance}px (当前位置: ${beforeScroll})`, 'info');
+                        container.scrollTop += scrollDistance;
+                        const afterScroll = container.scrollTop;
+                        this.log(`📜 滚动完成，位置: ${beforeScroll} → ${afterScroll}`, 'info');
+
+                        // 等待新内容渲染
+                        this.log(`⏳ 等待新内容渲染 ${waitTime}ms`, 'info');
+                        await this.sleep(waitTime);
+
                     } catch (clickError) {
                         this.log(`❌ 点击失败: "${unprocessedTitle.text}" - ${clickError.message}`, 'error');
 
@@ -1487,24 +1567,24 @@ class UniversalAutomationEngine {
 
                         // 仍然标记为已处理，避免重复尝试
                         processedTitles.add(unprocessedTitle.text);
-                    }
 
-                    // 操作后等待
-                    if (step.operationDelay) {
-                        await this.sleep(step.operationDelay);
+                        // 即使失败也要滚动，继续处理下一个
+                        this.log(`📜 点击失败后滚动容器 ${scrollDistance}px`, 'info');
+                        container.scrollTop += scrollDistance;
+                        await this.sleep(waitTime);
                     }
 
                 } else {
                     noNewItemsCount++;
                     this.log(`ℹ️ 当前可见项目都已处理 (连续 ${noNewItemsCount}/3 次)`, 'info');
+
+                    // 即使没有新项目也要滚动，尝试加载更多内容
+                    this.log(`📜 尝试滚动加载更多内容 ${scrollDistance}px`, 'info');
+                    container.scrollTop += scrollDistance;
+
+                    // 等待新内容渲染
+                    await this.sleep(waitTime);
                 }
-
-                // 滚动容器
-                this.log(`📜 滚动容器 ${scrollDistance}px`, 'info');
-                container.scrollTop += scrollDistance;
-
-                // 等待新内容渲染
-                await this.sleep(waitTime);
 
                 retryCount++;
 
@@ -1532,11 +1612,10 @@ class UniversalAutomationEngine {
         const visibleTitles = [];
 
         for (const element of titleElements) {
-            // 检查元素是否在视口中可见
+            // 检查元素是否在视口中可见（放宽条件，只要部分可见即可）
             const rect = element.getBoundingClientRect();
-            const isVisible = rect.top >= 0 && rect.left >= 0 &&
-                            rect.bottom <= window.innerHeight &&
-                            rect.right <= window.innerWidth;
+            const isVisible = rect.bottom > 0 && rect.top < window.innerHeight &&
+                            rect.right > 0 && rect.left < window.innerWidth;
 
             if (isVisible && element.innerText && element.innerText.trim()) {
                 visibleTitles.push({
@@ -1557,35 +1636,71 @@ class UniversalAutomationEngine {
         // 使用循环操作的定位器来找到按钮
         const buttonElements = await this.findElements(step.locator);
 
+        this.log(`🔍 找到 ${buttonElements.length} 个可点击按钮，正在匹配标题: "${titleInfo.text}"`, 'info');
+
         // 尝试找到与当前标题相关的按钮
-        // 这里使用简单的策略：找到距离标题最近的按钮
+        // 策略1：查找同一个父容器内的按钮
         let targetButton = null;
-        let minDistance = Infinity;
 
-        const titleRect = titleInfo.element.getBoundingClientRect();
-        const titleCenterX = titleRect.left + titleRect.width / 2;
-        const titleCenterY = titleRect.top + titleRect.height / 2;
+        // 首先尝试在标题元素的父容器中查找按钮
+        let currentElement = titleInfo.element;
+        for (let level = 0; level < 5; level++) { // 最多向上查找5层
+            if (!currentElement || !currentElement.parentElement) break;
+            currentElement = currentElement.parentElement;
 
-        for (const button of buttonElements) {
-            const buttonRect = button.getBoundingClientRect();
-            const buttonCenterX = buttonRect.left + buttonRect.width / 2;
-            const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+            // 在当前容器内查找按钮
+            for (const button of buttonElements) {
+                if (currentElement.contains(button)) {
+                    targetButton = button;
+                    this.log(`✅ 在第${level + 1}层父容器中找到匹配按钮`, 'info');
+                    break;
+                }
+            }
+            if (targetButton) break;
+        }
 
-            // 计算距离
-            const distance = Math.sqrt(
-                Math.pow(titleCenterX - buttonCenterX, 2) +
-                Math.pow(titleCenterY - buttonCenterY, 2)
-            );
+        // 策略2：如果没找到，使用距离匹配
+        if (!targetButton) {
+            this.log(`🔍 使用距离匹配策略查找按钮`, 'info');
+            let minDistance = Infinity;
 
-            if (distance < minDistance) {
-                minDistance = distance;
-                targetButton = button;
+            const titleRect = titleInfo.element.getBoundingClientRect();
+            const titleCenterX = titleRect.left + titleRect.width / 2;
+            const titleCenterY = titleRect.top + titleRect.height / 2;
+
+            for (const button of buttonElements) {
+                const buttonRect = button.getBoundingClientRect();
+
+                // 只考虑可见的按钮
+                if (buttonRect.width === 0 || buttonRect.height === 0) continue;
+
+                const buttonCenterX = buttonRect.left + buttonRect.width / 2;
+                const buttonCenterY = buttonRect.top + buttonRect.height / 2;
+
+                // 计算距离
+                const distance = Math.sqrt(
+                    Math.pow(titleCenterX - buttonCenterX, 2) +
+                    Math.pow(titleCenterY - buttonCenterY, 2)
+                );
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    targetButton = button;
+                }
+            }
+
+            if (targetButton) {
+                this.log(`✅ 通过距离匹配找到按钮，距离: ${Math.round(minDistance)}px`, 'info');
             }
         }
 
         if (!targetButton) {
             throw new Error(`未找到与标题 "${titleInfo.text}" 对应的按钮`);
         }
+
+        // 滚动到按钮可见位置
+        targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await this.sleep(200); // 等待滚动完成
 
         // 点击按钮
         await this.clickElement(targetButton);
@@ -1598,6 +1713,12 @@ window.UniversalAutomationEngine = UniversalAutomationEngine;
 // 导出支持
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = UniversalAutomationEngine;
+}
+
+// 确保在浏览器环境中设置到window对象
+if (typeof window !== 'undefined') {
+    window.UniversalAutomationEngine = UniversalAutomationEngine;
+    console.log('✅ UniversalAutomationEngine 已设置到window对象');
 }
 
 console.log('✅ UniversalAutomationEngine 类已成功定义');
@@ -1613,6 +1734,21 @@ try {
 
 
 console.log('📦 universal-automation-engine.js 脚本执行完成');
+
+// 延迟检查，看看是否有其他脚本清除了window对象
+setTimeout(() => {
+    console.log('🔍 [DEBUG] 延迟检查引擎状态:', {
+        exists: !!window.UniversalAutomationEngine,
+        type: typeof window.UniversalAutomationEngine
+    });
+}, 100);
+
+setTimeout(() => {
+    console.log('🔍 [DEBUG] 再次延迟检查引擎状态:', {
+        exists: !!window.UniversalAutomationEngine,
+        type: typeof window.UniversalAutomationEngine
+    });
+}, 300);
 
 // 通知content script引擎已加载
 window.postMessage({
