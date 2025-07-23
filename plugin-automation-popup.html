@@ -973,10 +973,15 @@
                             style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
                             <div class="status-icon"
                                 style="font-size: 20px; width: 24px; text-align: center; color: #6c757d;">⏸️</div>
-                            <div class="status-info" style="display: flex; flex-direction: column; gap: 2px;">
-                                <div class="status-text" style="font-size: 14px; font-weight: 600; color: #6c757d;">空闲
+                            <div class="status-info" style="display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1;">
+                                <div class="status-text" style="font-size: 14px; font-weight: 600; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">空闲</div>
+                                <div class="status-details" style="display: none; flex-direction: column; gap: 1px; font-size: 11px; color: #666;">
+                                    <div class="main-progress" style="display: none;"></div>
+                                    <div class="loop-progress" style="display: none;"></div>
+                                    <div class="sub-loop-progress" style="display: none;"></div>
+                                    <div class="sub-operation-progress" style="display: none;"></div>
                                 </div>
-                                <div class="status-message" style="font-size: 12px; color: #666;">等待执行...</div>
+                                <div class="status-message" style="font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">等待执行...</div>
                             </div>
                         </div>
 

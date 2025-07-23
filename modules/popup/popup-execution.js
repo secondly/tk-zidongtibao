@@ -197,7 +197,13 @@ export async function togglePauseResume() {
       debugLog("发送继续执行消息");
       executionState.isPaused = false;
       updateExecutionUI();
-      updateExecutionStatus(EXECUTION_STATUS.RUNNING, "继续执行中...");
+
+      // 保持详细状态信息
+      if (executionState.lastDetailInfo && executionState.lastMessage) {
+        updateExecutionStatus(EXECUTION_STATUS.RUNNING, executionState.lastMessage, executionState.lastDetailInfo);
+      } else {
+        updateExecutionStatus(EXECUTION_STATUS.RUNNING, "继续执行中...");
+      }
 
       await chrome.tabs.sendMessage(tab.id, {
         action: "resumeExecution",
@@ -207,7 +213,13 @@ export async function togglePauseResume() {
       debugLog("发送暂停执行消息");
       executionState.isPaused = true;
       updateExecutionUI();
-      updateExecutionStatus(EXECUTION_STATUS.PAUSED, "执行已暂停");
+
+      // 保持详细状态信息，但标记为暂停
+      if (executionState.lastDetailInfo && executionState.lastMessage) {
+        updateExecutionStatus(EXECUTION_STATUS.PAUSED, executionState.lastMessage + " (已暂停)", executionState.lastDetailInfo);
+      } else {
+        updateExecutionStatus(EXECUTION_STATUS.PAUSED, "执行已暂停");
+      }
 
       await chrome.tabs.sendMessage(tab.id, {
         action: "pauseExecution",
@@ -659,7 +671,25 @@ export function handleExecutionProgress(progressData) {
   // 更新状态消息 - 支持详细信息
   if (progressData.currentOperation || progressData.message) {
     const message = progressData.currentOperation || progressData.message;
-    const detailInfo = progressData.loopInfo || null;
+    let detailInfo = progressData.loopInfo || null;
+
+    // 确保详细信息包含步骤进度
+    if (detailInfo) {
+      detailInfo = {
+        ...detailInfo,
+        currentStep: progressData.currentStep || executionState.currentStep,
+        totalSteps: progressData.totalSteps || executionState.totalSteps
+      };
+    } else if (progressData.currentStep && progressData.totalSteps) {
+      detailInfo = {
+        currentStep: progressData.currentStep,
+        totalSteps: progressData.totalSteps
+      };
+    }
+
+    // 保存最后的详细信息，用于暂停/继续时保持状态
+    executionState.lastDetailInfo = detailInfo;
+    executionState.lastMessage = message;
 
     updateExecutionStatus(EXECUTION_STATUS.RUNNING, message, detailInfo);
   }
@@ -786,14 +816,42 @@ export function initializeExecutionListeners() {
       } else if (message.action === "executionPaused") {
         debugLog("收到执行暂停消息");
         executionState.isPaused = true;
-        updateExecutionStatus(EXECUTION_STATUS.PAUSED, "执行已暂停");
+        // 保持当前的详细状态，只改变状态为暂停
+        const currentStatusText = document.querySelector('.status-text')?.textContent || "执行已暂停";
+        const statusDetails = document.querySelector('.status-details');
+        const hasDetails = statusDetails && statusDetails.style.display !== 'none';
+
+        if (hasDetails) {
+          // 如果有详细信息，保持显示但更新主状态
+          updateExecutionStatus(EXECUTION_STATUS.PAUSED, currentStatusText + " (已暂停)", executionState.lastDetailInfo);
+        } else {
+          updateExecutionStatus(EXECUTION_STATUS.PAUSED, "执行已暂停");
+        }
         updateExecutionUI();
         sendResponse({ received: true });
       } else if (message.action === "executionResumed") {
         debugLog("收到执行继续消息");
         executionState.isPaused = false;
-        updateExecutionStatus(EXECUTION_STATUS.RUNNING, "正在执行工作流...");
         updateExecutionUI();
+
+        // 不立即更新状态，等待content script发送详细的进度信息
+        // 如果500ms内没有收到进度消息，则显示默认状态
+        setTimeout(() => {
+          if (executionState.isPaused === false && executionState.isRunning) {
+            // 检查是否已经收到了新的进度消息
+            const statusDetails = document.querySelector('.status-details');
+            const hasDetails = statusDetails && statusDetails.style.display !== 'none';
+
+            if (!hasDetails && executionState.lastDetailInfo) {
+              // 如果没有显示详细信息但有保存的详细信息，恢复显示
+              updateExecutionStatus(EXECUTION_STATUS.RUNNING, executionState.lastMessage || "正在执行工作流...", executionState.lastDetailInfo);
+            } else if (!hasDetails) {
+              // 如果没有详细信息，显示默认状态
+              updateExecutionStatus(EXECUTION_STATUS.RUNNING, "正在执行工作流...");
+            }
+          }
+        }, 500);
+
         sendResponse({ received: true });
       }
     });

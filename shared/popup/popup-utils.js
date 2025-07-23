@@ -50,21 +50,35 @@ export function updateExecutionStatus(status, message, detailInfo = null) {
 
     const statusIcon = document.querySelector('.status-icon');
     const statusText = document.querySelector('.status-text');
+    const statusMessage = document.querySelector('.status-message');
 
     if (statusIcon && statusText) {
         // 更新图标
         statusIcon.className = `status-icon status-${status}`;
 
-        // 更新文本 - 支持详细信息
-        let displayMessage = message || STATUS_MESSAGES[status] || message;
-
-        // 如果有详细信息，格式化显示
+        // 如果有详细信息，使用新的格式化方式
         if (detailInfo) {
-            displayMessage = formatDetailedStatus(displayMessage, detailInfo);
+            formatDetailedStatus(message, detailInfo);
+        } else {
+            // 简单状态显示
+            statusText.textContent = message || STATUS_MESSAGES[status] || message;
+            const statusDetails = document.querySelector('.status-details');
+            if (statusDetails) {
+                statusDetails.style.display = 'none';
+            }
         }
 
-        statusText.innerHTML = displayMessage; // 使用innerHTML支持HTML格式
         statusText.className = `status-text status-${status}`;
+
+        // 更新状态消息
+        if (statusMessage) {
+            if (detailInfo) {
+                statusMessage.style.display = 'none'; // 有详细信息时隐藏简单消息
+            } else {
+                statusMessage.textContent = message || STATUS_MESSAGES[status] || '等待执行...';
+                statusMessage.style.display = 'block';
+            }
+        }
 
         // 根据状态设置不同的样式
         switch (status) {
@@ -96,21 +110,58 @@ export function updateExecutionStatus(status, message, detailInfo = null) {
  * @returns {string} 格式化后的消息
  */
 function formatDetailedStatus(baseMessage, detailInfo) {
-    let formatted = baseMessage;
-
-    if (detailInfo.parentLoop) {
-        formatted += `<br><small>循环: ${detailInfo.parentLoop.current}/${detailInfo.parentLoop.total}</small>`;
+    // 更新主要状态文本
+    const statusText = document.querySelector('.status-text');
+    if (statusText) {
+        statusText.textContent = baseMessage;
     }
 
-    if (detailInfo.subLoop) {
-        formatted += `<br><small>自循环: ${detailInfo.subLoop.current}/${detailInfo.subLoop.total} (${detailInfo.subLoop.actionType})</small>`;
+    // 更新详细进度信息
+    const statusDetails = document.querySelector('.status-details');
+    const mainProgress = document.querySelector('.main-progress');
+    const loopProgress = document.querySelector('.loop-progress');
+    const subLoopProgress = document.querySelector('.sub-loop-progress');
+    const subOperationProgress = document.querySelector('.sub-operation-progress');
+
+    if (statusDetails && detailInfo) {
+        statusDetails.style.display = 'flex';
+
+        // 主步骤进度
+        if (detailInfo.currentStep && detailInfo.totalSteps) {
+            mainProgress.textContent = `📋 主步骤: ${detailInfo.currentStep}/${detailInfo.totalSteps}`;
+            mainProgress.style.display = 'block';
+        } else {
+            mainProgress.style.display = 'none';
+        }
+
+        // 循环进度
+        if (detailInfo.parentLoop) {
+            loopProgress.textContent = `🔄 循环: ${detailInfo.parentLoop.current}/${detailInfo.parentLoop.total}`;
+            loopProgress.style.display = 'block';
+        } else {
+            loopProgress.style.display = 'none';
+        }
+
+        // 自循环进度
+        if (detailInfo.subLoop) {
+            subLoopProgress.textContent = `🔁 自循环: ${detailInfo.subLoop.current}/${detailInfo.subLoop.total} (${detailInfo.subLoop.actionType})`;
+            subLoopProgress.style.display = 'block';
+        } else {
+            subLoopProgress.style.display = 'none';
+        }
+
+        // 子操作进度
+        if (detailInfo.subOperation) {
+            subOperationProgress.textContent = `⚙️ 子操作: ${detailInfo.subOperation.current}/${detailInfo.subOperation.total} - ${detailInfo.subOperation.name}`;
+            subOperationProgress.style.display = 'block';
+        } else {
+            subOperationProgress.style.display = 'none';
+        }
+    } else if (statusDetails) {
+        statusDetails.style.display = 'none';
     }
 
-    if (detailInfo.subOperation) {
-        formatted += `<br><small>子操作: ${detailInfo.subOperation.current}/${detailInfo.subOperation.total} - ${detailInfo.subOperation.name}</small>`;
-    }
-
-    return formatted;
+    return baseMessage;
 }
 
 /**

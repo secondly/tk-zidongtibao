@@ -1,4 +1,26 @@
 
+// 全局安全消息发送函数
+function safeSendMessage(message) {
+  try {
+    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage(message);
+    }
+  } catch (error) {
+    console.warn('发送消息失败，可能插件面板已关闭:', error.message);
+  }
+}
+
+// 全局安全消息发送函数
+function safeSendMessage(message) {
+  try {
+    if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage(message);
+    }
+  } catch (error) {
+    console.warn('发送消息失败，可能插件面板已关闭:', error.message);
+  }
+}
+
 // 监听来自后台脚本的消息
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   console.log("Content script收到消息:", request);
@@ -148,6 +170,34 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         sendResponse({ success: true, mode: 'advanced' });
       } else if (window.simplifiedExecutionControl) {
         console.log('🔧 [DEBUG] 使用简化模式暂停');
+
+        // 在暂停前发送当前的详细状态信息
+        const currentState = window.simplifiedExecutionControl;
+        if (currentState.isRunning && currentState.currentOperation) {
+          const progressData = {
+            currentOperation: currentState.currentOperation + " (已暂停)",
+            currentStep: currentState.currentStep,
+            totalSteps: currentState.totalSteps || 1,
+            completedSteps: currentState.completedSteps || 0
+          };
+
+          // 如果有循环信息，添加到进度数据中
+          if (currentState.loopInfo) {
+            progressData.loopInfo = currentState.loopInfo;
+          }
+
+          try {
+            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+              chrome.runtime.sendMessage({
+                action: 'executionProgress',
+                data: progressData
+              });
+            }
+          } catch (error) {
+            console.warn('发送暂停状态消息失败:', error.message);
+          }
+        }
+
         // 简化模式
         window.simplifiedExecutionControl.pause();
         console.log('🔧 [DEBUG] 简化模式暂停调用完成');
@@ -178,6 +228,34 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
       } else if (window.simplifiedExecutionControl) {
         // 简化模式
         window.simplifiedExecutionControl.resume();
+
+        // 立即发送当前的详细状态信息
+        const currentState = window.simplifiedExecutionControl;
+        if (currentState.isRunning && currentState.currentOperation) {
+          const progressData = {
+            currentOperation: currentState.currentOperation,
+            currentStep: currentState.currentStep,
+            totalSteps: currentState.totalSteps || 1,
+            completedSteps: currentState.completedSteps || 0
+          };
+
+          // 如果有循环信息，添加到进度数据中
+          if (currentState.loopInfo) {
+            progressData.loopInfo = currentState.loopInfo;
+          }
+
+          try {
+            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+              chrome.runtime.sendMessage({
+                action: 'executionProgress',
+                data: progressData
+              });
+            }
+          } catch (error) {
+            console.warn('发送继续状态消息失败:', error.message);
+          }
+        }
+
         sendResponse({ success: true });
       } else {
         sendResponse({ success: false, error: "自动化引擎未初始化" });
@@ -1057,7 +1135,7 @@ async function executeUniversalWorkflow(workflow) {
       useAdvancedEngine = true;
       console.log('✅ 使用高级自动化引擎');
     } catch (error) {
-      console.log('✅ 使用增强的简化执行模式（包含完整功能）');
+      console.log('✅ 使用简化执行模式（功能完整，启动更快）');
       useAdvancedEngine = false;
     }
 
@@ -1066,10 +1144,21 @@ async function executeUniversalWorkflow(workflow) {
       if (!window.automationEngine) {
         window.automationEngine = new window.UniversalAutomationEngine();
 
+        // 安全的消息发送函数（用于通用自动化引擎）
+        const engineSafeSendMessage = (message) => {
+          try {
+            if (chrome && chrome.runtime && chrome.runtime.sendMessage) {
+              chrome.runtime.sendMessage(message);
+            }
+          } catch (error) {
+            console.warn('发送消息失败，可能插件面板已关闭:', error.message);
+          }
+        };
+
         // 设置进度回调
         window.automationEngine.onProgress = (progress) => {
           console.log('📊 执行进度更新:', progress);
-          chrome.runtime.sendMessage({
+          engineSafeSendMessage({
             action: 'executionProgress',
             data: progress
           });
@@ -1078,7 +1167,7 @@ async function executeUniversalWorkflow(workflow) {
         // 设置完成回调
         window.automationEngine.onComplete = (stats) => {
           console.log('✅ 执行完成:', stats);
-          chrome.runtime.sendMessage({
+          engineSafeSendMessage({
             action: 'executionComplete',
             data: stats
           });
@@ -1087,7 +1176,7 @@ async function executeUniversalWorkflow(workflow) {
         // 设置错误回调
         window.automationEngine.onError = (error) => {
           console.error('❌ 执行错误:', error);
-          chrome.runtime.sendMessage({
+          engineSafeSendMessage({
             action: 'executionError',
             data: { error: error.message }
           });
@@ -1138,10 +1227,30 @@ async function executeSimplifiedWorkflow(workflow) {
       console.log('⏸️ 简化模式执行已暂停');
 
       // 发送暂停确认消息
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         action: 'executionPaused',
         data: { isPaused: true }
-      }).catch(err => console.error('发送暂停消息失败:', err));
+      });
+
+      // 立即发送当前的详细状态信息（标记为暂停）
+      if (this.isRunning && this.currentOperation) {
+        const progressData = {
+          currentOperation: this.currentOperation + " (已暂停)",
+          currentStep: this.currentStep,
+          totalSteps: this.totalSteps || 1,
+          completedSteps: this.completedSteps || 0
+        };
+
+        // 如果有循环信息，添加到进度数据中
+        if (this.loopInfo) {
+          progressData.loopInfo = this.loopInfo;
+        }
+
+        safeSendMessage({
+          action: 'executionProgress',
+          data: progressData
+        });
+      }
     },
 
     resume() {
@@ -1157,10 +1266,30 @@ async function executeSimplifiedWorkflow(workflow) {
       }
 
       // 发送继续确认消息
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         action: 'executionResumed',
         data: { isPaused: false }
-      }).catch(err => console.error('发送继续消息失败:', err));
+      });
+
+      // 立即发送当前的详细状态信息
+      if (this.isRunning && this.currentOperation) {
+        const progressData = {
+          currentOperation: this.currentOperation,
+          currentStep: this.currentStep,
+          totalSteps: this.totalSteps || 1,
+          completedSteps: this.completedSteps || 0
+        };
+
+        // 如果有循环信息，添加到进度数据中
+        if (this.loopInfo) {
+          progressData.loopInfo = this.loopInfo;
+        }
+
+        safeSendMessage({
+          action: 'executionProgress',
+          data: progressData
+        });
+      }
     },
 
     async checkPause() {
@@ -1255,8 +1384,10 @@ async function executeSimplifiedWorkflow(workflow) {
   // 暂停检查函数
   const checkPause = () => window.simplifiedExecutionControl.checkPause();
 
+  // 使用全局的 safeSendMessage 函数
+
   // 发送初始进度
-  chrome.runtime.sendMessage({
+  safeSendMessage({
     action: 'executionProgress',
     data: {
       isRunning: true,
@@ -1281,61 +1412,61 @@ async function executeSimplifiedWorkflow(workflow) {
       const step = workflow.steps[i];
       console.log(`🎯 执行步骤 ${i + 1}/${totalSteps}: ${step.name || step.type}`);
 
-      // 更新进度
-      chrome.runtime.sendMessage({
-        action: 'executionProgress',
-        data: {
-          completedSteps: i,
-          currentOperation: `执行步骤: ${step.name || step.type}`,
-          currentStep: i + 1,
-          totalSteps: totalSteps,
-          stepName: step.name,
-          stepType: step.type
-        }
-      });
-
       // 更新简化执行控制器的进度
       if (window.simplifiedExecutionControl) {
         window.simplifiedExecutionControl.updateProgress(i + 1, `执行步骤: ${step.name || step.type}`);
       }
 
-      // 为每个步骤设置超时
-      const stepTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(`步骤执行超时: ${step.name || step.type}`)), 30000);
+      // 更新进度 - 包含详细的循环信息
+      const progressData = {
+        completedSteps: i,
+        currentOperation: `执行步骤: ${step.name || step.type}`,
+        currentStep: i + 1,
+        totalSteps: totalSteps,
+        stepName: step.name,
+        stepType: step.type
+      };
+
+      // 如果有循环信息，添加到进度数据中
+      if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.loopInfo) {
+        progressData.loopInfo = window.simplifiedExecutionControl.loopInfo;
+        progressData.currentOperation = window.simplifiedExecutionControl.currentOperation;
+      }
+
+      safeSendMessage({
+        action: 'executionProgress',
+        data: progressData
       });
 
-      const stepExecution = (async () => {
-        switch (step.type) {
-          case 'click':
-            await executeClickStep(step);
-            break;
-          case 'input':
-            await executeInputStep(step);
-            break;
-          case 'wait':
-            await executeWaitStep(step);
-            break;
-          case 'smartWait':
-            await executeSmartWaitStep(step);
-            break;
-          case 'loop':
-            await executeLoopStep(step);
-            break;
-          case 'condition':
-            await executeConditionStep(step);
-            break;
-          default:
-            console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
-        }
-      })();
-
-      // 等待步骤完成或超时
-      await Promise.race([stepExecution, stepTimeout]);
+      // 直接执行步骤，不设置步骤级超时
+      // 超时应该只在具体的操作层面（如元素查找、等待条件）设置
+      switch (step.type) {
+        case 'click':
+          await executeClickStep(step);
+          break;
+        case 'input':
+          await executeInputStep(step);
+          break;
+        case 'wait':
+          await executeWaitStep(step);
+          break;
+        case 'smartWait':
+          await executeSmartWaitStep(step);
+          break;
+        case 'loop':
+          await executeLoopStep(step);
+          break;
+        case 'condition':
+          await executeConditionStep(step);
+          break;
+        default:
+          console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
+      }
 
       completedSteps++;
 
       // 更新完成进度
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         action: 'executionProgress',
         data: {
           completedSteps: completedSteps
@@ -1358,7 +1489,7 @@ async function executeSimplifiedWorkflow(workflow) {
     console.log('🔧 [DEBUG] 所有步骤执行完成');
 
     // 发送完成消息
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       action: 'executionComplete',
       data: {
         successCount: completedSteps,
@@ -1376,7 +1507,7 @@ async function executeSimplifiedWorkflow(workflow) {
       console.log('✅ 执行已正常停止');
 
       // 发送停止完成消息
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         action: 'executionStopped',
         data: { message: '执行已停止' }
       });
@@ -1387,7 +1518,7 @@ async function executeSimplifiedWorkflow(workflow) {
     console.error('❌ 简化模式执行失败:', error);
 
     // 发送错误消息
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       action: 'executionError',
       data: { error: error.message }
     });
@@ -1421,7 +1552,7 @@ async function loadUniversalAutomationEngine() {
 
     // 设置加载超时 - 3秒超时
     const timeoutId = setTimeout(() => {
-      console.warn('⚠️ 引擎加载超时，将使用简化执行模式');
+      console.log('🔄 引擎加载超时，自动切换到简化执行模式（功能完整）');
       reject(new Error('引擎加载超时'));
     }, 3000);
 
@@ -1909,6 +2040,17 @@ async function executeLoopStep(step) {
         `循环操作: ${step.name || '循环'} - 处理第 ${currentLoop}/${totalLoops} 个元素`,
         loopInfo
       );
+
+      // 发送详细进度到popup
+      safeSendMessage({
+        action: 'executionProgress',
+        data: {
+          currentOperation: `循环操作: ${step.name || '循环'} - 处理第 ${currentLoop}/${totalLoops} 个元素`,
+          loopInfo: loopInfo,
+          currentStep: window.simplifiedExecutionControl.currentStep,
+          totalSteps: window.simplifiedExecutionControl.totalSteps || 1
+        }
+      });
     }
 
     // 记录当前页面滚动位置
@@ -2111,6 +2253,17 @@ async function executeParentLoopAction(element, step) {
           `子操作: ${subOp.name || subOp.type}`,
           enhancedLoopInfo
         );
+
+        // 发送详细进度到popup
+        safeSendMessage({
+          action: 'executionProgress',
+          data: {
+            currentOperation: `子操作: ${subOp.name || subOp.type}`,
+            loopInfo: enhancedLoopInfo,
+            currentStep: window.simplifiedExecutionControl.currentStep,
+            totalSteps: window.simplifiedExecutionControl.totalSteps || 1
+          }
+        });
       }
 
       try {
@@ -2314,6 +2467,17 @@ async function executeSubOperationAutoLoop(operation, parentElement = null) {
         `自循环: ${actionType} 操作`,
         enhancedLoopInfo
       );
+
+      // 发送详细进度到popup
+      safeSendMessage({
+        action: 'executionProgress',
+        data: {
+          currentOperation: `自循环: ${actionType} 操作`,
+          loopInfo: enhancedLoopInfo,
+          currentStep: window.simplifiedExecutionControl.currentStep,
+          totalSteps: window.simplifiedExecutionControl.totalSteps || 1
+        }
+      });
     }
 
     try {
