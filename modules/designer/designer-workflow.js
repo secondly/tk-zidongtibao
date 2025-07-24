@@ -27,7 +27,7 @@ class DesignerWorkflow {
       const edges = this.graph.getChildEdges(parent);
 
       console.log("🔄 开始导出工作流数据");
-      console.log(`📊 节点数量: ${vertices.length}, 连线数量: ${edges.length}`);
+      console.log(`📊 节点数量: ${vertices.length}`);
 
       // 构建步骤数据
       const steps = [];
@@ -105,36 +105,48 @@ class DesignerWorkflow {
         stepMap.set(vertex.id, index);
       });
 
-      // 处理连线关系
+      // 处理连线关系 - 使用与workflowConverter.js一致的格式
       const connections = [];
-      edges.forEach((edge) => {
-        const source = edge.getTerminal(true);
-        const target = edge.getTerminal(false);
 
-        if (source && target) {
-          const sourceIndex = stepMap.get(source.id);
-          const targetIndex = stepMap.get(target.id);
+      // 递归收集所有连接（包括容器内的连接）
+      const collectConnections = (container, parentId = null) => {
+        const containerEdges = this.graph.getChildEdges(container);
+        containerEdges.forEach(edge => {
+          const source = edge.getTerminal(true);
+          const target = edge.getTerminal(false);
 
-          if (sourceIndex !== undefined && targetIndex !== undefined) {
-            const connection = {
-              from: sourceIndex,
-              to: targetIndex,
-              fromId: source.id,
-              toId: target.id,
-              label: edge.getValue() || "",
-            };
+          if (source && target) {
+            const sourceId = source.nodeData?.id || source.id;
+            const targetId = target.nodeData?.id || target.id;
 
-            // 检查是否为条件判断的连线
-            const sourceConfig = this.nodeConfigs.get(source.id);
-            if (sourceConfig && sourceConfig.type === "condition") {
-              connection.conditionResult = edge.getValue() === "满足";
+            if (sourceId && targetId) {
+              const connection = {
+                id: edge.id,
+                source: sourceId,
+                target: targetId,
+                label: edge.getValue() || '',
+                style: edge.getStyle() || null,
+                parentId: parentId
+              };
+
+              connections.push(connection);
+              console.log(`🔗 连线: ${sourceId} -> ${targetId}，父容器: ${parentId || 'root'}`);
             }
-
-            connections.push(connection);
-            console.log(`🔗 连线: ${sourceIndex} -> ${targetIndex}`);
           }
-        }
-      });
+        });
+
+        // 递归处理子容器
+        const childVertices = this.graph.getChildVertices(container);
+        childVertices.forEach(child => {
+          if (child.nodeData?.type === 'loop' && child.nodeData?.loopType === 'container') {
+            collectConnections(child, child.nodeData?.id || child.id);
+          }
+        });
+      };
+
+      // 收集顶层连接
+      collectConnections(parent);
+      console.log(`📊 连线收集完成，连线数量: ${connections.length}`);
 
       const workflowData = {
         name: "未命名工作流",
@@ -146,7 +158,7 @@ class DesignerWorkflow {
         connections: connections,
         metadata: {
           nodeCount: vertices.length,
-          connectionCount: edges.length,
+          connectionCount: connections.length,
           exportedAt: new Date().toISOString(),
           exportedBy: "mxGraph工作流设计器",
         },
@@ -217,15 +229,17 @@ class DesignerWorkflow {
           // 检查是否为循环容器
           if (step.isContainer || step.loopType === "container") {
             console.log("🔄 创建循环容器:", step.name);
-            // 创建循环容器
+            // 创建循环容器，使用保存的尺寸或默认尺寸
+            const containerWidth = step.width || 200;
+            const containerHeight = step.height || 150;
             cell = this.graph.insertVertex(
               parent,
               step.id,
               step.name || "循环容器",
               x,
               y,
-              width * 2,
-              height * 2,
+              containerWidth,
+              containerHeight,
               "loopContainer"
             );
 
@@ -319,17 +333,29 @@ class DesignerWorkflow {
 
           if (sourceCell && targetCell) {
             const label = conn.label || "";
-            let style = "";
+            let style = conn.style || "";
 
-            // 设置条件判断连线样式
+            // 设置条件判断连线样式（兼容旧格式）
             if (conn.conditionResult !== undefined) {
               style = conn.conditionResult ? "conditionTrue" : "conditionFalse";
             }
 
+            // 确定连线的父容器
+            let edgeParent = parent;
+            if (conn.parentId) {
+              const parentContainer = cellMap.get(conn.parentId);
+              if (parentContainer) {
+                edgeParent = parentContainer;
+                console.log(`  连线将创建在容器 ${conn.parentId} 内`);
+              } else {
+                console.warn(`  找不到父容器 ${conn.parentId}，使用根容器`);
+              }
+            }
+
             try {
               const edge = this.graph.insertEdge(
-                parent,
-                null,
+                edgeParent,
+                conn.id || null,
                 label,
                 sourceCell,
                 targetCell,
@@ -337,7 +363,7 @@ class DesignerWorkflow {
               );
 
               if (edge) {
-                console.log(`✅ 连线创建完成: ${sourceCell.id} -> ${targetCell.id}`);
+                console.log(`✅ 连线创建完成: ${sourceCell.id} -> ${targetCell.id}，父容器: ${conn.parentId || 'root'}`);
               } else {
                 console.error(`❌ 连线创建失败，insertEdge返回null`);
               }

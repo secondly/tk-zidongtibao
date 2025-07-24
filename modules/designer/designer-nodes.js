@@ -1131,6 +1131,15 @@ nditionForm(config) {
       config.name = nameInput.value.trim();
     }
 
+    // 保存节点的几何信息（位置和尺寸）
+    const geometry = cell.getGeometry();
+    if (geometry) {
+      config.x = geometry.x;
+      config.y = geometry.y;
+      config.width = geometry.width;
+      config.height = geometry.height;
+    }
+
     // 根据节点类型保存特定配置
     const nodeType = config.type;
     switch (nodeType) {
