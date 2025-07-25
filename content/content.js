@@ -56,6 +56,78 @@ if (!window.SensitiveWordDetector) {
   console.log('✅ 敏感词检测模块已内联加载');
 }
 
+// 智能超时控制器
+class SmartTimeoutController {
+  constructor(timeoutMs, stepName) {
+    this.timeoutMs = timeoutMs;
+    this.stepName = stepName;
+    this.startTime = Date.now();
+    this.pausedTime = 0;
+    this.isPaused = false;
+    this.pauseStartTime = null;
+    this.timeoutId = null;
+    this.rejectFn = null;
+  }
+
+  // 开始超时倒计时
+  start() {
+    if (this.timeoutId || !this.isPaused) return; // 已经启动或未暂停
+
+    this.isPaused = false;
+    const remainingTime = this.timeoutMs - this.pausedTime;
+    console.log(`⏰ 开始超时倒计时: ${remainingTime}ms (${this.stepName})`);
+
+    this.timeoutId = setTimeout(() => {
+      if (this.rejectFn && !this.isPaused) {
+        this.rejectFn(new Error(`步骤执行超时: ${this.stepName}`));
+      }
+    }, remainingTime);
+  }
+
+  // 暂停超时倒计时
+  pause() {
+    if (this.isPaused) return; // 已经暂停
+
+    console.log(`⏸️ 暂停超时倒计时 (${this.stepName})`);
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+      this.pauseStartTime = Date.now();
+    }
+    this.isPaused = true;
+  }
+
+  // 恢复超时倒计时
+  resume() {
+    if (!this.isPaused) return;
+
+    this.pausedTime += Date.now() - this.pauseStartTime;
+    this.isPaused = false;
+    this.pauseStartTime = null;
+    this.start();
+  }
+
+  // 清除超时
+  clear() {
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+    this.isPaused = true;
+    this.rejectFn = null; // 清除reject函数，防止超时触发
+    console.log(`✅ 清除超时倒计时 (${this.stepName})`);
+  }
+
+  // 创建超时Promise
+  createTimeoutPromise() {
+    return new Promise((_, reject) => {
+      this.rejectFn = reject;
+      // 默认不启动超时，需要手动启动
+      this.isPaused = true;
+    });
+  }
+}
+
 // 监听来自后台脚本的消息
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   console.log("Content script收到消息:", request);
@@ -1353,34 +1425,39 @@ async function executeSimplifiedWorkflow(workflow) {
         window.simplifiedExecutionControl.updateProgress(i + 1, `执行步骤: ${step.name || step.type}`);
       }
 
-      // 为每个步骤设置超时
-      const stepTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(`步骤执行超时: ${step.name || step.type}`)), 30000);
-      });
+      // 创建智能超时控制器
+      const timeoutController = new SmartTimeoutController(30000, step.name || step.type);
+      const stepTimeout = timeoutController.createTimeoutPromise();
 
       const stepExecution = (async () => {
+        // 在正常执行开始时暂停超时
+        timeoutController.pause();
+
         switch (step.type) {
           case 'click':
-            await executeClickStep(step);
+            await executeClickStep(step, timeoutController);
             break;
           case 'input':
-            await executeInputStep(step);
+            await executeInputStep(step, timeoutController);
             break;
           case 'wait':
-            await executeWaitStep(step);
+            await executeWaitStep(step, timeoutController);
             break;
           case 'smartWait':
-            await executeSmartWaitStep(step);
+            await executeSmartWaitStep(step, timeoutController);
             break;
           case 'loop':
-            await executeLoopStep(step);
+            await executeLoopStep(step, timeoutController);
             break;
           case 'condition':
-            await executeConditionStep(step);
+            await executeConditionStep(step, timeoutController);
             break;
           default:
             console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
         }
+
+        // 执行完成后清除超时
+        timeoutController.clear();
       })();
 
       // 等待步骤完成或超时
@@ -1503,7 +1580,7 @@ async function loadUniversalAutomationEngine() {
 }
 
 // 简单的步骤执行函数
-async function executeClickStep(step) {
+async function executeClickStep(step, timeoutController = null) {
   console.log('🔧 [DEBUG] executeClickStep 开始执行');
 
   // 在执行具体操作前检查暂停状态
@@ -1534,9 +1611,19 @@ async function executeClickStep(step) {
     throw new Error('定位器缺少值(value)字段');
   }
 
+  // 查找元素时启动超时（可能需要等待）
+  if (timeoutController) {
+    timeoutController.start();
+  }
+
   const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
   if (!element) {
     throw new Error(`找不到元素: ${step.locator.strategy}=${step.locator.value}`);
+  }
+
+  // 找到元素后暂停超时（开始正常处理）
+  if (timeoutController) {
+    timeoutController.pause();
   }
 
   console.log('🔧 [DEBUG] 找到目标元素，准备执行点击操作');
@@ -1589,7 +1676,7 @@ async function executeClickStep(step) {
   console.log(`✅ 点击元素完成: ${step.locator.value}`);
 }
 
-async function executeInputStep(step) {
+async function executeInputStep(step, timeoutController = null) {
   console.log('🔧 [DEBUG] executeInputStep 开始执行');
 
   // 在执行具体操作前检查暂停状态
@@ -1675,7 +1762,7 @@ async function executeInputStep(step) {
   console.log(`✅ 输入文本完成: "${text}"`);
 }
 
-async function executeWaitStep(step) {
+async function executeWaitStep(step, timeoutController = null) {
   console.log('🔧 [DEBUG] executeWaitStep 开始执行');
 
   // 在执行具体操作前检查暂停状态
@@ -1699,7 +1786,7 @@ async function executeWaitStep(step) {
   console.log(`✅ 等待完成`);
 }
 
-async function executeSmartWaitStep(step) {
+async function executeSmartWaitStep(step, timeoutController = null) {
   console.log('🔧 [DEBUG] executeSmartWaitStep 开始执行');
 
   // 在执行具体操作前检查暂停状态
@@ -1733,6 +1820,11 @@ async function executeSmartWaitStep(step) {
 
   console.log(`🔍 智能等待元素出现: ${step.locator.strategy}=${step.locator.value}, 超时: ${timeout}ms`);
 
+  // 智能等待时启动超时（正在等待元素出现）
+  if (timeoutController) {
+    timeoutController.start();
+  }
+
   const startTime = Date.now();
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
@@ -1744,6 +1836,10 @@ async function executeSmartWaitStep(step) {
       const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
       if (element) {
         console.log(`✅ 智能等待成功: 元素已出现`);
+        // 找到元素后暂停超时
+        if (timeoutController) {
+          timeoutController.pause();
+        }
         return;
       }
     } catch (error) {
@@ -1768,7 +1864,7 @@ async function executeSmartWaitStep(step) {
 }
 
 // 执行条件判断步骤
-async function executeConditionStep(step) {
+async function executeConditionStep(step, timeoutController = null) {
   console.log(`🧪 执行条件判断步骤:`, step);
 
   const locator = step.locator;
@@ -1889,7 +1985,7 @@ async function executeConditionStep(step) {
   }
 }
 
-async function executeLoopStep(step) {
+async function executeLoopStep(step, timeoutController = null) {
   if (!step.locator) {
     throw new Error('缺少循环定位器');
   }
@@ -1911,9 +2007,19 @@ async function executeLoopStep(step) {
     throw new Error('循环定位器缺少值(value)字段');
   }
 
+  // 查找元素时启动超时（可能需要等待）
+  if (timeoutController) {
+    timeoutController.start();
+  }
+
   const elements = await findElementsByStrategy(step.locator.strategy, step.locator.value);
   if (elements.length === 0) {
     throw new Error(`找不到循环元素: ${step.locator.strategy}=${step.locator.value}`);
+  }
+
+  // 找到元素后暂停超时（开始正常处理）
+  if (timeoutController) {
+    timeoutController.pause();
   }
 
   const startIndex = step.startIndex || 0;
