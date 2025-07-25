@@ -1422,6 +1422,9 @@ async function executeSimplifiedWorkflow(workflow) {
           case 'condition':
             await executeConditionStep(step, timeoutController);
             break;
+          case 'drag':
+            await executeDragStep(step, timeoutController);
+            break;
           default:
             console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
         }
@@ -1812,6 +1815,141 @@ async function executeSmartWaitStep(step, timeoutController = null) {
   }
 
   throw new Error(`智能等待超时: 元素未在 ${timeout}ms 内出现`);
+}
+
+// 执行拖拽步骤
+async function executeDragStep(step, timeoutController = null) {
+  console.log('🔧 [DEBUG] executeDragStep 开始执行');
+
+  // 在执行具体操作前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
+  if (!step.locator) {
+    throw new Error('拖拽步骤缺少定位器配置');
+  }
+
+  console.log('🔧 [DEBUG] 拖拽定位器:', step.locator);
+  console.log('🔧 [DEBUG] 拖拽距离:', {
+    horizontal: step.horizontalDistance || 0,
+    vertical: step.verticalDistance || 0
+  });
+
+  // 查找目标元素
+  const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
+  if (!element) {
+    throw new Error(`找不到拖拽目标元素: ${step.locator.strategy}=${step.locator.value}`);
+  }
+
+  // 找到元素后暂停超时（开始正常处理）
+  if (timeoutController) {
+    timeoutController.pause();
+  }
+
+  console.log('🔧 [DEBUG] 找到拖拽目标元素，准备执行拖拽操作');
+
+  // 滚动到元素位置
+  smartScrollIntoView(element, {
+    behavior: 'smooth',
+    block: 'center',
+    inline: 'center'
+  });
+
+  // 等待滚动完成
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  // 高亮显示元素
+  highlightElement(element, 'drag');
+
+  // 获取元素的中心位置
+  const rect = element.getBoundingClientRect();
+  const startX = rect.left + rect.width / 2;
+  const startY = rect.top + rect.height / 2;
+
+  // 计算目标位置
+  const horizontalDistance = step.horizontalDistance || 0;
+  const verticalDistance = step.verticalDistance || 0;
+  const endX = startX + horizontalDistance;
+  const endY = startY + verticalDistance;
+
+  console.log(`🖱️ 拖拽路径: (${startX}, ${startY}) -> (${endX}, ${endY})`);
+
+  // 执行拖拽操作
+  await performDragOperation(element, startX, startY, endX, endY, step);
+
+  // 清除高亮
+  setTimeout(() => {
+    clearElementHighlight(element);
+  }, 2000);
+
+  console.log(`✅ 拖拽操作完成: 水平${horizontalDistance}px, 垂直${verticalDistance}px`);
+}
+
+// 执行具体的拖拽操作
+async function performDragOperation(element, startX, startY, endX, endY, step) {
+  const dragSpeed = step.dragSpeed || 100;
+  const waitAfterDrag = step.waitAfterDrag || 1000;
+
+  // 1. 触发 mousedown 事件
+  const mouseDownEvent = new MouseEvent('mousedown', {
+    view: window,
+    bubbles: true,
+    cancelable: true,
+    clientX: startX,
+    clientY: startY,
+    button: 0,
+    buttons: 1
+  });
+  element.dispatchEvent(mouseDownEvent);
+  console.log('🖱️ 已触发 mousedown 事件');
+
+  // 等待一小段时间
+  await new Promise(resolve => setTimeout(resolve, dragSpeed));
+
+  // 2. 触发 mousemove 事件（分步移动以模拟真实拖拽）
+  const distance = Math.max(Math.abs(endX - startX), Math.abs(endY - startY));
+  const steps = Math.min(Math.max(Math.floor(distance / 10), 1), 20); // 限制步数在1-20之间
+
+  for (let i = 1; i <= steps; i++) {
+    const progress = i / steps;
+    const currentX = startX + ((endX - startX) * progress);
+    const currentY = startY + ((endY - startY) * progress);
+
+    const mouseMoveEvent = new MouseEvent('mousemove', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+      clientX: currentX,
+      clientY: currentY,
+      button: 0,
+      buttons: 1
+    });
+
+    // 在document上触发mousemove事件
+    document.dispatchEvent(mouseMoveEvent);
+
+    // 短暂等待以模拟真实拖拽速度
+    await new Promise(resolve => setTimeout(resolve, dragSpeed / steps));
+  }
+
+  console.log('🖱️ 已完成 mousemove 事件序列');
+
+  // 3. 触发 mouseup 事件
+  const mouseUpEvent = new MouseEvent('mouseup', {
+    view: window,
+    bubbles: true,
+    cancelable: true,
+    clientX: endX,
+    clientY: endY,
+    button: 0,
+    buttons: 0
+  });
+  document.dispatchEvent(mouseUpEvent);
+  console.log('🖱️ 已触发 mouseup 事件');
+
+  // 等待拖拽完成
+  await new Promise(resolve => setTimeout(resolve, waitAfterDrag));
 }
 
 // 执行条件判断步骤

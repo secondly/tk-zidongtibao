@@ -122,6 +122,11 @@ function getStepDetails(step) {
             return step.locator ? `条件判断: ${step.locator.value}` : '条件判断';
         case 'checkState':
             return step.locator ? `状态检测: ${step.locator.value}` : '状态检测';
+        case 'drag':
+            const hDistance = step.horizontalDistance || 0;
+            const vDistance = step.verticalDistance || 0;
+            const locatorText3 = step.locator ? step.locator.value : '';
+            return `拖拽 ${locatorText3} (${hDistance > 0 ? '+' : ''}${hDistance}px, ${vDistance > 0 ? '+' : ''}${vDistance}px)`;
         default:
             return step.name || '未知操作';
     }
@@ -150,6 +155,11 @@ function getSubStepDetails(subOp) {
             const actionType = subOp.actionType || 'click';
             const locatorText2 = subOp.locator ? subOp.locator.value : '';
             return `自循环${actionType}: ${locatorText2}`;
+        case 'drag':
+            const hDistance = subOp.horizontalDistance || 0;
+            const vDistance = subOp.verticalDistance || 0;
+            const locatorText3 = subOp.locator ? subOp.locator.value : '';
+            return `拖拽 ${locatorText3} (${hDistance > 0 ? '+' : ''}${hDistance}px, ${vDistance > 0 ? '+' : ''}${vDistance}px)`;
         default:
             return subOp.name || '未知子操作';
     }

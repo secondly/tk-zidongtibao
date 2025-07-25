@@ -90,6 +90,16 @@ function createStepByType(type) {
                 stateType: 'enabled',
                 expectedValue: true
             };
+        case 'drag':
+            return {
+                ...baseStep,
+                locator: { strategy: 'css', value: '' },
+                horizontalDistance: 0,
+                verticalDistance: 0,
+                timeout: 10000,
+                dragSpeed: 100,
+                waitAfterDrag: 1000
+            };
         default:
             return baseStep;
     }
@@ -106,7 +116,8 @@ function getStepTypeName(type) {
         smartWait: '智能等待',
         loop: '循环操作',
         condition: '条件判断',
-        checkState: '状态检测'
+        checkState: '状态检测',
+        drag: '拖拽操作'
     };
     return typeNames[type] || '未知操作';
 }
@@ -359,7 +370,7 @@ function validateStepData(step) {
         console.log('🔧 设置默认循环类型为container');
     }
     
-    if (!step.locator && ['click', 'input', 'smartWait', 'loop', 'condition', 'checkState'].includes(step.type)) {
+    if (!step.locator && ['click', 'input', 'smartWait', 'loop', 'condition', 'checkState', 'drag'].includes(step.type)) {
         step.locator = { strategy: 'css', value: '' };
         console.log('🔧 初始化locator对象');
     }

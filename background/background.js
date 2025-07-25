@@ -123,6 +123,9 @@ async function handleStepsExecution(steps) {
       if (step.action === "wait" || step.action === "input") {
         // 简单操作等待时间较短
         await sleep(800); // 从1500ms减少到800ms
+      } else if (step.action === "drag") {
+        // 拖拽操作等待时间中等
+        await sleep(1000);
       } else {
         // 复杂操作等待时间稍长
         await sleep(1200); // 从1500ms减少到1200ms

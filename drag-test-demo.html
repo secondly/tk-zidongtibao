@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拖拽操作测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .test-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 15px;
+        }
+
+        /* 可拖拽元素样式 */
+        .draggable {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(45deg, #ff6b35, #f7931e);
+            border-radius: 50%;
+            cursor: move;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: transform 0.2s ease;
+            user-select: none;
+            position: relative;
+        }
+
+        .draggable:hover {
+            transform: scale(1.05);
+        }
+
+        .draggable.dragging {
+            opacity: 0.8;
+            transform: rotate(5deg);
+        }
+
+        /* 拖拽区域 */
+        .drag-area {
+            min-height: 200px;
+            background: #f9f9f9;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            position: relative;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 16px;
+        }
+
+        .drag-area.drag-over {
+            border-color: #ff6b35;
+            background: #fff5f2;
+        }
+
+        /* 不同类型的可拖拽元素 */
+        .draggable.square {
+            border-radius: 8px;
+            background: linear-gradient(45deg, #3498db, #2980b9);
+        }
+
+        .draggable.triangle {
+            width: 0;
+            height: 0;
+            border-left: 40px solid transparent;
+            border-right: 40px solid transparent;
+            border-bottom: 70px solid #e74c3c;
+            border-radius: 0;
+            background: none;
+            cursor: move;
+        }
+
+        .draggable.star {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            border-radius: 0;
+        }
+
+        /* 目标区域 */
+        .drop-zone {
+            min-height: 150px;
+            background: #e8f5e8;
+            border: 2px dashed #27ae60;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #27ae60;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+
+        .drop-zone.drag-over {
+            background: #d5f4d5;
+            border-color: #2ecc71;
+        }
+
+        /* 滑块测试 */
+        .slider-container {
+            margin: 20px 0;
+        }
+
+        .slider-track {
+            width: 300px;
+            height: 6px;
+            background: #ddd;
+            border-radius: 3px;
+            position: relative;
+            margin: 20px 0;
+        }
+
+        .slider-thumb {
+            width: 20px;
+            height: 20px;
+            background: #ff6b35;
+            border-radius: 50%;
+            position: absolute;
+            top: -7px;
+            left: 0;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* 网格拖拽测试 */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .grid-item {
+            height: 80px;
+            background: #ecf0f1;
+            border: 2px dashed #bdc3c7;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .grid-item.occupied {
+            background: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+
+        /* 测试说明 */
+        .test-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .test-info h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+
+        .test-info p {
+            margin: 5px 0;
+            color: #555;
+        }
+
+        /* 状态显示 */
+        .status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        /* 重置按钮 */
+        .reset-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 10px 5px;
+        }
+
+        .reset-btn:hover {
+            background: #c0392b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖱️ 拖拽操作测试页面</h1>
+
+        <!-- 基础拖拽测试 -->
+        <div class="test-section">
+            <div class="test-title">1. 基础拖拽测试</div>
+            <div class="test-info">
+                <h4>测试目标：</h4>
+                <p>• 将圆形元素向右拖拽 100px</p>
+                <p>• 将方形元素向下拖拽 80px</p>
+                <p>• 定位器示例：#circle-1, .square</p>
+            </div>
+            <div class="drag-area">
+                <div id="circle-1" class="draggable">圆形</div>
+                <div class="draggable square" style="margin-left: 50px;">方形</div>
+            </div>
+            <button class="reset-btn" onclick="resetBasicTest()">重置位置</button>
+        </div>
+
+        <!-- 滑块拖拽测试 -->
+        <div class="test-section">
+            <div class="test-title">2. 滑块拖拽测试</div>
+            <div class="test-info">
+                <h4>测试目标：</h4>
+                <p>• 将滑块向右拖拽 150px</p>
+                <p>• 定位器示例：.slider-thumb</p>
+            </div>
+            <div class="slider-container">
+                <div class="slider-track">
+                    <div class="slider-thumb" id="slider-thumb"></div>
+                </div>
+                <p>当前值: <span id="slider-value">0</span>%</p>
+            </div>
+            <button class="reset-btn" onclick="resetSlider()">重置滑块</button>
+        </div>
+
+        <!-- 网格拖拽测试 -->
+        <div class="test-section">
+            <div class="test-title">3. 网格拖拽测试</div>
+            <div class="test-info">
+                <h4>测试目标：</h4>
+                <p>• 将星形元素拖拽到网格中的任意位置</p>
+                <p>• 定位器示例：.star, .grid-item:nth-child(3)</p>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 20px;">
+                <div class="draggable star" id="star-element">★</div>
+                <div class="grid-container">
+                    <div class="grid-item">格子 1</div>
+                    <div class="grid-item">格子 2</div>
+                    <div class="grid-item">格子 3</div>
+                    <div class="grid-item">格子 4</div>
+                    <div class="grid-item">格子 5</div>
+                    <div class="grid-item">格子 6</div>
+                    <div class="grid-item">格子 7</div>
+                    <div class="grid-item">格子 8</div>
+                </div>
+            </div>
+            <button class="reset-btn" onclick="resetGrid()">重置网格</button>
+        </div>
+
+        <!-- 复杂拖拽测试 -->
+        <div class="test-section">
+            <div class="test-title">4. 复杂拖拽测试</div>
+            <div class="test-info">
+                <h4>测试目标：</h4>
+                <p>• 将三角形元素对角线拖拽（右下方向）</p>
+                <p>• 水平距离：120px，垂直距离：80px</p>
+                <p>• 定位器示例：.triangle</p>
+            </div>
+            <div class="drag-area" style="min-height: 250px;">
+                <div class="draggable triangle" id="triangle-element"></div>
+            </div>
+            <button class="reset-btn" onclick="resetTriangle()">重置三角形</button>
+        </div>
+    </div>
+
+    <!-- 状态显示 -->
+    <div class="status" id="status"></div>
+
+    <script>
+        // 显示状态信息
+        function showStatus(message) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.classList.add('show');
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 3000);
+        }
+
+        // 重置基础测试
+        function resetBasicTest() {
+            const circle = document.getElementById('circle-1');
+            const square = document.querySelector('.square');
+            circle.style.transform = 'translate(0, 0)';
+            square.style.transform = 'translate(0, 0)';
+            showStatus('基础测试已重置');
+        }
+
+        // 重置滑块
+        function resetSlider() {
+            const thumb = document.getElementById('slider-thumb');
+            const value = document.getElementById('slider-value');
+            thumb.style.left = '0px';
+            value.textContent = '0';
+            showStatus('滑块已重置');
+        }
+
+        // 重置网格
+        function resetGrid() {
+            const star = document.getElementById('star-element');
+            const gridItems = document.querySelectorAll('.grid-item');
+            star.style.transform = 'translate(0, 0)';
+            gridItems.forEach(item => {
+                item.classList.remove('occupied');
+                item.textContent = item.textContent.replace(' ★', '');
+            });
+            showStatus('网格已重置');
+        }
+
+        // 重置三角形
+        function resetTriangle() {
+            const triangle = document.getElementById('triangle-element');
+            triangle.style.transform = 'translate(0, 0)';
+            showStatus('三角形已重置');
+        }
+
+        // 页面加载完成提示
+        window.addEventListener('load', () => {
+            showStatus('拖拽测试页面已加载，可以开始测试！');
+        });
+
+        // 添加原生拖拽支持（用于对比测试）
+        document.querySelectorAll('.draggable').forEach(element => {
+            let isDragging = false;
+            let startX, startY, initialX, initialY;
+
+            element.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                element.classList.add('dragging');
+                
+                startX = e.clientX;
+                startY = e.clientY;
+                
+                const transform = window.getComputedStyle(element).transform;
+                if (transform !== 'none') {
+                    const matrix = new DOMMatrix(transform);
+                    initialX = matrix.m41;
+                    initialY = matrix.m42;
+                } else {
+                    initialX = 0;
+                    initialY = 0;
+                }
+                
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+                
+                element.style.transform = `translate(${initialX + deltaX}px, ${initialY + deltaY}px)`;
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    element.classList.remove('dragging');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

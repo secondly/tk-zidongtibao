@@ -230,6 +230,9 @@ class DesignerNodes {
       case "loop":
         formHtml += this.generateLoopForm(config);
         break;
+      case "drag":
+        formHtml += this.generateDragForm(config);
+        break;
       default:
         formHtml += `<div class="form-help">未知节点类型: ${nodeType}</div>`;
     }
@@ -766,8 +769,54 @@ generateSmartWaitForm(config) {
           <div class="form-help">要检查的属性名称</div>
       </div>
     `;
-  }  generateCo
-nditionForm(config) {
+  }
+
+  generateDragForm(config) {
+    // 使用拖拽配置UI模块
+    if (window.DragConfigUI) {
+      const dragConfigUI = new window.DragConfigUI();
+      return dragConfigUI.generateDragForm(config);
+    }
+
+    // 降级方案：简单的拖拽配置表单
+    const locator = config.locator || { strategy: 'css', value: '' };
+    return `
+      <div class="form-group">
+        <label class="form-label">定位策略</label>
+        <select class="form-select" id="locatorType">
+          <option value="css" ${locator.strategy === 'css' ? 'selected' : ''}>CSS选择器</option>
+          <option value="xpath" ${locator.strategy === 'xpath' ? 'selected' : ''}>XPath路径</option>
+          <option value="id" ${locator.strategy === 'id' ? 'selected' : ''}>ID属性</option>
+          <option value="className" ${locator.strategy === 'className' ? 'selected' : ''}>Class名称</option>
+          <option value="text" ${locator.strategy === 'text' ? 'selected' : ''}>精确文本</option>
+          <option value="contains" ${locator.strategy === 'contains' ? 'selected' : ''}>包含文本</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">定位值</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input type="text" class="form-input" id="locatorValue" value="${locator.value}" placeholder="输入定位表达式">
+          <button type="button" class="test-locator-btn" style="padding: 5px 10px; background: #27ae60; color: white; border: none; border-radius: 3px;">🔍 测试</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">水平移动距离（像素）</label>
+        <input type="number" class="form-input" id="horizontalDistance" value="${config.horizontalDistance || 0}" min="-2000" max="2000">
+        <div class="form-help">正数向右移动，负数向左移动</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">垂直移动距离（像素）</label>
+        <input type="number" class="form-input" id="verticalDistance" value="${config.verticalDistance || 0}" min="-2000" max="2000">
+        <div class="form-help">正数向下移动，负数向上移动</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">操作超时（毫秒）</label>
+        <input type="number" class="form-input" id="dragTimeout" value="${config.timeout || 10000}" min="1000" max="60000" step="1000">
+      </div>
+    `;
+  }
+
+  generateConditionForm(config) {
     return `
       <div class="form-group">
           <label class="form-label">定位策略</label>
@@ -1159,6 +1208,9 @@ nditionForm(config) {
       });
     }
 
+    // 绑定拖拽操作特定事件
+    this.bindDragFormEvents(cell);
+
     // 绑定其他表单事件（自动保存）
     const form = document.getElementById("propertyForm");
     if (form) {
@@ -1190,6 +1242,36 @@ nditionForm(config) {
         e.target.removeAttribute("data-focused");
       });
     });
+  }
+
+  bindDragFormEvents(cell) {
+    // 如果有拖拽配置UI模块，使用它的事件绑定
+    if (window.DragConfigUI) {
+      const dragConfigUI = new window.DragConfigUI();
+      dragConfigUI.bindDragFormEvents(cell, this);
+      return;
+    }
+
+    // 降级方案：基本的拖拽事件绑定
+    const horizontalDistance = document.getElementById('horizontalDistance');
+    const verticalDistance = document.getElementById('verticalDistance');
+
+    if (horizontalDistance || verticalDistance) {
+      console.log('🖱️ 绑定拖拽操作表单事件');
+
+      // 绑定距离输入变化事件（用于实时预览）
+      [horizontalDistance, verticalDistance].forEach(input => {
+        if (input) {
+          input.addEventListener('input', () => {
+            // 可以在这里添加实时预览逻辑
+            console.log('🖱️ 拖拽距离已更新:', {
+              horizontal: horizontalDistance?.value || 0,
+              vertical: verticalDistance?.value || 0
+            });
+          });
+        }
+      });
+    }
   }
 
   saveNodeConfig(cell) {
@@ -1227,6 +1309,9 @@ nditionForm(config) {
         break;
       case "loop":
         this.saveLoopConfig(config);
+        break;
+      case "drag":
+        this.saveDragConfig(config);
         break;
     }
 
@@ -1451,6 +1536,47 @@ nditionForm(config) {
     }
 
     console.log("保存循环配置:", config);
+  }
+
+  saveDragConfig(config) {
+    // 使用拖拽配置UI模块保存配置
+    if (window.DragConfigUI) {
+      const dragConfigUI = new window.DragConfigUI();
+      dragConfigUI.saveDragConfig(config);
+      return;
+    }
+
+    // 降级方案：手动保存拖拽配置
+    this.saveLocatorConfig(config);
+
+    // 保存拖拽距离
+    const horizontalDistance = document.getElementById("horizontalDistance");
+    if (horizontalDistance) {
+      config.horizontalDistance = parseInt(horizontalDistance.value) || 0;
+    }
+
+    const verticalDistance = document.getElementById("verticalDistance");
+    if (verticalDistance) {
+      config.verticalDistance = parseInt(verticalDistance.value) || 0;
+    }
+
+    // 保存高级配置
+    const dragTimeout = document.getElementById("dragTimeout");
+    if (dragTimeout) {
+      config.timeout = parseInt(dragTimeout.value) || 10000;
+    }
+
+    const dragSpeed = document.getElementById("dragSpeed");
+    if (dragSpeed) {
+      config.dragSpeed = parseInt(dragSpeed.value) || 100;
+    }
+
+    const waitAfterDrag = document.getElementById("waitAfterDrag");
+    if (waitAfterDrag) {
+      config.waitAfterDrag = parseInt(waitAfterDrag.value) || 1000;
+    }
+
+    console.log("保存拖拽配置:", config);
   }
 
   updateNodeDisplay(cell) {

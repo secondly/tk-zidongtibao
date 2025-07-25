@@ -148,7 +148,7 @@
 
       /* mxGraph画布容器 */
       .graph-container {
-        width: calc(100% - 250px);
+        width: calc(100% - 350px);
         position: relative;
         background: white;
       }
@@ -162,7 +162,7 @@
 
       /* 属性面板 */
       .property-panel {
-        width: 250px;
+        width: 350px;
         background: white;
         border-left: 1px solid #e0e0e0;
         padding: 15px;
@@ -364,6 +364,10 @@
               <span>🔍 节点检测</span>
               <span class="shortcut">Ctrl+7</span>
             </div>
+            <div class="context-menu-item" data-type="drag">
+              <span>🖱️ 拖拽操作</span>
+              <span class="shortcut">Ctrl+8</span>
+            </div>
           </div>
         </div>
 
@@ -404,6 +408,10 @@
     <script src="modules/designer/designer-nodes.js"></script>
     <script src="modules/designer/designer-workflow.js"></script>
     <script src="modules/designer/designer-ui.js"></script>
+
+    <!-- 拖拽操作模块 -->
+    <script src="modules/operations/drag-operation.js"></script>
+    <script src="modules/ui/drag-config-ui.js"></script>
 
     <!-- 工作流设计器脚本（包含mxGraph配置） -->
     <script src="workflow-designer-mxgraph.js"></script>

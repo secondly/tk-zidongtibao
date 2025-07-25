@@ -259,7 +259,9 @@ class UniversalAutomationEngine {
             case 'loop':
                 await this.executeGenericLoopStep(step, context);
                 break;
-
+            case 'drag':
+                await this.executeDragStep(step);
+                break;
             case 'custom':
                 await this.executeCustomStep(step);
                 break;
@@ -371,6 +373,93 @@ class UniversalAutomationEngine {
         }
 
         throw new Error(`${description} - 等待超时 (${timeout/1000}秒)`);
+    }
+
+    /**
+     * 执行拖拽步骤
+     */
+    async executeDragStep(step) {
+        console.log('🔧 [DEBUG] 高级引擎 executeDragStep 开始执行');
+
+        // 在执行具体操作前检查暂停状态
+        await this.checkPause();
+
+        // 使用拖拽操作模块执行拖拽
+        if (window.DragOperation) {
+            const dragOperation = new window.DragOperation();
+            const result = await dragOperation.executeDrag(step);
+
+            if (result.success) {
+                this.log(`🖱️ 拖拽操作完成: 水平${step.horizontalDistance}px, 垂直${step.verticalDistance}px`, 'success');
+            } else {
+                throw new Error(result.error || '拖拽操作失败');
+            }
+        } else {
+            // 降级方案：使用内置拖拽逻辑
+            await this.performBasicDrag(step);
+        }
+    }
+
+    /**
+     * 基础拖拽实现（降级方案）
+     */
+    async performBasicDrag(step) {
+        console.log('🔧 [DEBUG] 使用基础拖拽实现');
+
+        const element = await this.findElement(step.locator);
+        if (!element) {
+            throw new Error(`找不到拖拽目标元素: ${step.locator.strategy}=${step.locator.value}`);
+        }
+
+        // 滚动到元素位置
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await this.sleep(500);
+
+        // 获取元素中心位置
+        const rect = element.getBoundingClientRect();
+        const startX = rect.left + rect.width / 2;
+        const startY = rect.top + rect.height / 2;
+        const endX = startX + (step.horizontalDistance || 0);
+        const endY = startY + (step.verticalDistance || 0);
+
+        // 执行拖拽事件序列
+        const mouseDownEvent = new MouseEvent('mousedown', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            clientX: startX,
+            clientY: startY,
+            button: 0,
+            buttons: 1
+        });
+        element.dispatchEvent(mouseDownEvent);
+
+        await this.sleep(step.dragSpeed || 100);
+
+        const mouseMoveEvent = new MouseEvent('mousemove', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            clientX: endX,
+            clientY: endY,
+            button: 0,
+            buttons: 1
+        });
+        document.dispatchEvent(mouseMoveEvent);
+
+        const mouseUpEvent = new MouseEvent('mouseup', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            clientX: endX,
+            clientY: endY,
+            button: 0,
+            buttons: 0
+        });
+        document.dispatchEvent(mouseUpEvent);
+
+        await this.sleep(step.waitAfterDrag || 1000);
+        this.log(`🖱️ 基础拖拽完成: (${startX}, ${startY}) -> (${endX}, ${endY})`, 'success');
     }
 
     /**

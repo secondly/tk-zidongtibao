@@ -255,7 +255,8 @@ function setupPreviewStyles(graph) {
             loop: { name: '循环操作', color: '#3498db', icon: '🔄' },
             condition: { name: '条件判断', color: '#e67e22', icon: '❓' },
             checkState: { name: '节点检测', color: '#8e44ad', icon: '🔍' },
-            extract: { name: '提取数据', color: '#1abc9c', icon: '📊' }
+            extract: { name: '提取数据', color: '#1abc9c', icon: '📊' },
+            drag: { name: '拖拽操作', color: '#ff6b35', icon: '🖱️' }
         };
 
         // 基础节点样式
