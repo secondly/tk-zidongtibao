@@ -404,14 +404,10 @@ function removeHighlights() {
  */
 async function findAllElements(locator) {
   try {
-    console.log(`查找所有匹配元素:`, locator);
-
     const elements = await findElementsByStrategy(
       locator.strategy,
       locator.value
     );
-
-    console.log(`找到 ${elements.length} 个匹配元素`);
 
     // 返回元素数量和简要描述
     return {
@@ -863,12 +859,10 @@ async function findElementContainingText(
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
     if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      console.log('🔧 [DEBUG] findElementContainingText检测到暂停状态，停止查找');
       throw new Error('查找已暂停');
     }
 
     if (window.automationEngine && window.automationEngine.isPaused) {
-      console.log('🔧 [DEBUG] findElementContainingText检测到高级引擎暂停状态，停止查找');
       throw new Error('查找已暂停');
     }
 

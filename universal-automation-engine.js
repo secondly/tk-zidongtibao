@@ -393,27 +393,7 @@ class UniversalAutomationEngine {
             mappedType: loopType
         });
 
-        console.log('🔍 [DEBUG] 完整step对象:', {
-            name: step.name,
-            type: step.type,
-            loopType: step.loopType,
-            operationDelay: step.operationDelay,
-            actionDelay: step.actionDelay,
-            loopDelay: step.loopDelay,
-            isVirtualList: step.isVirtualList,
-            locator: step.locator,
-            subOperations: step.subOperations?.length || 0,
-            allKeys: Object.keys(step)
-        });
-
         // 检查是否为虚拟列表模式
-        console.log('🔍 [DEBUG] 检查虚拟列表模式:', {
-            isVirtualList: step.isVirtualList,
-            stepType: typeof step.isVirtualList,
-            stepKeys: Object.keys(step),
-            virtualListContainer: step.virtualListContainer,
-            virtualListTitleLocator: step.virtualListTitleLocator
-        });
 
         if (step.isVirtualList) {
             this.log(`📜 检测到虚拟列表模式，开始智能遍历`, 'info');
@@ -886,7 +866,6 @@ class UniversalAutomationEngine {
      * 支持暂停检查的延迟函数
      */
     async sleepWithPauseCheck(ms) {
-        console.log(`🔧 [DEBUG] 高级引擎开始等待 ${ms}ms（支持暂停）`);
         const startTime = Date.now();
         while (Date.now() - startTime < ms) {
             // 每100ms检查一次暂停状态
@@ -894,7 +873,6 @@ class UniversalAutomationEngine {
             const remainingTime = ms - (Date.now() - startTime);
             await this.sleep(Math.min(100, remainingTime));
         }
-        console.log(`🔧 [DEBUG] 高级引擎等待完成`);
     }
 
     /**

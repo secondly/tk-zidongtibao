@@ -15,8 +15,6 @@ class SensitiveWordDetector {
       .split(',')
       .map(word => word.trim())
       .filter(word => word.length > 0);
-
-    console.log('🔍 敏感词列表已更新:', this.sensitiveWords);
   }
 
   detectSensitiveWords(text) {
@@ -39,13 +37,6 @@ class SensitiveWordDetector {
 
     const hasSensitiveWord = matchedWords.length > 0;
 
-    if (hasSensitiveWord) {
-      console.log('🚫 检测到敏感词:', {
-        text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
-        matchedWords
-      });
-    }
-
     return { hasSensitiveWord, matchedWords };
   }
 }
@@ -53,7 +44,6 @@ class SensitiveWordDetector {
 // 创建全局实例
 if (!window.SensitiveWordDetector) {
   window.SensitiveWordDetector = SensitiveWordDetector;
-  console.log('✅ 敏感词检测模块已内联加载');
 }
 
 // 智能超时控制器
@@ -75,7 +65,6 @@ class SmartTimeoutController {
 
     this.isPaused = false;
     const remainingTime = this.timeoutMs - this.pausedTime;
-    console.log(`⏰ 开始超时倒计时: ${remainingTime}ms (${this.stepName})`);
 
     this.timeoutId = setTimeout(() => {
       if (this.rejectFn && !this.isPaused) {
@@ -88,7 +77,6 @@ class SmartTimeoutController {
   pause() {
     if (this.isPaused) return; // 已经暂停
 
-    console.log(`⏸️ 暂停超时倒计时 (${this.stepName})`);
     if (this.timeoutId) {
       clearTimeout(this.timeoutId);
       this.timeoutId = null;
@@ -115,7 +103,6 @@ class SmartTimeoutController {
     }
     this.isPaused = true;
     this.rejectFn = null; // 清除reject函数，防止超时触发
-    console.log(`✅ 清除超时倒计时 (${this.stepName})`);
   }
 
   // 创建超时Promise
@@ -270,24 +257,15 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
     try {
       if (window.automationEngine && window.automationEngine.isRunning) {
-        console.log('🔧 [DEBUG] 使用高级引擎暂停（引擎正在运行）');
         // 高级引擎模式
         window.automationEngine.pause();
-        console.log('🔧 [DEBUG] 高级引擎暂停调用完成');
         sendResponse({ success: true, mode: 'advanced' });
       } else if (window.simplifiedExecutionControl) {
-        console.log('🔧 [DEBUG] 使用简化模式暂停');
         // 简化模式
         window.simplifiedExecutionControl.pause();
-        console.log('🔧 [DEBUG] 简化模式暂停调用完成');
         sendResponse({ success: true, mode: 'simplified' });
       } else {
-        console.log('❌ [DEBUG] 没有可用的执行引擎或引擎未运行');
-        console.log('🔧 [DEBUG] 详细状态:', {
-          hasEngine: !!window.automationEngine,
-          engineRunning: window.automationEngine ? window.automationEngine.isRunning : 'N/A',
-          hasSimplified: !!window.simplifiedExecutionControl
-        });
+        console.log('❌ 没有可用的执行引擎或引擎未运行');
         sendResponse({ success: false, error: "自动化引擎未初始化或未运行" });
       }
     } catch (error) {
@@ -525,14 +503,10 @@ function removeHighlights() {
  */
 async function findAllElements(locator) {
   try {
-    console.log(`查找所有匹配元素:`, locator);
-
     const elements = await findElementsByStrategy(
       locator.strategy,
       locator.value
     );
-
-    console.log(`找到 ${elements.length} 个匹配元素`);
 
     // 返回元素数量和简要描述
     return {
@@ -984,12 +958,10 @@ async function findElementContainingText(
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
     if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      console.log('🔧 [DEBUG] findElementContainingText检测到暂停状态，停止查找');
       throw new Error('查找已暂停');
     }
 
     if (window.automationEngine && window.automationEngine.isPaused) {
-      console.log('🔧 [DEBUG] findElementContainingText检测到高级引擎暂停状态，停止查找');
       throw new Error('查找已暂停');
     }
 
@@ -1403,10 +1375,8 @@ async function executeSimplifiedWorkflow(workflow) {
     }, 5 * 60 * 1000);
 
     for (let i = 0; i < workflow.steps.length; i++) {
-      console.log(`🔧 [DEBUG] 准备执行步骤 ${i + 1}/${totalSteps}`);
       // 检查是否需要暂停
       await checkPause();
-      console.log(`🔧 [DEBUG] 暂停检查完成，继续执行步骤 ${i + 1}`);
 
       const step = workflow.steps[i];
       console.log(`🎯 执行步骤 ${i + 1}/${totalSteps}: ${step.name} (${step.type})`);
@@ -1474,7 +1444,6 @@ async function executeSimplifiedWorkflow(workflow) {
       });
 
       // 步骤间等待（支持暂停）
-      console.log('🔧 [DEBUG] 步骤间等待开始');
       const waitDuration = 200;
       const waitStartTime = Date.now();
       while (Date.now() - waitStartTime < waitDuration) {
@@ -1581,8 +1550,6 @@ async function loadUniversalAutomationEngine() {
 
 // 简单的步骤执行函数
 async function executeClickStep(step, timeoutController = null) {
-  console.log('🔧 [DEBUG] executeClickStep 开始执行');
-
   // 在执行具体操作前检查暂停状态
   if (window.simplifiedExecutionControl) {
     await window.simplifiedExecutionControl.checkPause();
@@ -1591,10 +1558,6 @@ async function executeClickStep(step, timeoutController = null) {
   if (!step.locator) {
     throw new Error('缺少定位器');
   }
-
-  console.log('🔧 [DEBUG] 查找元素:', step.locator);
-  console.log('🔧 [DEBUG] 定位策略:', step.locator.strategy);
-  console.log('🔧 [DEBUG] 定位值:', step.locator.value);
 
   // 检查定位器的完整性
   if (!step.locator.strategy) {
@@ -1626,13 +1589,7 @@ async function executeClickStep(step, timeoutController = null) {
     timeoutController.pause();
   }
 
-  console.log('🔧 [DEBUG] 找到目标元素，准备执行点击操作');
-  console.log('🔧 [DEBUG] 元素信息:', {
-    tagName: element.tagName,
-    id: element.id,
-    className: element.className,
-    textContent: element.textContent?.substring(0, 50) + '...'
-  });
+
 
   // 滚动到元素位置
   console.log('🔧 [DEBUG] 滚动到目标元素');
@@ -1677,8 +1634,6 @@ async function executeClickStep(step, timeoutController = null) {
 }
 
 async function executeInputStep(step, timeoutController = null) {
-  console.log('🔧 [DEBUG] executeInputStep 开始执行');
-
   // 在执行具体操作前检查暂停状态
   if (window.simplifiedExecutionControl) {
     await window.simplifiedExecutionControl.checkPause();
@@ -1763,8 +1718,6 @@ async function executeInputStep(step, timeoutController = null) {
 }
 
 async function executeWaitStep(step, timeoutController = null) {
-  console.log('🔧 [DEBUG] executeWaitStep 开始执行');
-
   // 在执行具体操作前检查暂停状态
   if (window.simplifiedExecutionControl) {
     await window.simplifiedExecutionControl.checkPause();
@@ -1787,8 +1740,6 @@ async function executeWaitStep(step, timeoutController = null) {
 }
 
 async function executeSmartWaitStep(step, timeoutController = null) {
-  console.log('🔧 [DEBUG] executeSmartWaitStep 开始执行');
-
   // 在执行具体操作前检查暂停状态
   if (window.simplifiedExecutionControl) {
     await window.simplifiedExecutionControl.checkPause();
@@ -1990,13 +1941,10 @@ async function executeLoopStep(step, timeoutController = null) {
     throw new Error('缺少循环定位器');
   }
 
-  console.log('🔧 [DEBUG] 循环步骤定位器:', step.locator);
-
   // 检查定位器的完整性
   if (!step.locator.strategy) {
     // 尝试从旧格式转换
     if (step.locator.type) {
-      console.log('🔄 检测到旧格式循环定位器，进行转换');
       step.locator.strategy = step.locator.type;
     } else {
       throw new Error('循环定位器缺少策略(strategy)字段');
@@ -2027,12 +1975,6 @@ async function executeLoopStep(step, timeoutController = null) {
   const actualEndIndex = Math.min(endIndex, elements.length - 1);
 
   // 检查是否为虚拟列表模式
-  console.log('🔍 [DEBUG] 检查虚拟列表模式:', {
-    isVirtualList: step.isVirtualList,
-    stepType: typeof step.isVirtualList,
-    virtualListContainer: step.virtualListContainer,
-    virtualListTitleLocator: step.virtualListTitleLocator
-  });
 
   if (step.isVirtualList) {
     console.log(`📜 检测到虚拟列表模式，开始智能遍历`);
@@ -2051,7 +1993,6 @@ async function executeLoopStep(step, timeoutController = null) {
   console.log(`🔄 开始执行${step.loopType}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`);
 
   for (let i = startIndex; i <= actualEndIndex; i++) {
-    console.log(`🔧 [DEBUG] 循环第 ${i + 1} 个元素前检查暂停状态`);
 
     // 在每个循环迭代前检查暂停状态
     if (window.simplifiedExecutionControl) {
