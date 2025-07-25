@@ -145,6 +145,24 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
       return true;
     }
 
+    // 处理敏感词检测测试请求
+    if (request.action === "testSensitiveWordDetection") {
+      try {
+        testSensitiveWordDetection(request.data)
+          .then((result) => {
+            sendResponse({ success: true, ...result });
+          })
+          .catch((error) => {
+            console.error("敏感词检测测试失败:", error);
+            sendResponse({ success: false, error: error.message });
+          });
+      } catch (error) {
+        console.error("敏感词检测测试失败:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+      return true;
+    }
+
     // 处理暂停执行请求
     if (request.action === "pauseExecution") {
       console.log('🔧 [DEBUG] Content script 收到暂停请求');
@@ -324,6 +342,10 @@ function highlightElement(element, type = 'processing') {
     case 'error':
       element.style.outline = '3px solid #e74c3c';
       element.style.backgroundColor = 'rgba(231, 76, 60, 0.1)';
+      break;
+    case 'skip':
+      element.style.outline = '3px solid #95a5a6';
+      element.style.backgroundColor = 'rgba(149, 165, 166, 0.15)';
       break;
   }
 
@@ -1402,3 +1424,99 @@ window.ContentCore = {
 };
 
 console.log('✅ Content Core 模块已加载');
+
+/**
+ * 测试敏感词检测功能
+ * @param {object} data - 测试数据，包含循环定位器和敏感词检测配置
+ * @returns {Promise<object>} - 测试结果
+ */
+async function testSensitiveWordDetection(data) {
+  try {
+    console.log('🔍 开始测试敏感词检测:', data);
+
+    const { loopLocator, sensitiveWordConfig } = data;
+
+    if (!loopLocator || !sensitiveWordConfig) {
+      throw new Error('缺少必要的测试参数');
+    }
+
+    // 清除之前的测试高亮
+    clearTestHighlights();
+
+    // 查找循环元素
+    const elements = await findElementsByStrategy(loopLocator.strategy, loopLocator.value);
+    
+    if (elements.length === 0) {
+      throw new Error(`未找到循环元素: ${loopLocator.strategy}=${loopLocator.value}`);
+    }
+
+    console.log(`🔍 找到 ${elements.length} 个循环元素，开始敏感词检测测试`);
+
+    // 创建敏感词检测器实例
+    if (!window.SensitiveWordDetector) {
+      throw new Error('敏感词检测模块未加载');
+    }
+
+    const detector = new window.SensitiveWordDetector();
+    let skippedCount = 0;
+    const testResults = [];
+
+    // 测试每个元素
+    for (let i = 0; i < Math.min(elements.length, 10); i++) { // 限制测试前10个元素
+      const element = elements[i];
+      
+      try {
+        const skipResult = await detector.checkShouldSkipElement(element, sensitiveWordConfig);
+        
+        testResults.push({
+          index: i,
+          shouldSkip: skipResult.shouldSkip,
+          reason: skipResult.reason,
+          matchedWords: skipResult.matchedWords
+        });
+
+        if (skipResult.shouldSkip) {
+          skippedCount++;
+          // 高亮被跳过的元素
+          highlightElement(element, 'skip');
+        } else {
+          // 高亮通过检测的元素
+          highlightElement(element, 'success');
+        }
+      } catch (error) {
+        console.error(`测试第 ${i + 1} 个元素时出错:`, error);
+        testResults.push({
+          index: i,
+          shouldSkip: false,
+          reason: `检测失败: ${error.message}`,
+          matchedWords: []
+        });
+        // 高亮出错的元素
+        highlightElement(element, 'error');
+      }
+    }
+
+    // 5秒后清除高亮
+    setTimeout(() => {
+      elements.forEach(element => {
+        clearElementHighlight(element);
+      });
+    }, 5000);
+
+    const result = {
+      totalElements: elements.length,
+      testedElements: Math.min(elements.length, 10),
+      skippedElements: skippedCount,
+      passedElements: Math.min(elements.length, 10) - skippedCount,
+      testResults: testResults,
+      message: `测试完成：共 ${elements.length} 个元素，测试了前 ${Math.min(elements.length, 10)} 个，其中 ${skippedCount} 个包含敏感词被跳过`
+    };
+
+    console.log('🔍 敏感词检测测试结果:', result);
+    return result;
+
+  } catch (error) {
+    console.error('❌ 敏感词检测测试失败:', error);
+    throw error;
+  }
+}

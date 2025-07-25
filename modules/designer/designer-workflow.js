@@ -45,6 +45,11 @@ class DesignerWorkflow {
           position: { x: geometry.x, y: geometry.y },
         });
 
+        // 特别检查敏感词检测配置
+        if (config.type === 'loop' && config.sensitiveWordDetection) {
+          console.log(`🔍 [DEBUG] 循环节点敏感词检测配置:`, config.sensitiveWordDetection);
+        }
+
         const step = {
           id: vertex.id,
           type: config.type || "unknown",
@@ -55,6 +60,13 @@ class DesignerWorkflow {
           height: geometry.height,
           ...config, // 包含所有配置信息
         };
+
+        // 再次确认敏感词检测配置是否被包含
+        if (config.type === 'loop' && step.sensitiveWordDetection) {
+          console.log(`✅ [DEBUG] 步骤中包含敏感词检测配置:`, step.sensitiveWordDetection);
+        } else if (config.type === 'loop') {
+          console.log(`❌ [DEBUG] 步骤中缺少敏感词检测配置`);
+        }
 
         // 特殊处理循环容器
         if (this.graph.isSwimlane(vertex)) {

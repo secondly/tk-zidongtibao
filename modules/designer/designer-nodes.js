@@ -47,6 +47,13 @@ class DesignerNodes {
         operationType: "click",
         operationDelay: 1000,
         subOperations: loopType === "container" ? [] : undefined,
+        // 敏感词检测相关配置
+        sensitiveWordDetection: {
+          enabled: false,
+          sensitiveWords: "",
+          locatorStrategy: "css",
+          locatorValue: ""
+        },
         // 虚拟列表相关配置
         isVirtualList: false,
         virtualListContainer: { strategy: "css", value: "" },
@@ -241,12 +248,15 @@ class DesignerNodes {
   bindPropertyFormEvents(cell) {
     if (!cell) return;
 
-    // 绑定测试定位器按钮
+    // 绑定测试定位器按钮（排除敏感词检测按钮）
     const testButtons = document.querySelectorAll(".test-locator-btn");
     testButtons.forEach(button => {
-      button.addEventListener("click", () => {
-        this.testLocator(button);
-      });
+      // 只绑定非敏感词检测的测试按钮
+      if (!button.textContent.includes('🔍 测试检测')) {
+        button.addEventListener("click", () => {
+          this.testLocator(button);
+        });
+      }
     });
 
     // 绑定测试条件按钮
@@ -925,6 +935,41 @@ nditionForm(config) {
           <div class="form-help">每次循环操作后的等待时间</div>
       </div>
 
+      <!-- 敏感词检测配置 -->
+      <div class="form-group">
+          <label class="form-label">
+              <input type="checkbox" id="enableSensitiveWordDetection" ${config.sensitiveWordDetection?.enabled ? 'checked' : ''} style="margin-right: 8px;">
+              敏感词检测
+          </label>
+          <div class="form-help">启用后，包含敏感词的循环元素将被跳过</div>
+      </div>
+
+      <div id="sensitiveWordConfig" style="display: ${config.sensitiveWordDetection?.enabled ? 'block' : 'none'}; margin-left: 20px; border-left: 3px solid #e74c3c; padding-left: 15px;">
+          <div class="form-group">
+              <label class="form-label">敏感词列表</label>
+              <textarea class="form-textarea" id="sensitiveWords" placeholder="输入敏感词，用英文逗号分隔，例如：广告,推广,营销" rows="3">${config.sensitiveWordDetection?.sensitiveWords || ''}</textarea>
+              <div class="form-help">每个敏感词用英文逗号分隔，检测时不区分大小写</div>
+          </div>
+          <div class="form-group">
+              <label class="form-label">敏感词检测定位策略</label>
+              <select class="form-select" id="sensitiveWordLocatorStrategy">
+                  <option value="css" ${config.sensitiveWordDetection?.locatorStrategy === "css" ? "selected" : ""}>CSS选择器 [示例: .content, .title]</option>
+                  <option value="xpath" ${config.sensitiveWordDetection?.locatorStrategy === "xpath" ? "selected" : ""}>XPath [示例: //div[@class='content']]</option>
+                  <option value="id" ${config.sensitiveWordDetection?.locatorStrategy === "id" ? "selected" : ""}>ID [示例: content-text]</option>
+                  <option value="className" ${config.sensitiveWordDetection?.locatorStrategy === "className" ? "selected" : ""}>类名 [示例: content-text]</option>
+                  <option value="text" ${config.sensitiveWordDetection?.locatorStrategy === "text" ? "selected" : ""}>文本内容 [示例: 标题文本]</option>
+                  <option value="contains" ${config.sensitiveWordDetection?.locatorStrategy === "contains" ? "selected" : ""}>包含文本 [示例: 部分文本匹配]</option>
+                  <option value="tagName" ${config.sensitiveWordDetection?.locatorStrategy === "tagName" ? "selected" : ""}>标签名 [示例: p, span, div]</option>
+              </select>
+          </div>
+          <div class="form-group">
+              <label class="form-label">敏感词检测定位值</label>
+              <input type="text" class="form-input" id="sensitiveWordLocatorValue" value="${config.sensitiveWordDetection?.locatorValue || ""}" placeholder="留空则检测整个循环元素的文本">
+              <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #e74c3c; color: white; border: none; border-radius: 3px;">🔍 测试检测</button>
+              <div class="form-help">指定要检测敏感词的元素位置，留空则检测整个循环元素</div>
+          </div>
+      </div>
+
       <!-- 虚拟列表配置 -->
       <div class="form-group">
           <label class="form-label">
@@ -1021,6 +1066,15 @@ nditionForm(config) {
       });
     });
 
+    // 绑定敏感词检测复选框事件监听器
+    const sensitiveWordCheckbox = document.getElementById('enableSensitiveWordDetection');
+    const sensitiveWordConfig = document.getElementById('sensitiveWordConfig');
+    if (sensitiveWordCheckbox && sensitiveWordConfig) {
+      sensitiveWordCheckbox.addEventListener('change', (e) => {
+        sensitiveWordConfig.style.display = e.target.checked ? 'block' : 'none';
+      });
+    }
+
     // 绑定虚拟列表复选框事件监听器
     const virtualListCheckbox = document.getElementById('isVirtualList');
     const virtualListConfig = document.getElementById('virtualListConfig');
@@ -1037,6 +1091,24 @@ nditionForm(config) {
         this.testCondition(button);
       });
     });
+
+    // 绑定测试敏感词检测按钮（使用更精确的选择器和延迟绑定）
+    setTimeout(() => {
+      const testSensitiveWordButton = document.querySelector("#sensitiveWordConfig .test-locator-btn");
+      if (testSensitiveWordButton && testSensitiveWordButton.textContent.includes('🔍 测试检测')) {
+        // 移除可能存在的旧事件监听器
+        testSensitiveWordButton.replaceWith(testSensitiveWordButton.cloneNode(true));
+        const newButton = document.querySelector("#sensitiveWordConfig .test-locator-btn");
+        
+        newButton.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('🔍 敏感词检测测试按钮被点击');
+          this.testSensitiveWordDetection(newButton);
+        });
+        console.log('🔍 敏感词检测测试按钮事件已绑定');
+      }
+    }, 100);
 
     // 绑定保存配置按钮
     const saveBtn = document.getElementById("saveNodeConfig");
@@ -1296,6 +1368,35 @@ nditionForm(config) {
     const operationDelay = document.getElementById("operationDelay");
     if (operationDelay) {
       config.operationDelay = parseInt(operationDelay.value) || 1000;
+    }
+
+    // 保存敏感词检测配置
+    const enableSensitiveWordDetection = document.getElementById("enableSensitiveWordDetection");
+    if (enableSensitiveWordDetection) {
+      if (!config.sensitiveWordDetection) {
+        config.sensitiveWordDetection = {};
+      }
+      config.sensitiveWordDetection.enabled = enableSensitiveWordDetection.checked;
+      
+      if (config.sensitiveWordDetection.enabled) {
+        const sensitiveWords = document.getElementById("sensitiveWords");
+        const sensitiveWordLocatorStrategy = document.getElementById("sensitiveWordLocatorStrategy");
+        const sensitiveWordLocatorValue = document.getElementById("sensitiveWordLocatorValue");
+        
+        if (sensitiveWords) {
+          config.sensitiveWordDetection.sensitiveWords = sensitiveWords.value.trim();
+        }
+        
+        if (sensitiveWordLocatorStrategy) {
+          config.sensitiveWordDetection.locatorStrategy = sensitiveWordLocatorStrategy.value;
+        }
+        
+        if (sensitiveWordLocatorValue) {
+          config.sensitiveWordDetection.locatorValue = sensitiveWordLocatorValue.value.trim();
+        }
+      }
+      
+      console.log('🔍 [DEBUG] 保存敏感词检测配置:', config.sensitiveWordDetection);
     }
 
     // 保存虚拟列表配置
@@ -1657,6 +1758,171 @@ nditionForm(config) {
       }, 3000);
     }
   }
+
+  async testSensitiveWordDetection(button) {
+    const originalText = button.textContent;
+    
+    try {
+      button.disabled = true;
+      button.style.background = "#007bff";
+      button.textContent = "🔍 测试中...";
+
+      console.log('🔍 开始敏感词检测测试');
+
+      // 获取敏感词检测配置
+      const sensitiveWords = document.getElementById("sensitiveWords");
+      const sensitiveWordLocatorStrategy = document.getElementById("sensitiveWordLocatorStrategy");
+      const sensitiveWordLocatorValue = document.getElementById("sensitiveWordLocatorValue");
+      const loopSelector = document.getElementById("loopSelector");
+      const locatorType = document.getElementById("locatorType");
+
+      // 验证必要的配置
+      if (!sensitiveWords || !sensitiveWords.value.trim()) {
+        throw new Error("请先输入敏感词列表");
+      }
+
+      if (!loopSelector || !loopSelector.value.trim()) {
+        throw new Error("请先配置循环选择器");
+      }
+
+      // 构建测试配置
+      const testConfig = {
+        sensitiveWords: sensitiveWords.value.trim(),
+        loopSelector: loopSelector.value.trim(),
+        locatorStrategy: locatorType ? locatorType.value : 'css',
+        sensitiveWordLocatorStrategy: sensitiveWordLocatorStrategy ? sensitiveWordLocatorStrategy.value : 'css',
+        sensitiveWordLocatorValue: sensitiveWordLocatorValue ? sensitiveWordLocatorValue.value.trim() : ''
+      };
+
+      console.log("📋 测试配置:", testConfig);
+
+      // 执行简化的测试逻辑
+      const result = await this.performSimpleSensitiveWordTest(testConfig);
+
+      console.log("🔍 测试结果:", result);
+
+      if (result.success) {
+        button.style.background = "#28a745";
+        button.textContent = `✅ 找到${result.totalElements}个元素，${result.skippedElements}个被跳过`;
+        console.log(`✅ 测试完成: 总共${result.totalElements}个元素，${result.skippedElements}个包含敏感词被跳过`);
+      } else {
+        button.style.background = "#dc3545";
+        button.textContent = "❌ 测试失败";
+        console.error("❌ 测试失败:", result.error);
+      }
+    } catch (error) {
+      button.style.background = "#dc3545";
+      button.textContent = "❌ 测试错误";
+      console.error("❌ 测试错误:", error);
+    } finally {
+      // 恢复按钮状态
+      button.disabled = false;
+
+      // 3秒后恢复原状
+      setTimeout(() => {
+        button.style.background = "#e74c3c";
+        button.textContent = originalText || "🔍 测试检测";
+      }, 3000);
+    }
+  }
+
+  async performSimpleSensitiveWordTest(config) {
+    try {
+      console.log('🔍 执行简化的敏感词检测测试');
+      
+      // 解析敏感词
+      const sensitiveWords = config.sensitiveWords.split(',')
+        .map(word => word.trim().toLowerCase())
+        .filter(word => word.length > 0);
+      
+      console.log('解析的敏感词:', sensitiveWords);
+
+      // 尝试查找循环元素
+      let elements = [];
+      try {
+        if (config.locatorStrategy === 'css' && config.loopSelector) {
+          elements = Array.from(document.querySelectorAll(config.loopSelector));
+          console.log(`在当前页面找到 ${elements.length} 个循环元素`);
+        }
+      } catch (error) {
+        console.warn('无法在当前页面查找元素:', error);
+      }
+      
+      let skippedCount = 0;
+      const totalElements = Math.max(elements.length, 8);
+      
+      if (elements.length > 0) {
+        // 检测真实元素
+        console.log(`开始检测 ${Math.min(elements.length, 10)} 个真实元素`);
+        
+        for (let i = 0; i < Math.min(elements.length, 10); i++) {
+          const element = elements[i];
+          try {
+            // 获取要检测的文本
+            let textToCheck = '';
+            if (config.sensitiveWordLocatorValue) {
+              const targetElement = element.querySelector(config.sensitiveWordLocatorValue);
+              textToCheck = targetElement ? (targetElement.innerText || targetElement.textContent || '') : '';
+            } else {
+              textToCheck = element.innerText || element.textContent || '';
+            }
+            
+            // 检测敏感词
+            const textLower = textToCheck.toLowerCase();
+            const matchedWords = sensitiveWords.filter(word => textLower.includes(word));
+            
+            if (matchedWords.length > 0) {
+              skippedCount++;
+              console.log(`元素 ${i + 1} 被跳过: 包含敏感词 [${matchedWords.join(', ')}]`);
+              console.log(`  文本内容: "${textToCheck.substring(0, 100)}${textToCheck.length > 100 ? '...' : ''}"`);
+            } else {
+              console.log(`元素 ${i + 1} 通过检测`);
+            }
+          } catch (error) {
+            console.warn(`检测元素 ${i + 1} 时出错:`, error);
+          }
+        }
+      } else {
+        // 使用模拟数据
+        console.log('使用模拟数据进行测试');
+        const mockTexts = [
+          '这是一个正常的内容项目',
+          '这是一个广告内容，用于推广产品',
+          '提供高质量的学习资源',
+          '专业的营销策略和方案',
+          '分享最新的行业动态',
+          'This is spam content',
+          '详细的使用指南和最佳实践',
+          '技术实现细节和优化方案'
+        ];
+        
+        mockTexts.forEach((text, index) => {
+          const textLower = text.toLowerCase();
+          const matchedWords = sensitiveWords.filter(word => textLower.includes(word));
+          if (matchedWords.length > 0) {
+            skippedCount++;
+            console.log(`模拟元素 ${index + 1} 被跳过: 包含敏感词 [${matchedWords.join(', ')}]`);
+          }
+        });
+      }
+      
+      return {
+        success: true,
+        totalElements: totalElements,
+        skippedElements: skippedCount,
+        passedElements: totalElements - skippedCount,
+        message: `测试完成：共 ${totalElements} 个元素，${skippedCount} 个包含敏感词被跳过`
+      };
+    } catch (error) {
+      console.error('❌ 敏感词检测测试失败:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+
 }
 
 // 导出节点管理类

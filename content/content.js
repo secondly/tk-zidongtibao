@@ -1,4 +1,61 @@
 
+// 内联敏感词检测模块（避免动态加载问题）
+class SensitiveWordDetector {
+  constructor() {
+    this.sensitiveWords = [];
+  }
+
+  setSensitiveWords(wordsString) {
+    if (!wordsString || typeof wordsString !== 'string') {
+      this.sensitiveWords = [];
+      return;
+    }
+
+    this.sensitiveWords = wordsString
+      .split(',')
+      .map(word => word.trim())
+      .filter(word => word.length > 0);
+
+    console.log('🔍 敏感词列表已更新:', this.sensitiveWords);
+  }
+
+  detectSensitiveWords(text) {
+    if (!text || typeof text !== 'string') {
+      return { hasSensitiveWord: false, matchedWords: [] };
+    }
+
+    if (this.sensitiveWords.length === 0) {
+      return { hasSensitiveWord: false, matchedWords: [] };
+    }
+
+    const matchedWords = [];
+    const textLower = text.toLowerCase();
+
+    for (const word of this.sensitiveWords) {
+      if (word && textLower.includes(word.toLowerCase())) {
+        matchedWords.push(word);
+      }
+    }
+
+    const hasSensitiveWord = matchedWords.length > 0;
+
+    if (hasSensitiveWord) {
+      console.log('🚫 检测到敏感词:', {
+        text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+        matchedWords
+      });
+    }
+
+    return { hasSensitiveWord, matchedWords };
+  }
+}
+
+// 创建全局实例
+if (!window.SensitiveWordDetector) {
+  window.SensitiveWordDetector = SensitiveWordDetector;
+  console.log('✅ 敏感词检测模块已内联加载');
+}
+
 // 监听来自后台脚本的消息
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   console.log("Content script收到消息:", request);
@@ -2898,6 +2955,8 @@ async function executeVirtualListLoop(step) {
   const loopName = step.name || `虚拟列表循环`;
   console.log(`📜 开始执行虚拟列表循环: ${loopName}`);
 
+  // 敏感词检测模块已内联，无需加载
+
   // 设置虚拟列表模式标志，禁用页面滚动
   window.isVirtualListMode = true;
   console.log(`🚫 已启用虚拟列表模式，禁用页面滚动`);
@@ -2962,35 +3021,84 @@ async function executeVirtualListLoop(step) {
       if (unprocessedTitle) {
         console.log(`🎯 处理标题: "${unprocessedTitle.text}"`);
 
-        try {
-          // 点击对应的按钮（使用循环操作的定位器）
-          await clickVirtualListItem(unprocessedTitle, step);
+        // 敏感词检测
+        let shouldSkip = false;
+        if (step.sensitiveWordDetection && step.sensitiveWordDetection.enabled) {
+          console.log(`🔍 虚拟列表敏感词检测 - 标题: "${unprocessedTitle.text}"`);
 
-          // 标记为已处理
-          processedTitles.add(unprocessedTitle.text);
-          totalProcessed++;
-          noNewItemsCount = 0;
+          try {
+            // 创建敏感词检测器实例
+            const detector = new window.SensitiveWordDetector();
 
-          console.log(`✅ 已处理: "${unprocessedTitle.text}" (总计: ${totalProcessed})`);
+            // 设置敏感词列表
+            detector.setSensitiveWords(step.sensitiveWordDetection.sensitiveWords);
 
-          // 操作后等待
-          if (step.operationDelay) {
-            console.log(`⏳ 操作延迟 ${step.operationDelay}ms`);
-            await new Promise(resolve => setTimeout(resolve, step.operationDelay));
+            // 检测标题文本
+            const detection = detector.detectSensitiveWords(unprocessedTitle.text);
+
+            if (detection.hasSensitiveWord) {
+              shouldSkip = true;
+              console.log(`🚫 虚拟列表跳过包含敏感词的标题: "${unprocessedTitle.text}" - 匹配词: ${detection.matchedWords.join(', ')}`);
+
+              // 高亮显示被跳过的元素
+              if (unprocessedTitle.element) {
+                unprocessedTitle.element.style.border = '2px solid orange';
+                unprocessedTitle.element.style.backgroundColor = 'rgba(255, 165, 0, 0.2)';
+                setTimeout(() => {
+                  if (unprocessedTitle.element.style) {
+                    unprocessedTitle.element.style.border = '';
+                    unprocessedTitle.element.style.backgroundColor = '';
+                  }
+                }, 2000);
+              }
+
+              // 标记为已处理（跳过）
+              processedTitles.add(unprocessedTitle.text);
+              noNewItemsCount = 0;
+
+              // 跳过敏感词后也要滚动，继续处理下一个
+              console.log(`📜 跳过敏感词后滚动容器 ${scrollDistance}px`);
+              container.scrollTop += scrollDistance;
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+            } else {
+              console.log(`✅ 虚拟列表标题通过敏感词检测: "${unprocessedTitle.text}"`);
+            }
+          } catch (error) {
+            console.error(`❌ 虚拟列表敏感词检测失败: ${error.message}`);
+            // 检测失败时继续执行，避免影响正常流程
           }
+        }
 
-          // 处理完一个项目后立即滚动
-          const beforeScroll = container.scrollTop;
-          console.log(`📜 处理完项目后滚动容器 ${scrollDistance}px (当前位置: ${beforeScroll})`);
-          container.scrollTop += scrollDistance;
-          const afterScroll = container.scrollTop;
-          console.log(`📜 滚动完成，位置: ${beforeScroll} → ${afterScroll}`);
+        if (!shouldSkip) {
+          try {
+            // 点击对应的按钮（使用循环操作的定位器）
+            await clickVirtualListItem(unprocessedTitle, step);
 
-          // 等待新内容渲染
-          console.log(`⏳ 等待新内容渲染 ${waitTime}ms`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+            // 标记为已处理
+            processedTitles.add(unprocessedTitle.text);
+            totalProcessed++;
+            noNewItemsCount = 0;
 
-        } catch (clickError) {
+            console.log(`✅ 已处理: "${unprocessedTitle.text}" (总计: ${totalProcessed})`);
+
+            // 操作后等待
+            if (step.operationDelay) {
+              console.log(`⏳ 操作延迟 ${step.operationDelay}ms`);
+              await new Promise(resolve => setTimeout(resolve, step.operationDelay));
+            }
+
+            // 处理完一个项目后立即滚动
+            const beforeScroll = container.scrollTop;
+            console.log(`📜 处理完项目后滚动容器 ${scrollDistance}px (当前位置: ${beforeScroll})`);
+            container.scrollTop += scrollDistance;
+            const afterScroll = container.scrollTop;
+            console.log(`📜 滚动完成，位置: ${beforeScroll} → ${afterScroll}`);
+
+            // 等待新内容渲染
+            console.log(`⏳ 等待新内容渲染 ${waitTime}ms`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+
+          } catch (clickError) {
           console.log(`❌ 点击失败: "${unprocessedTitle.text}" - ${clickError.message}`);
 
           // 标记红色边框
@@ -3012,6 +3120,7 @@ async function executeVirtualListLoop(step) {
           console.log(`📜 点击失败后滚动容器 ${scrollDistance}px`);
           container.scrollTop += scrollDistance;
           await new Promise(resolve => setTimeout(resolve, waitTime));
+          }
         }
 
       } else {

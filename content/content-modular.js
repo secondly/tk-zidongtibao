@@ -31,7 +31,11 @@ async function initializeModules() {
     await loadModule('modules/content/content-core.js');
     console.log('🔧 核心模块加载完成');
     
-    // 2. 然后加载自动化模块（依赖核心模块）
+    // 2. 加载敏感词检测模块
+    await loadModule('modules/content/sensitive-word-detector.js');
+    console.log('🔍 敏感词检测模块加载完成');
+    
+    // 3. 然后加载自动化模块（依赖核心模块和敏感词检测模块）
     await loadModule('modules/content/content-automation.js');
     console.log('🤖 自动化模块加载完成');
     
@@ -42,7 +46,7 @@ async function initializeModules() {
       action: 'modulesLoaded',
       data: {
         timestamp: Date.now(),
-        modules: ['content-core', 'content-automation']
+        modules: ['content-core', 'sensitive-word-detector', 'content-automation']
       }
     }).catch(err => {
       console.warn('发送模块加载消息失败:', err);

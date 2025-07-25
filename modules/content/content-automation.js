@@ -726,7 +726,9 @@ async function executeLoopStep(step) {
     throw new Error('缺少循环定位器');
   }
 
+  console.log('🔧 [DEBUG] 循环步骤完整配置:', step);
   console.log('🔧 [DEBUG] 循环步骤定位器:', step.locator);
+  console.log('🔧 [DEBUG] 敏感词检测配置:', step.sensitiveWordDetection);
 
   // 检查定位器的完整性
   if (!step.locator.strategy) {
@@ -764,6 +766,63 @@ async function executeLoopStep(step) {
 
     const element = elements[i];
     console.log(`🎯 处理第 ${i + 1}/${elements.length} 个元素`);
+
+    // 敏感词检测
+    console.log(`🔧 [DEBUG] 检查敏感词检测配置 - 第 ${i + 1} 个元素:`, {
+      hasSensitiveWordDetection: !!step.sensitiveWordDetection,
+      isEnabled: step.sensitiveWordDetection?.enabled,
+      enabledType: typeof step.sensitiveWordDetection?.enabled,
+      enabledValue: step.sensitiveWordDetection?.enabled,
+      sensitiveWords: step.sensitiveWordDetection?.sensitiveWords,
+      stepType: step.type,
+      stepId: step.id
+    });
+
+    // 更严格的条件检查
+    const hasValidSensitiveWordConfig = step.sensitiveWordDetection &&
+                                       (step.sensitiveWordDetection.enabled === true || step.sensitiveWordDetection.enabled === 'true') &&
+                                       step.sensitiveWordDetection.sensitiveWords &&
+                                       step.sensitiveWordDetection.sensitiveWords.trim().length > 0;
+
+    console.log(`🔧 [DEBUG] 敏感词检测条件判断结果:`, hasValidSensitiveWordConfig);
+
+    if (hasValidSensitiveWordConfig) {
+      console.log(`🔍 开始敏感词检测 - 第 ${i + 1} 个元素`);
+
+      try {
+        // 检查敏感词检测模块是否加载
+        if (!window.SensitiveWordDetector) {
+          console.error('❌ SensitiveWordDetector 模块未加载');
+          throw new Error('敏感词检测模块未加载');
+        }
+
+        // 创建敏感词检测器实例
+        const detector = new window.SensitiveWordDetector();
+        
+        // 检查是否应该跳过当前元素
+        const skipResult = await detector.checkShouldSkipElement(element, step.sensitiveWordDetection);
+        
+        if (skipResult.shouldSkip) {
+          console.log(`🚫 跳过第 ${i + 1} 个元素: ${skipResult.reason}`);
+          
+          // 高亮显示被跳过的元素
+          if (window.ContentCore) {
+            window.ContentCore.highlightElement(element, 'skip');
+            setTimeout(() => {
+              window.ContentCore.clearElementHighlight(element);
+            }, 1500);
+          }
+          
+          // 跳过当前循环，继续下一个
+          continue;
+        } else {
+          console.log(`✅ 第 ${i + 1} 个元素通过敏感词检测`);
+        }
+      } catch (error) {
+        console.error(`❌ 敏感词检测失败 - 第 ${i + 1} 个元素:`, error);
+        // 检测失败时继续执行，避免影响正常流程
+      }
+    }
 
     // 记录当前页面滚动位置
     const scrollBefore = {

@@ -52,6 +52,7 @@
         "js/mxClient.min.js",
         "content/content.js",
         "modules/content/content-core.js",
+        "modules/content/sensitive-word-detector.js",
         "modules/content/content-automation.js",
         "modules/designer/designer-core.js",
         "modules/designer/designer-nodes.js",
