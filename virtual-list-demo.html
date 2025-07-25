@@ -195,6 +195,10 @@
             <span>已点击: <strong id="clickedCount">0</strong></span>
             <span>滚动位置: <strong id="scrollPosition">0%</strong></span>
         </div>
+        <div class="jishu">
+            <input type="text" value="0" id="jishu">
+            <button id="jia">累加</button> 
+        </div>
 
         <div class="virtual-list-container" id="listContainer">
             <div class="scroll-indicator" id="scrollIndicator">滚动中...</div>
@@ -372,6 +376,15 @@
                 buffer: 5
             });
             
+            // 绑定累加按钮事件
+            const jiaButton = document.getElementById('jia');
+            if (jiaButton) {
+                jiaButton.addEventListener('click', jishu);
+                console.log('累加按钮事件绑定成功');
+            } else {
+                console.error('找不到累加按钮元素');
+            }
+            
             console.log('虚拟列表初始化完成');
         });
 
@@ -390,6 +403,18 @@
 
         function clickRandomItems() {
             virtualList.clickRandomItems();
+        }
+        // 数字累加
+        function jishu() {
+            const jishuInput = document.getElementById('jishu');
+            if (jishuInput) {
+                let num = parseInt(jishuInput.value) || 0;
+                num++;
+                jishuInput.value = num;
+                console.log('累加成功，当前值:', num);
+            } else {
+                console.error('找不到累加输入框元素');
+            }
         }
     </script>
 </body>

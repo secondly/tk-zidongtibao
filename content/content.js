@@ -950,8 +950,8 @@ async function findElementByXPath(xpath, timeout = 5000) {
 async function clickElement(element) {
   console.log(`点击元素:`, element);
 
-  // 确保元素在视图中
-  element.scrollIntoView({ behavior: "smooth", block: "center" });
+  // 使用智能滚动函数，在虚拟列表模式下禁用页面滚动
+  smartScrollIntoView(element, { behavior: "smooth", block: "center" });
 
   // 等待滚动完成
   await new Promise((resolve) => setTimeout(resolve, 500));
@@ -993,8 +993,8 @@ async function clickElement(element) {
 async function inputText(element, text) {
   console.log(`在元素中输入文本: "${text}"`, element);
 
-  // 确保元素在视图中
-  element.scrollIntoView({ behavior: "smooth", block: "center" });
+  // 使用智能滚动函数，在虚拟列表模式下禁用页面滚动
+  smartScrollIntoView(element, { behavior: "smooth", block: "center" });
 
   // 等待滚动完成
   await new Promise((resolve) => setTimeout(resolve, 500));
@@ -1039,6 +1039,24 @@ async function inputText(element, text) {
     removeHighlights();
     throw error;
   }
+}
+
+// 全局标志：是否在虚拟列表模式中（禁用页面滚动）
+window.isVirtualListMode = false;
+
+/**
+ * 智能滚动函数 - 在虚拟列表模式下禁用页面滚动
+ * @param {HTMLElement} element - 要滚动到的元素
+ * @param {object} options - 滚动选项
+ */
+function smartScrollIntoView(element, options = { behavior: 'smooth', block: 'center' }) {
+  if (window.isVirtualListMode) {
+    console.log(`🚫 虚拟列表模式：跳过页面滚动`);
+    return;
+  }
+
+  console.log(`📍 正常模式：滚动到元素`);
+  element.scrollIntoView(options);
 }
 
 /**
@@ -1474,7 +1492,7 @@ async function executeClickStep(step) {
 
   // 滚动到元素位置
   console.log('🔧 [DEBUG] 滚动到目标元素');
-  element.scrollIntoView({
+  smartScrollIntoView(element, {
     behavior: 'smooth',
     block: 'center',
     inline: 'center'
@@ -1560,7 +1578,7 @@ async function executeInputStep(step) {
 
   // 滚动到元素位置
   console.log('🔧 [DEBUG] 滚动到输入元素');
-  element.scrollIntoView({
+  smartScrollIntoView(element, {
     behavior: 'smooth',
     block: 'center',
     inline: 'center'
@@ -1855,11 +1873,19 @@ async function executeLoopStep(step) {
 
   if (step.isVirtualList) {
     console.log(`📜 检测到虚拟列表模式，开始智能遍历`);
-    await executeVirtualListLoop(step);
+    // 设置虚拟列表模式标志，禁用页面滚动
+    isVirtualListMode = true;
+    try {
+      await executeVirtualListLoop(step);
+    } finally {
+      // 执行完成后重置标志
+      isVirtualListMode = false;
+      console.log(`📜 虚拟列表模式结束，恢复页面滚动`);
+    }
     return;
   }
 
-  console.log(`🔄 开始执行${step.loopType === 'simpleLoop' ? '简单' : '父级'}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`);
+  console.log(`🔄 开始执行${step.loopType}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`);
 
   for (let i = startIndex; i <= actualEndIndex; i++) {
     console.log(`🔧 [DEBUG] 循环第 ${i + 1} 个元素前检查暂停状态`);
@@ -1883,6 +1909,9 @@ async function executeLoopStep(step) {
       if (step.loopType === 'simpleLoop') {
         // 简单循环：执行单一操作
         await executeSimpleLoopAction(element, step);
+      } else if (step.loopType === 'container') {
+        // 容器循环：直接在容器内执行子操作，不点击容器本身
+        await executeContainerLoopAction(element, step);
       } else {
         // 父级循环：点击后执行子操作
         await executeParentLoopAction(element, step);
@@ -1950,7 +1979,7 @@ async function executeSimpleLoopAction(element, step) {
 
       // 滚动到元素位置
       console.log('🔧 [DEBUG] 滚动到循环目标元素');
-      element.scrollIntoView({
+      smartScrollIntoView(element, {
         behavior: 'smooth',
         block: 'center',
         inline: 'center'
@@ -2026,6 +2055,84 @@ async function executeSimpleLoopAction(element, step) {
   }
 }
 
+async function executeContainerLoopAction(element, step) {
+  console.log('🔧 [DEBUG] executeContainerLoopAction 开始执行 - 容器循环模式');
+
+  // 在执行具体操作前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
+  console.log(`📦 开始处理容器元素，不点击容器本身`);
+  console.log('🔧 [DEBUG] 容器元素信息:', {
+    tagName: element.tagName,
+    id: element.id,
+    className: element.className,
+    textContent: element.textContent?.substring(0, 50) + '...'
+  });
+
+  // 高亮显示容器元素
+  highlightElement(element, 'loop');
+  setTimeout(() => {
+    clearElementHighlight(element);
+  }, 2000);
+
+  // 滚动到容器元素位置，确保可见
+  smartScrollIntoView(element, {
+    behavior: 'smooth',
+    block: 'center',
+    inline: 'center'
+  });
+
+  // 等待滚动完成
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  // 直接执行子操作序列，不点击容器元素
+  if (step.subOperations && step.subOperations.length > 0) {
+    console.log(`🔧 开始在容器内执行 ${step.subOperations.length} 个子操作`);
+
+    for (let i = 0; i < step.subOperations.length; i++) {
+      const subOp = step.subOperations[i];
+      console.log(`🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator}`);
+
+      try {
+        // 传递容器元素上下文给子操作
+        await executeSubOperation(subOp, element);
+      } catch (error) {
+        console.error(`❌ 容器内子操作 ${i + 1} 失败:`, error);
+        if (step.errorHandling === 'stop') {
+          throw error;
+        }
+      }
+
+      // 子操作间等待
+      if (subOp.delay || subOp.waitAfterClick) {
+        const waitTime = subOp.delay || subOp.waitAfterClick || 500;
+        console.log(`⏳ 子操作间等待 ${waitTime}ms`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
+
+    console.log(`✅ 容器内所有子操作执行完成`);
+  } else {
+    console.log(`⚠️ 容器循环没有配置子操作`);
+  }
+
+  // 操作延迟
+  if (step.operationDelay) {
+    console.log(`🔧 [DEBUG] 容器操作延迟开始: ${step.operationDelay}ms`);
+    const delayStartTime = Date.now();
+    while (Date.now() - delayStartTime < step.operationDelay) {
+      // 在延迟期间检查暂停状态
+      if (window.simplifiedExecutionControl) {
+        await window.simplifiedExecutionControl.checkPause();
+      }
+      await new Promise(resolve => setTimeout(resolve, Math.min(100, step.operationDelay - (Date.now() - delayStartTime))));
+    }
+    console.log(`🔧 [DEBUG] 容器操作延迟完成`);
+  }
+}
+
 async function executeParentLoopAction(element, step) {
   console.log('🔧 [DEBUG] executeParentLoopAction 开始执行');
 
@@ -2089,22 +2196,88 @@ async function executeSubOperation(operation, parentElement = null) {
   switch (operation.type) {
     case 'click':
       let clickElement;
-      if (parentElement && operation.locator?.strategy === 'css') {
-        // 只有CSS选择器才能在父级元素内查找
-        clickElement = parentElement.querySelector(operation.locator.value);
-        if (!clickElement) {
-          // 如果在父级元素内找不到，尝试全局查找
-          clickElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
-          console.log(`🔍 在父级元素内未找到，使用全局查找`);
-        } else {
-          console.log(`🔍 在父级元素内找到目标`);
+      if (parentElement) {
+        console.log(`🔧 [DEBUG] 尝试在父级元素内查找: ${operation.locator.strategy}=${operation.locator.value}`);
+
+        // 尝试在父级元素内查找，支持多种选择器策略
+        try {
+          switch (operation.locator.strategy) {
+            case 'css':
+              clickElement = parentElement.querySelector(operation.locator.value);
+              break;
+            case 'id':
+              // 对于ID选择器，在父级元素内查找
+              clickElement = parentElement.querySelector(`#${operation.locator.value}`);
+              break;
+            case 'xpath':
+              // 对于XPath，需要在父级元素的上下文中执行
+              const xpathResult = document.evaluate(
+                operation.locator.value,
+                parentElement,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+              );
+              clickElement = xpathResult.singleNodeValue;
+              break;
+            case 'text':
+              // 在父级元素内查找包含特定文本的元素
+              const textElements = parentElement.querySelectorAll('*');
+              for (const el of textElements) {
+                if (el.textContent && el.textContent.trim() === operation.locator.value.trim()) {
+                  clickElement = el;
+                  break;
+                }
+              }
+              break;
+            case 'contains':
+              // 在父级元素内查找包含文本的元素
+              const containsElements = parentElement.querySelectorAll('*');
+              for (const el of containsElements) {
+                if (el.textContent && el.textContent.includes(operation.locator.value)) {
+                  clickElement = el;
+                  break;
+                }
+              }
+              break;
+          }
+
+          if (clickElement) {
+            console.log(`🎯 在父级元素内找到目标: ${operation.locator.strategy}=${operation.locator.value}`);
+          } else {
+            console.log(`🔍 在父级元素内未找到，尝试全局查找`);
+          }
+        } catch (error) {
+          console.warn(`🔧 [DEBUG] 父级元素内查找失败:`, error);
         }
-      } else {
-        // 对于非CSS选择器或没有父级元素的情况，直接全局查找
+      }
+
+      // 如果在父级元素内没找到，或者没有父级元素，则进行全局查找
+      if (!clickElement) {
+        console.log(`🌐 使用全局查找: ${operation.locator.strategy}=${operation.locator.value}`);
         clickElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
       }
+
+      if (!clickElement) {
+        throw new Error(`找不到点击目标元素: ${operation.locator.strategy}=${operation.locator.value}`);
+      }
+
+      // 高亮显示找到的元素
+      highlightElement(clickElement, 'click');
+
+      // 使用智能滚动函数，在虚拟列表模式下禁用页面滚动
+      smartScrollIntoView(clickElement, { behavior: 'smooth', block: 'center' });
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 执行点击
       clickElement.click();
-      console.log(`👆 子操作-点击: ${operation.locator.value}`);
+      console.log(`👆 子操作-点击完成: ${operation.locator.value}`);
+
+      // 清除高亮
+      setTimeout(() => {
+        clearElementHighlight(clickElement);
+      }, 1000);
+
       break;
 
     case 'input':
@@ -2580,8 +2753,8 @@ function highlightElement(element, type = 'processing') {
       break;
   }
 
-  // 滚动到元素可见
-  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // 使用智能滚动函数，在虚拟列表模式下禁用页面滚动
+  smartScrollIntoView(element, { behavior: 'smooth', block: 'center' });
 }
 
 // 清除元素高亮
@@ -2635,7 +2808,7 @@ function highlightTestElements(elements) {
 
   // 滚动到第一个元素
   if (elements.length > 0 && elements[0]) {
-    elements[0].scrollIntoView({
+    smartScrollIntoView(elements[0], {
       behavior: 'smooth',
       block: 'center',
       inline: 'center'
@@ -2693,7 +2866,7 @@ function highlightExecutionProgress(element) {
   element._isExecutionHighlighted = true;
 
   // 滚动到当前元素
-  element.scrollIntoView({
+  smartScrollIntoView(element, {
     behavior: 'smooth',
     block: 'center',
     inline: 'center'
@@ -2724,6 +2897,14 @@ function clearExecutionProgress(element) {
 async function executeVirtualListLoop(step) {
   const loopName = step.name || `虚拟列表循环`;
   console.log(`📜 开始执行虚拟列表循环: ${loopName}`);
+
+  // 设置虚拟列表模式标志，禁用页面滚动
+  window.isVirtualListMode = true;
+  console.log(`🚫 已启用虚拟列表模式，禁用页面滚动`);
+
+  // 设置虚拟列表模式标志，禁用页面滚动
+  window.isVirtualListMode = true;
+  console.log(`🚫 已启用虚拟列表模式，禁用页面滚动`);
 
   // 验证配置
   if (!step.virtualListContainer || !step.virtualListContainer.value) {
@@ -2861,6 +3042,10 @@ async function executeVirtualListLoop(step) {
   }
 
   console.log(`🎉 虚拟列表循环完成，共处理 ${totalProcessed} 个项目`);
+
+  // 清除虚拟列表模式标志，恢复正常滚动
+  window.isVirtualListMode = false;
+  console.log(`✅ 已退出虚拟列表模式，恢复正常滚动`);
 }
 
 /**
@@ -2874,7 +3059,7 @@ async function collectVisibleTitles(titleLocator) {
     // 检查元素是否在视口中可见（放宽条件，只要部分可见即可）
     const rect = element.getBoundingClientRect();
     const isVisible = rect.bottom > 0 && rect.top < window.innerHeight &&
-                    rect.right > 0 && rect.left < window.innerWidth;
+      rect.right > 0 && rect.left < window.innerWidth;
 
     if (isVisible && element.innerText && element.innerText.trim()) {
       visibleTitles.push({
@@ -2957,10 +3142,99 @@ async function clickVirtualListItem(titleInfo, step) {
     throw new Error(`未找到与标题 "${titleInfo.text}" 对应的按钮`);
   }
 
-  // 滚动到按钮可见位置
-  targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // 确保按钮在虚拟列表容器内可见，但不滚动整个页面
+  console.log(`📍 确保按钮在虚拟列表容器内可见`);
+
+  // 获取虚拟列表容器
+  const containerElements = await findElementsByStrategy(
+    step.virtualListContainer.strategy,
+    step.virtualListContainer.value
+  );
+
+  if (containerElements.length > 0) {
+    const listContainer = containerElements[0];
+    const buttonRect = targetButton.getBoundingClientRect();
+    const containerRect = listContainer.getBoundingClientRect();
+
+    // 检查按钮是否在容器可视区域内
+    const isButtonVisible = (
+      buttonRect.top >= containerRect.top &&
+      buttonRect.bottom <= containerRect.bottom &&
+      buttonRect.left >= containerRect.left &&
+      buttonRect.right <= containerRect.right
+    );
+
+    if (!isButtonVisible) {
+      console.log(`📜 按钮不在容器可视区域内，调整容器滚动位置`);
+
+      // 计算需要滚动的距离
+      const scrollOffset = buttonRect.top - containerRect.top - (containerRect.height / 2);
+      listContainer.scrollTop += scrollOffset;
+
+      console.log(`📜 容器滚动调整: ${scrollOffset}px`);
+    } else {
+      console.log(`✅ 按钮已在容器可视区域内`);
+    }
+  }
+
   await new Promise(resolve => setTimeout(resolve, 200)); // 等待滚动完成
 
-  // 点击按钮
-  targetButton.click();
+  // 根据循环类型决定如何处理
+  if (step.loopType === 'container') {
+    // 容器循环：先点击容器按钮，再执行子操作
+    console.log(`📦 容器循环模式：先点击容器按钮，再执行子操作`);
+
+    // 1. 先点击容器按钮
+    console.log(`👆 点击虚拟列表容器按钮`);
+    highlightElement(targetButton, 'click');
+    targetButton.click();
+
+    // 等待点击效果
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // 清除点击高亮，改为容器高亮
+    clearElementHighlight(targetButton);
+    highlightElement(targetButton, 'loop');
+
+    // 2. 然后执行子操作序列
+    if (step.subOperations && step.subOperations.length > 0) {
+      console.log(`🔧 容器点击后，开始执行 ${step.subOperations.length} 个子操作`);
+
+      for (let i = 0; i < step.subOperations.length; i++) {
+        const subOp = step.subOperations[i];
+        console.log(`🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator}`);
+
+        try {
+          // 传递容器元素上下文给子操作
+          await executeSubOperation(subOp, targetButton);
+        } catch (error) {
+          console.error(`❌ 容器内子操作 ${i + 1} 失败:`, error);
+          if (step.errorHandling === 'stop') {
+            throw error;
+          }
+        }
+
+        // 子操作间等待
+        if (subOp.delay || subOp.waitAfterClick) {
+          const waitTime = subOp.delay || subOp.waitAfterClick || 500;
+          console.log(`⏳ 子操作间等待 ${waitTime}ms`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      }
+
+      console.log(`✅ 容器内所有子操作执行完成`);
+    } else {
+      console.log(`⚠️ 容器循环没有配置子操作`);
+    }
+
+    // 清除容器高亮
+    setTimeout(() => {
+      clearElementHighlight(targetButton);
+    }, 1000);
+
+  } else {
+    // 非容器循环：只点击按钮
+    console.log(`👆 点击虚拟列表按钮`);
+    targetButton.click();
+  }
 }

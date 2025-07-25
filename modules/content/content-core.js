@@ -11,231 +11,231 @@ let testHighlightedElements = [];
  */
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
   chrome.runtime.onMessage.addListener(function (request, _sender, sendResponse) {
-  console.log("Content script收到消息:", request);
+    console.log("Content script收到消息:", request);
 
-  // 处理ping请求，用于检测content script是否已加载
-  if (request.action === "ping") {
-    console.log("收到ping请求");
-    sendResponse({ success: true, status: "ready", message: "Content script已加载" });
-    return true;
-  }
+    // 处理ping请求，用于检测content script是否已加载
+    if (request.action === "ping") {
+      console.log("收到ping请求");
+      sendResponse({ success: true, status: "ready", message: "Content script已加载" });
+      return true;
+    }
 
-  // 处理重置引擎请求
-  if (request.action === "resetEngine") {
-    try {
-      console.log("🔄 收到重置引擎请求");
+    // 处理重置引擎请求
+    if (request.action === "resetEngine") {
+      try {
+        console.log("🔄 收到重置引擎请求");
 
-      // 清除可能存在的引擎实例
-      if (window.UniversalAutomationEngine) {
-        // 移除旧的脚本标签
-        const oldScripts = document.querySelectorAll('script[data-automation-engine="true"]');
-        oldScripts.forEach(script => {
-          script.remove();
-          console.log("🗑️ 已移除旧的引擎脚本");
+        // 清除可能存在的引擎实例
+        if (window.UniversalAutomationEngine) {
+          // 移除旧的脚本标签
+          const oldScripts = document.querySelectorAll('script[data-automation-engine="true"]');
+          oldScripts.forEach(script => {
+            script.remove();
+            console.log("🗑️ 已移除旧的引擎脚本");
+          });
+
+          // 清除全局引用
+          delete window.UniversalAutomationEngine;
+          console.log("✅ 自动化引擎全局引用已清除");
+        }
+
+        sendResponse({ success: true, message: "引擎已重置" });
+      } catch (error) {
+        console.error("❌ 重置引擎失败:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+      return true;
+    }
+
+    // 处理通用自动化工作流执行
+    if (request.action === "executeWorkflow") {
+      console.log("🔧 [DEBUG] 收到工作流执行请求，工作流数据:", JSON.stringify(request.data, null, 2));
+
+      // 验证工作流数据结构
+      if (request.data && request.data.steps) {
+        request.data.steps.forEach((step, index) => {
+          console.log(`🔧 [DEBUG] 步骤 ${index + 1}:`, {
+            type: step.type,
+            name: step.name,
+            locator: step.locator,
+            hasLocator: !!step.locator,
+            locatorStrategy: step.locator?.strategy || step.locator?.type,
+            locatorValue: step.locator?.value
+          });
         });
-
-        // 清除全局引用
-        delete window.UniversalAutomationEngine;
-        console.log("✅ 自动化引擎全局引用已清除");
       }
 
-      sendResponse({ success: true, message: "引擎已重置" });
-    } catch (error) {
-      console.error("❌ 重置引擎失败:", error);
-      sendResponse({ success: false, error: error.message });
-    }
-    return true;
-  }
-
-  // 处理通用自动化工作流执行
-  if (request.action === "executeWorkflow") {
-    console.log("🔧 [DEBUG] 收到工作流执行请求，工作流数据:", JSON.stringify(request.data, null, 2));
-
-    // 验证工作流数据结构
-    if (request.data && request.data.steps) {
-      request.data.steps.forEach((step, index) => {
-        console.log(`🔧 [DEBUG] 步骤 ${index + 1}:`, {
-          type: step.type,
-          name: step.name,
-          locator: step.locator,
-          hasLocator: !!step.locator,
-          locatorStrategy: step.locator?.strategy || step.locator?.type,
-          locatorValue: step.locator?.value
-        });
-      });
+      // 调用自动化执行模块
+      if (window.ContentAutomation && window.ContentAutomation.executeUniversalWorkflow) {
+        window.ContentAutomation.executeUniversalWorkflow(request.data)
+          .then((result) => {
+            sendResponse({ success: true, result });
+          })
+          .catch((error) => {
+            console.error("执行通用工作流失败:", error);
+            sendResponse({ success: false, error: error.message });
+          });
+      } else {
+        console.error("❌ 自动化执行模块未加载");
+        sendResponse({ success: false, error: "自动化执行模块未加载" });
+      }
+      return true;
     }
 
-    // 调用自动化执行模块
-    if (window.ContentAutomation && window.ContentAutomation.executeUniversalWorkflow) {
-      window.ContentAutomation.executeUniversalWorkflow(request.data)
+    if (request.action === "performAction") {
+      performAction(request.config)
         .then((result) => {
-          sendResponse({ success: true, result });
+          sendResponse({ success: true, ...result });
         })
         .catch((error) => {
-          console.error("执行通用工作流失败:", error);
+          console.error("执行操作失败:", error);
           sendResponse({ success: false, error: error.message });
         });
-    } else {
-      console.error("❌ 自动化执行模块未加载");
-      sendResponse({ success: false, error: "自动化执行模块未加载" });
+
+      // 返回true表示我们将异步发送响应
+      return true;
     }
-    return true;
-  }
 
-  if (request.action === "performAction") {
-    performAction(request.config)
-      .then((result) => {
-        sendResponse({ success: true, ...result });
-      })
-      .catch((error) => {
-        console.error("执行操作失败:", error);
-        sendResponse({ success: false, error: error.message });
-      });
-
-    // 返回true表示我们将异步发送响应
-    return true;
-  }
-
-  if (request.action === "testElementLocator") {
-    testElementLocator(request.locator)
-      .then((result) => {
-        sendResponse({ success: true, ...result });
-      })
-      .catch((error) => {
-        console.error("测试元素定位失败:", error);
-        sendResponse({ success: false, error: error.message });
-      });
-
-    return true;
-  }
-
-  // 处理定位器测试请求
-  if (request.action === "testLocator") {
-    try {
-      const result = testLocatorElements(request.locator);
-      sendResponse({ success: true, count: result.count });
-    } catch (error) {
-      console.error("测试定位器失败:", error);
-      sendResponse({ success: false, error: error.message });
-    }
-    return true;
-  }
-
-  // 处理条件测试请求
-  if (request.action === "testCondition") {
-    try {
-      const result = testCondition(request.condition);
-      sendResponse(result);
-    } catch (error) {
-      console.error("测试条件失败:", error);
-      sendResponse({ success: false, error: error.message });
-    }
-    return true;
-  }
-
-  // 处理清除测试高亮请求
-  if (request.action === "clearTestHighlights") {
-    try {
-      clearTestHighlights();
-      sendResponse({ success: true });
-    } catch (error) {
-      console.error("清除测试高亮失败:", error);
-      sendResponse({ success: false, error: error.message });
-    }
-    return true;
-  }
-
-  // 处理暂停执行请求
-  if (request.action === "pauseExecution") {
-    console.log('🔧 [DEBUG] Content script 收到暂停请求');
-    console.log('🔧 [DEBUG] 当前引擎状态:', {
-      hasAutomationEngine: !!window.automationEngine,
-      hasSimplifiedControl: !!window.simplifiedExecutionControl,
-      automationEngineRunning: window.automationEngine ? window.automationEngine.isRunning : false,
-      automationEnginePaused: window.automationEngine ? window.automationEngine.isPaused : false,
-      simplifiedControlPaused: window.simplifiedExecutionControl ? window.simplifiedExecutionControl.isPaused : false
-    });
-
-    try {
-      if (window.automationEngine && window.automationEngine.isRunning) {
-        console.log('🔧 [DEBUG] 使用高级引擎暂停（引擎正在运行）');
-        // 高级引擎模式
-        window.automationEngine.pause();
-        console.log('🔧 [DEBUG] 高级引擎暂停调用完成');
-        sendResponse({ success: true, mode: 'advanced' });
-      } else if (window.simplifiedExecutionControl) {
-        console.log('🔧 [DEBUG] 使用简化模式暂停');
-        // 简化模式
-        window.simplifiedExecutionControl.pause();
-        console.log('🔧 [DEBUG] 简化模式暂停调用完成');
-        sendResponse({ success: true, mode: 'simplified' });
-      } else {
-        console.log('❌ [DEBUG] 没有可用的执行引擎或引擎未运行');
-        console.log('🔧 [DEBUG] 详细状态:', {
-          hasEngine: !!window.automationEngine,
-          engineRunning: window.automationEngine ? window.automationEngine.isRunning : 'N/A',
-          hasSimplified: !!window.simplifiedExecutionControl
+    if (request.action === "testElementLocator") {
+      testElementLocator(request.locator)
+        .then((result) => {
+          sendResponse({ success: true, ...result });
+        })
+        .catch((error) => {
+          console.error("测试元素定位失败:", error);
+          sendResponse({ success: false, error: error.message });
         });
-        sendResponse({ success: false, error: "自动化引擎未初始化或未运行" });
-      }
-    } catch (error) {
-      console.error("❌ 暂停执行失败:", error);
-      sendResponse({ success: false, error: error.message });
-    }
-    return true;
-  }
 
-  // 处理继续执行请求
-  if (request.action === "resumeExecution") {
-    try {
-      if (window.automationEngine) {
-        // 高级引擎模式
-        window.automationEngine.resume();
-        sendResponse({ success: true });
-      } else if (window.simplifiedExecutionControl) {
-        // 简化模式
-        window.simplifiedExecutionControl.resume();
-        sendResponse({ success: true });
-      } else {
-        sendResponse({ success: false, error: "自动化引擎未初始化" });
-      }
-    } catch (error) {
-      console.error("继续执行失败:", error);
-      sendResponse({ success: false, error: error.message });
+      return true;
     }
-    return true;
-  }
 
-  if (request.action === "findAllElements") {
-    findAllElements(request.locator)
-      .then((result) => {
-        sendResponse({ success: true, ...result });
-      })
-      .catch((error) => {
-        console.error("查找所有元素失败:", error);
+    // 处理定位器测试请求
+    if (request.action === "testLocator") {
+      try {
+        const result = testLocatorElements(request.locator);
+        sendResponse({ success: true, count: result.count });
+      } catch (error) {
+        console.error("测试定位器失败:", error);
         sendResponse({ success: false, error: error.message });
+      }
+      return true;
+    }
+
+    // 处理条件测试请求
+    if (request.action === "testCondition") {
+      try {
+        const result = testCondition(request.condition);
+        sendResponse(result);
+      } catch (error) {
+        console.error("测试条件失败:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+      return true;
+    }
+
+    // 处理清除测试高亮请求
+    if (request.action === "clearTestHighlights") {
+      try {
+        clearTestHighlights();
+        sendResponse({ success: true });
+      } catch (error) {
+        console.error("清除测试高亮失败:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+      return true;
+    }
+
+    // 处理暂停执行请求
+    if (request.action === "pauseExecution") {
+      console.log('🔧 [DEBUG] Content script 收到暂停请求');
+      console.log('🔧 [DEBUG] 当前引擎状态:', {
+        hasAutomationEngine: !!window.automationEngine,
+        hasSimplifiedControl: !!window.simplifiedExecutionControl,
+        automationEngineRunning: window.automationEngine ? window.automationEngine.isRunning : false,
+        automationEnginePaused: window.automationEngine ? window.automationEngine.isPaused : false,
+        simplifiedControlPaused: window.simplifiedExecutionControl ? window.simplifiedExecutionControl.isPaused : false
       });
 
-    return true;
-  }
-
-  if (request.action === "performActionOnElementByIndex") {
-    performActionOnElementByIndex(
-      request.locator,
-      request.index,
-      request.actionType,
-      request.inputText
-    )
-      .then((result) => {
-        sendResponse({ success: true, ...result });
-      })
-      .catch((error) => {
-        console.error("按索引操作元素失败:", error);
+      try {
+        if (window.automationEngine && window.automationEngine.isRunning) {
+          console.log('🔧 [DEBUG] 使用高级引擎暂停（引擎正在运行）');
+          // 高级引擎模式
+          window.automationEngine.pause();
+          console.log('🔧 [DEBUG] 高级引擎暂停调用完成');
+          sendResponse({ success: true, mode: 'advanced' });
+        } else if (window.simplifiedExecutionControl) {
+          console.log('🔧 [DEBUG] 使用简化模式暂停');
+          // 简化模式
+          window.simplifiedExecutionControl.pause();
+          console.log('🔧 [DEBUG] 简化模式暂停调用完成');
+          sendResponse({ success: true, mode: 'simplified' });
+        } else {
+          console.log('❌ [DEBUG] 没有可用的执行引擎或引擎未运行');
+          console.log('🔧 [DEBUG] 详细状态:', {
+            hasEngine: !!window.automationEngine,
+            engineRunning: window.automationEngine ? window.automationEngine.isRunning : 'N/A',
+            hasSimplified: !!window.simplifiedExecutionControl
+          });
+          sendResponse({ success: false, error: "自动化引擎未初始化或未运行" });
+        }
+      } catch (error) {
+        console.error("❌ 暂停执行失败:", error);
         sendResponse({ success: false, error: error.message });
-      });
+      }
+      return true;
+    }
 
-    return true;
-  }
+    // 处理继续执行请求
+    if (request.action === "resumeExecution") {
+      try {
+        if (window.automationEngine) {
+          // 高级引擎模式
+          window.automationEngine.resume();
+          sendResponse({ success: true });
+        } else if (window.simplifiedExecutionControl) {
+          // 简化模式
+          window.simplifiedExecutionControl.resume();
+          sendResponse({ success: true });
+        } else {
+          sendResponse({ success: false, error: "自动化引擎未初始化" });
+        }
+      } catch (error) {
+        console.error("继续执行失败:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+      return true;
+    }
+
+    if (request.action === "findAllElements") {
+      findAllElements(request.locator)
+        .then((result) => {
+          sendResponse({ success: true, ...result });
+        })
+        .catch((error) => {
+          console.error("查找所有元素失败:", error);
+          sendResponse({ success: false, error: error.message });
+        });
+
+      return true;
+    }
+
+    if (request.action === "performActionOnElementByIndex") {
+      performActionOnElementByIndex(
+        request.locator,
+        request.index,
+        request.actionType,
+        request.inputText
+      )
+        .then((result) => {
+          sendResponse({ success: true, ...result });
+        })
+        .catch((error) => {
+          console.error("按索引操作元素失败:", error);
+          sendResponse({ success: false, error: error.message });
+        });
+
+      return true;
+    }
   });
 } else {
   console.warn('Chrome runtime API not available');

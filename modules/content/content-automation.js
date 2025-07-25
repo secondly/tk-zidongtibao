@@ -752,7 +752,7 @@ async function executeLoopStep(step) {
   const endIndex = step.endIndex === -1 ? elements.length - 1 : (step.endIndex || elements.length - 1);
   const actualEndIndex = Math.min(endIndex, elements.length - 1);
 
-  console.log(`🔄 开始执行${step.loopType === 'simpleLoop' ? '简单' : '父级'}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`);
+  console.log(`🔄 开始执行${step.loopType}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`);
 
   for (let i = startIndex; i <= actualEndIndex; i++) {
     console.log(`🔧 [DEBUG] 循环第 ${i + 1} 个元素前检查暂停状态`);
@@ -776,6 +776,9 @@ async function executeLoopStep(step) {
       if (step.loopType === 'simpleLoop') {
         // 简单循环：执行单一操作
         await executeSimpleLoopAction(element, step);
+      } else if (step.loopType === 'container') {
+        // 容器循环：直接在容器内执行子操作，不点击容器本身
+        await executeContainerLoopAction(element, step);
       } else {
         // 父级循环：点击后执行子操作
         await executeParentLoopAction(element, step);
@@ -918,6 +921,84 @@ async function executeSimpleLoopAction(element, step) {
   }
 }
 
+async function executeContainerLoopAction(element, step) {
+  console.log('🔧 [DEBUG] executeContainerLoopAction 开始执行 - 容器循环模式');
+
+  // 在执行具体操作前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
+  console.log(`📦 开始处理容器元素，不点击容器本身`);
+  console.log('🔧 [DEBUG] 容器元素信息:', {
+    tagName: element.tagName,
+    id: element.id,
+    className: element.className,
+    textContent: element.textContent?.substring(0, 50) + '...'
+  });
+
+  // 高亮显示容器元素
+  window.ContentCore.highlightElement(element, 'loop');
+  setTimeout(() => {
+    window.ContentCore.clearElementHighlight(element);
+  }, 2000);
+
+  // 滚动到容器元素位置，确保可见
+  element.scrollIntoView({
+    behavior: 'smooth',
+    block: 'center',
+    inline: 'center'
+  });
+
+  // 等待滚动完成
+  await new Promise(resolve => setTimeout(resolve, 300));
+
+  // 直接执行子操作序列，不点击容器元素
+  if (step.subOperations && step.subOperations.length > 0) {
+    console.log(`🔧 开始在容器内执行 ${step.subOperations.length} 个子操作`);
+
+    for (let i = 0; i < step.subOperations.length; i++) {
+      const subOp = step.subOperations[i];
+      console.log(`🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator}`);
+
+      try {
+        // 传递容器元素上下文给子操作
+        await executeSubOperation(subOp, element);
+      } catch (error) {
+        console.error(`❌ 容器内子操作 ${i + 1} 失败:`, error);
+        if (step.errorHandling === 'stop') {
+          throw error;
+        }
+      }
+
+      // 子操作间等待
+      if (subOp.delay || subOp.waitAfterClick) {
+        const waitTime = subOp.delay || subOp.waitAfterClick || 500;
+        console.log(`⏳ 子操作间等待 ${waitTime}ms`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
+
+    console.log(`✅ 容器内所有子操作执行完成`);
+  } else {
+    console.log(`⚠️ 容器循环没有配置子操作`);
+  }
+
+  // 操作延迟
+  if (step.operationDelay) {
+    console.log(`🔧 [DEBUG] 容器操作延迟开始: ${step.operationDelay}ms`);
+    const delayStartTime = Date.now();
+    while (Date.now() - delayStartTime < step.operationDelay) {
+      // 在延迟期间检查暂停状态
+      if (window.simplifiedExecutionControl) {
+        await window.simplifiedExecutionControl.checkPause();
+      }
+      await new Promise(resolve => setTimeout(resolve, Math.min(100, step.operationDelay - (Date.now() - delayStartTime))));
+    }
+    console.log(`🔧 [DEBUG] 容器操作延迟完成`);
+  }
+}
+
 async function executeParentLoopAction(element, step) {
   console.log('🔧 [DEBUG] executeParentLoopAction 开始执行');
 
@@ -973,22 +1054,88 @@ async function executeSubOperation(operation, parentElement = null) {
   switch (operation.type) {
     case 'click':
       let clickElement;
-      if (parentElement && operation.locator?.strategy === 'css') {
-        // 只有CSS选择器才能在父级元素内查找
-        clickElement = parentElement.querySelector(operation.locator.value);
-        if (!clickElement) {
-          // 如果在父级元素内找不到，尝试全局查找
-          clickElement = await window.ContentCore.findElementByStrategy(operation.locator.strategy, operation.locator.value);
-          console.log(`🔍 在父级元素内未找到，使用全局查找`);
-        } else {
-          console.log(`🔍 在父级元素内找到目标`);
+      if (parentElement) {
+        console.log(`🔧 [DEBUG] 尝试在父级元素内查找: ${operation.locator.strategy}=${operation.locator.value}`);
+        
+        // 尝试在父级元素内查找，支持多种选择器策略
+        try {
+          switch (operation.locator.strategy) {
+            case 'css':
+              clickElement = parentElement.querySelector(operation.locator.value);
+              break;
+            case 'id':
+              // 对于ID选择器，在父级元素内查找
+              clickElement = parentElement.querySelector(`#${operation.locator.value}`);
+              break;
+            case 'xpath':
+              // 对于XPath，需要在父级元素的上下文中执行
+              const xpathResult = document.evaluate(
+                operation.locator.value,
+                parentElement,
+                null,
+                XPathResult.FIRST_ORDERED_NODE_TYPE,
+                null
+              );
+              clickElement = xpathResult.singleNodeValue;
+              break;
+            case 'text':
+              // 在父级元素内查找包含特定文本的元素
+              const textElements = parentElement.querySelectorAll('*');
+              for (const el of textElements) {
+                if (el.textContent && el.textContent.trim() === operation.locator.value.trim()) {
+                  clickElement = el;
+                  break;
+                }
+              }
+              break;
+            case 'contains':
+              // 在父级元素内查找包含文本的元素
+              const containsElements = parentElement.querySelectorAll('*');
+              for (const el of containsElements) {
+                if (el.textContent && el.textContent.includes(operation.locator.value)) {
+                  clickElement = el;
+                  break;
+                }
+              }
+              break;
+          }
+          
+          if (clickElement) {
+            console.log(`🎯 在父级元素内找到目标: ${operation.locator.strategy}=${operation.locator.value}`);
+          } else {
+            console.log(`🔍 在父级元素内未找到，尝试全局查找`);
+          }
+        } catch (error) {
+          console.warn(`🔧 [DEBUG] 父级元素内查找失败:`, error);
         }
-      } else {
-        // 对于非CSS选择器或没有父级元素的情况，直接全局查找
+      }
+      
+      // 如果在父级元素内没找到，或者没有父级元素，则进行全局查找
+      if (!clickElement) {
+        console.log(`🌐 使用全局查找: ${operation.locator.strategy}=${operation.locator.value}`);
         clickElement = await window.ContentCore.findElementByStrategy(operation.locator.strategy, operation.locator.value);
       }
+      
+      if (!clickElement) {
+        throw new Error(`找不到点击目标元素: ${operation.locator.strategy}=${operation.locator.value}`);
+      }
+      
+      // 高亮显示找到的元素
+      window.ContentCore.highlightElement(clickElement, 'click');
+      
+      // 滚动到元素位置
+      clickElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // 执行点击
       clickElement.click();
-      console.log(`👆 子操作-点击: ${operation.locator.value}`);
+      console.log(`👆 子操作-点击完成: ${operation.locator.value}`);
+      
+      // 清除高亮
+      setTimeout(() => {
+        window.ContentCore.clearElementHighlight(clickElement);
+      }, 1000);
+      
       break;
 
     case 'input':
@@ -1249,6 +1396,7 @@ window.ContentAutomation = {
   executeConditionStep,
   executeLoopStep,
   executeSimpleLoopAction,
+  executeContainerLoopAction,
   executeParentLoopAction,
   executeSubOperation,
   executeSubOperationAutoLoop,
