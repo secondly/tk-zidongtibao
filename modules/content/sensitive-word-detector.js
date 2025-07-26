@@ -13,18 +13,18 @@ class SensitiveWordDetector {
    * @param {string} wordsString - 用逗号分隔的敏感词字符串
    */
   setSensitiveWords(wordsString) {
-    if (!wordsString || typeof wordsString !== 'string') {
+    if (!wordsString || typeof wordsString !== "string") {
       this.sensitiveWords = [];
       return;
     }
-    
+
     // 分割敏感词，去除空白字符
     this.sensitiveWords = wordsString
-      .split(',')
-      .map(word => word.trim())
-      .filter(word => word.length > 0);
-    
-    console.log('🔍 敏感词列表已更新:', this.sensitiveWords);
+      .split(",")
+      .map((word) => word.trim())
+      .filter((word) => word.length > 0);
+
+    console.log("🔍 敏感词列表已更新:", this.sensitiveWords);
   }
 
   /**
@@ -33,7 +33,7 @@ class SensitiveWordDetector {
    * @returns {object} - 检测结果 {hasSensitiveWord: boolean, matchedWords: string[]}
    */
   detectSensitiveWords(text) {
-    if (!text || typeof text !== 'string') {
+    if (!text || typeof text !== "string") {
       return { hasSensitiveWord: false, matchedWords: [] };
     }
 
@@ -52,11 +52,11 @@ class SensitiveWordDetector {
     }
 
     const hasSensitiveWord = matchedWords.length > 0;
-    
+
     if (hasSensitiveWord) {
-      console.log('🚫 检测到敏感词:', {
-        text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
-        matchedWords
+      console.log("🚫 检测到敏感词:", {
+        text: text.substring(0, 100) + (text.length > 100 ? "..." : ""),
+        matchedWords,
       });
     }
 
@@ -72,7 +72,7 @@ class SensitiveWordDetector {
   async extractTextFromElement(element, locator) {
     try {
       if (!element || !locator) {
-        return '';
+        return "";
       }
 
       let targetElement = element;
@@ -81,19 +81,22 @@ class SensitiveWordDetector {
       if (locator.value && locator.value.trim()) {
         targetElement = await this.findElementWithinContext(element, locator);
         if (!targetElement) {
-          console.warn('⚠️ 在当前循环元素内未找到敏感词检测目标元素:', locator);
-          return '';
+          console.warn("⚠️ 在当前循环元素内未找到敏感词检测目标元素:", locator);
+          return "";
         }
       }
 
       // 提取文本内容
-      const text = targetElement.innerText || targetElement.textContent || '';
-      console.log('📝 提取的文本内容:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
-      
+      const text = targetElement.innerText || targetElement.textContent || "";
+      console.log(
+        "📝 提取的文本内容:",
+        text.substring(0, 100) + (text.length > 100 ? "..." : "")
+      );
+
       return text;
     } catch (error) {
-      console.error('❌ 提取文本内容失败:', error);
-      return '';
+      console.error("❌ 提取文本内容失败:", error);
+      return "";
     }
   }
 
@@ -106,7 +109,7 @@ class SensitiveWordDetector {
   async findElementWithinContext(contextElement, locator) {
     try {
       const { strategy, value } = locator;
-      
+
       if (!strategy || !value) {
         return null;
       }
@@ -114,10 +117,10 @@ class SensitiveWordDetector {
       let targetElement = null;
 
       switch (strategy) {
-        case 'css':
+        case "css":
           targetElement = contextElement.querySelector(value);
           break;
-        case 'xpath':
+        case "xpath":
           // 在上下文元素内执行XPath查询
           const xpathResult = document.evaluate(
             `.${value}`, // 相对XPath
@@ -128,18 +131,18 @@ class SensitiveWordDetector {
           );
           targetElement = xpathResult.singleNodeValue;
           break;
-        case 'id':
+        case "id":
           targetElement = contextElement.querySelector(`#${value}`);
           break;
-        case 'className':
+        case "className":
           targetElement = contextElement.querySelector(`.${value}`);
           break;
-        case 'tagName':
+        case "tagName":
           targetElement = contextElement.querySelector(value);
           break;
-        case 'text':
+        case "text":
           // 查找包含指定文本的元素
-          const allElements = contextElement.querySelectorAll('*');
+          const allElements = contextElement.querySelectorAll("*");
           for (const el of allElements) {
             if (el.textContent && el.textContent.trim() === value) {
               targetElement = el;
@@ -147,9 +150,9 @@ class SensitiveWordDetector {
             }
           }
           break;
-        case 'contains':
+        case "contains":
           // 查找包含指定文本的元素
-          const allContainsElements = contextElement.querySelectorAll('*');
+          const allContainsElements = contextElement.querySelectorAll("*");
           for (const el of allContainsElements) {
             if (el.textContent && el.textContent.includes(value)) {
               targetElement = el;
@@ -158,12 +161,12 @@ class SensitiveWordDetector {
           }
           break;
         default:
-          console.warn('⚠️ 不支持的定位策略:', strategy);
+          console.warn("⚠️ 不支持的定位策略:", strategy);
       }
 
       return targetElement;
     } catch (error) {
-      console.error('❌ 在上下文内查找元素失败:', error);
+      console.error("❌ 在上下文内查找元素失败:", error);
       return null;
     }
   }
@@ -178,12 +181,12 @@ class SensitiveWordDetector {
     try {
       // 如果未启用敏感词检测，不跳过
       if (!config.enabled) {
-        return { shouldSkip: false, reason: '', matchedWords: [] };
+        return { shouldSkip: false, reason: "", matchedWords: [] };
       }
 
       // 如果没有配置敏感词，不跳过
-      if (!config.sensitiveWords || config.sensitiveWords.trim() === '') {
-        return { shouldSkip: false, reason: '', matchedWords: [] };
+      if (!config.sensitiveWords || config.sensitiveWords.trim() === "") {
+        return { shouldSkip: false, reason: "", matchedWords: [] };
       }
 
       // 设置敏感词列表
@@ -191,8 +194,8 @@ class SensitiveWordDetector {
 
       // 构建定位器
       const locator = {
-        strategy: config.locatorStrategy || 'css',
-        value: config.locatorValue || ''
+        strategy: config.locatorStrategy || "css",
+        value: config.locatorValue || "",
       };
 
       // 提取文本内容
@@ -202,20 +205,20 @@ class SensitiveWordDetector {
       const detection = this.detectSensitiveWords(text);
 
       if (detection.hasSensitiveWord) {
-        const reason = `包含敏感词: ${detection.matchedWords.join(', ')}`;
-        console.log('🚫 跳过循环元素:', reason);
+        const reason = `包含敏感词: ${detection.matchedWords.join(", ")}`;
+        console.log("🚫 跳过循环元素:", reason);
         return {
           shouldSkip: true,
           reason,
-          matchedWords: detection.matchedWords
+          matchedWords: detection.matchedWords,
         };
       }
 
-      return { shouldSkip: false, reason: '', matchedWords: [] };
+      return { shouldSkip: false, reason: "", matchedWords: [] };
     } catch (error) {
-      console.error('❌ 敏感词检测失败:', error);
+      console.error("❌ 敏感词检测失败:", error);
       // 检测失败时不跳过，避免影响正常流程
-      return { shouldSkip: false, reason: '检测失败', matchedWords: [] };
+      return { shouldSkip: false, reason: "检测失败", matchedWords: [] };
     }
   }
 }
@@ -224,6 +227,6 @@ class SensitiveWordDetector {
 window.SensitiveWordDetector = SensitiveWordDetector;
 
 // 导出模块（如果在模块环境中）
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
   module.exports = SensitiveWordDetector;
 }

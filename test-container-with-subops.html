@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试循环操作容器 - 带子操作</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .product-card {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            background: #fafafa;
+            transition: all 0.3s ease;
+        }
+        .product-card:hover {
+            border-color: #007bff;
+            background: #f0f8ff;
+        }
+        .product-card.processed {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .product-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .product-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .quantity-input {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .instructions {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 循环操作容器测试 - 带子操作</h1>
+        
+        <div class="instructions">
+            <h3>📋 测试说明</h3>
+            <p>这个页面用于测试循环操作容器的子操作执行。请按以下步骤操作：</p>
+            <ol>
+                <li>创建一个循环操作容器，定位器为 <code>.product-card</code></li>
+                <li>添加子操作：
+                    <ul>
+                        <li>输入操作：定位器 <code>.quantity-input</code>，输入文本 "5"</li>
+                        <li>点击操作：定位器 <code>.add-to-cart</code></li>
+                    </ul>
+                </li>
+                <li>运行工作流，观察是否能正确执行子操作</li>
+            </ol>
+        </div>
+
+        <div class="product-card" data-product="1">
+            <div class="product-title">🎮 游戏手柄</div>
+            <div class="product-actions">
+                <label>数量：</label>
+                <input type="number" class="quantity-input" value="1" min="1" max="10">
+                <button class="btn btn-primary add-to-cart" onclick="addToCart(this, 1)">
+                    加入购物车
+                </button>
+            </div>
+        </div>
+
+        <div class="product-card" data-product="2">
+            <div class="product-title">🎧 无线耳机</div>
+            <div class="product-actions">
+                <label>数量：</label>
+                <input type="number" class="quantity-input" value="1" min="1" max="10">
+                <button class="btn btn-primary add-to-cart" onclick="addToCart(this, 2)">
+                    加入购物车
+                </button>
+            </div>
+        </div>
+
+        <div class="product-card" data-product="3">
+            <div class="product-title">📱 智能手机</div>
+            <div class="product-actions">
+                <label>数量：</label>
+                <input type="number" class="quantity-input" value="1" min="1" max="10">
+                <button class="btn btn-primary add-to-cart" onclick="addToCart(this, 3)">
+                    加入购物车
+                </button>
+            </div>
+        </div>
+
+        <div id="status" class="status info">
+            ℹ️ 等待测试开始...已处理产品: <span id="processedCount">0</span>/3
+        </div>
+
+        <div class="instructions">
+            <h3>🔍 预期行为</h3>
+            <ul>
+                <li>✅ 工作流应该找到所有3个 <code>.product-card</code> 元素</li>
+                <li>✅ 对每个产品卡片执行子操作：</li>
+                <li>&nbsp;&nbsp;&nbsp;&nbsp;1. 在数量输入框中输入 "5"</li>
+                <li>&nbsp;&nbsp;&nbsp;&nbsp;2. 点击"加入购物车"按钮</li>
+                <li>✅ 产品卡片应该变为绿色（已处理状态）</li>
+                <li>✅ 状态显示应该更新处理计数</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let processedCount = 0;
+        const totalProducts = 3;
+
+        function addToCart(button, productId) {
+            const card = button.closest('.product-card');
+            const quantityInput = card.querySelector('.quantity-input');
+            const quantity = quantityInput.value;
+            
+            // 标记为已处理
+            card.classList.add('processed');
+            button.textContent = '已添加';
+            button.className = 'btn btn-success';
+            button.disabled = true;
+            
+            // 更新计数
+            processedCount++;
+            updateStatus();
+            
+            console.log(`✅ 产品 ${productId} 已添加到购物车，数量: ${quantity}`);
+        }
+
+        function updateStatus() {
+            const statusElement = document.getElementById('status');
+            const processedCountElement = document.getElementById('processedCount');
+            
+            processedCountElement.textContent = processedCount;
+            
+            if (processedCount === 0) {
+                statusElement.className = 'status info';
+                statusElement.innerHTML = `ℹ️ 等待测试开始...已处理产品: <span id="processedCount">${processedCount}</span>/${totalProducts}`;
+            } else if (processedCount < totalProducts) {
+                statusElement.className = 'status info';
+                statusElement.innerHTML = `🔄 测试进行中...已处理产品: <span id="processedCount">${processedCount}</span>/${totalProducts}`;
+            } else {
+                statusElement.className = 'status success';
+                statusElement.innerHTML = `🎉 测试完成！所有产品都已处理！已处理产品: <span id="processedCount">${processedCount}</span>/${totalProducts}`;
+            }
+        }
+
+        // 重置测试
+        function resetTest() {
+            processedCount = 0;
+            const cards = document.querySelectorAll('.product-card');
+            cards.forEach(card => {
+                card.classList.remove('processed');
+                const button = card.querySelector('.add-to-cart');
+                const quantityInput = card.querySelector('.quantity-input');
+                
+                button.textContent = '加入购物车';
+                button.className = 'btn btn-primary add-to-cart';
+                button.disabled = false;
+                quantityInput.value = '1';
+            });
+            updateStatus();
+        }
+
+        // 添加重置按钮
+        document.addEventListener('DOMContentLoaded', function() {
+            const resetButton = document.createElement('button');
+            resetButton.textContent = '🔄 重置测试';
+            resetButton.style.cssText = `
+                background: #6c757d;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                margin-top: 20px;
+                font-size: 14px;
+            `;
+            resetButton.onclick = resetTest;
+            document.querySelector('.container').appendChild(resetButton);
+        });
+
+        // 监听自动化操作
+        console.log('🔍 测试页面已加载，等待自动化操作...');
+        console.log('📍 可用的产品卡片:', document.querySelectorAll('.product-card').length, '个');
+        console.log('📍 可用的数量输入框:', document.querySelectorAll('.quantity-input').length, '个');
+        console.log('📍 可用的加入购物车按钮:', document.querySelectorAll('.add-to-cart').length, '个');
+    </script>
+</body>
+</html>

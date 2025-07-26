@@ -922,7 +922,7 @@ class UniversalAutomationEngine {
     this.log(`🎯 简单循环范围: ${startIndex} 到 ${endIndex}`, "info");
 
     // 确定要执行的操作类型
-    const actionType = step.actionType || "click"; // 默认为点击
+    const actionType = step.actionType || step.operationType || "click"; // 默认为点击
     this.log(`🔧 循环操作类型: ${actionType}`, "info");
 
     // 执行简单循环
@@ -1357,6 +1357,113 @@ class UniversalAutomationEngine {
     this.log(`🎯 开始处理父级元素`, "info");
 
     try {
+      // 检查是否为容器循环
+      if (step.loopType === "container") {
+        this.log(`📦 容器循环模式：不点击容器，直接执行内部操作`, "info");
+
+        // 高亮容器元素
+        this.highlightExecutionProgress(element);
+
+        // 如果有子操作，执行子操作
+        if (step.subOperations && step.subOperations.length > 0) {
+          this.log(`🔧 开始执行 ${step.subOperations.length} 个子操作`, "info");
+
+          // 更新子操作总数
+          this.updateProgress({
+            totalSubOperations: step.subOperations.length,
+            currentSubOperation: 0,
+          });
+
+          for (let i = 0; i < step.subOperations.length; i++) {
+            if (!this.isRunning) {
+              throw new Error("执行已被停止");
+            }
+
+            // 检查是否需要暂停
+            await this.checkPause();
+
+            const subOp = step.subOperations[i];
+            const currentSubOp = i + 1;
+            this.log(
+              `🎯 执行子操作 ${currentSubOp}: ${subOp.name || subOp.type}`,
+              "info"
+            );
+
+            // 更新子操作进度
+            this.updateProgress({
+              currentSubOperation: currentSubOp,
+              currentOperation: `执行子操作 ${currentSubOp}/${
+                step.subOperations.length
+              }: ${subOp.name || subOp.type}`,
+            });
+
+            try {
+              await this.executeSubOperation(subOp, element);
+            } catch (error) {
+              this.log(
+                `❌ 子操作 ${currentSubOp} 失败: ${error.message}`,
+                "error"
+              );
+              if (step.errorHandling === "stop") {
+                throw error;
+              }
+            }
+
+            // 子操作间等待
+            if (subOp.delay) {
+              await this.sleep(subOp.delay);
+            }
+          }
+
+          // 清除子操作进度
+          this.updateProgress({
+            totalSubOperations: 0,
+            currentSubOperation: 0,
+          });
+
+          this.log(`✅ 所有子操作执行完成`, "success");
+        } else {
+          // 没有子操作，执行直接操作
+          this.log(`📦 容器循环没有子操作，执行直接操作`, "info");
+
+          // 获取操作类型
+          const actionType = step.actionType || step.operationType || "click";
+          this.log(`🔧 执行操作类型: ${actionType}`, "info");
+
+          // 执行指定的操作
+          switch (actionType) {
+            case "click":
+              await this.clickElement(element);
+              this.log(`👆 已点击容器元素`, "success");
+              break;
+            case "input":
+              if (step.inputText) {
+                await this.inputText(element, step.inputText);
+                this.log(`📝 已输入文本: ${step.inputText}`, "success");
+              }
+              break;
+            case "hover":
+              await this.hoverElement(element);
+              this.log(`🖱️ 已悬停元素`, "success");
+              break;
+            default:
+              this.log(`⚠️ 不支持的操作类型: ${actionType}`, "warning");
+          }
+        }
+
+        // 操作延迟
+        const delay = step.loopDelay || step.operationDelay;
+        if (delay) {
+          this.log(`⏳ 容器循环延迟 ${delay}ms`, "info");
+          await this.sleep(delay);
+        }
+
+        // 清除高亮
+        this.clearExecutionProgress(element);
+        return;
+      }
+
+      // 非容器循环的普通父级循环逻辑
       // 1. 点击父级元素
       await this.clickElement(element);
       this.log(`👆 已点击父级元素`, "success");
@@ -1614,8 +1721,10 @@ class UniversalAutomationEngine {
     );
 
     // 获取操作类型和配置
-    const actionType = operation.actionType || "click";
-    const actionDelay = operation.actionDelay || 200;
+    const actionType =
+      operation.actionType || operation.operationType || "click";
+    const actionDelay =
+      operation.actionDelay || operation.operationDelay || 200;
     const errorHandling = operation.errorHandling || "continue";
 
     // 依次处理每个元素

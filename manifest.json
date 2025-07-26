@@ -3,15 +3,8 @@
   "name": "Universal Automation Assistant",
   "version": "2.0.0",
   "description": "Universal web automation system",
-  "permissions": [
-    "activeTab",
-    "tabs",
-    "scripting",
-    "storage"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "permissions": ["activeTab", "tabs", "scripting", "storage"],
+  "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "plugin-automation-popup.html",
     "default_icon": {
@@ -25,12 +18,8 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content/content-modular.js"
-      ]
+      "matches": ["<all_urls>"],
+      "js": ["content/content-modular.js"]
     }
   ],
   "icons": {
@@ -58,9 +47,7 @@
         "modules/designer/designer-nodes.js",
         "modules/designer/designer-workflow.js"
       ],
-      "matches": [
-        "<all_urls>"
-      ]
+      "matches": ["<all_urls>"]
     }
   ]
 }

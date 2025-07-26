@@ -1,1037 +1,1296 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>通用自动化插件</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            width: 800px;
-            height: 600px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f8f9fa;
-            color: #333;
-            overflow: hidden;
-        }
-
-        .app-container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            background: #fff;
-        }
-
-        .main-content {
-            display: flex;
-            flex: 1;
-            min-height: 0;
-        }
-
-        /* 左侧配置管理面板 */
-        .left-panel {
-            width: 280px;
-            min-width: 200px;
-            max-width: 400px;
-            background: #fafafa;
-            border-right: 1px solid #e0e0e0;
-            display: flex;
-            flex-direction: column;
-            transition: width 0.3s ease;
-        }
-
-        .left-panel.collapsed {
-            width: 40px;
-        }
-
-        .left-panel.collapsed .panel-content {
-            display: none;
-        }
-
-        /* 分割线 */
-        .divider {
-            width: 4px;
-            background: #e0e0e0;
-            cursor: col-resize;
-            transition: background-color 0.2s;
-        }
-
-        .divider:hover {
-            background: #2196F3;
-        }
-
-        /* 右侧流程图预览面板 */
-        .right-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-width: 300px;
-        }
-
-        /* 面板头部 */
-        .panel-header {
-            height: 50px;
-            padding: 0 16px;
-            background: #fff;
-            border-bottom: 1px solid #e0e0e0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .panel-header h3 {
-            font-size: 16px;
-            font-weight: 600;
-            color: #333;
-        }
-
-        .toolbar {
-            display: flex;
-            gap: 8px;
-        }
-
-        /* 面板内容 */
-        .panel-content {
-            flex: 1;
-            padding: 16px;
-            overflow: auto;
-            min-height: 0;
-
-            #flowPreview {
-                width: 100%;
-                height: 100%;
-            }
-        }
-
-        /* 底部执行状态栏 */
-        .bottom-panel {
-            height: 80px;
-            background: #f8f9fa;
-            border-top: 1px solid #e0e0e0;
-            display: flex;
-            align-items: center;
-        }
-
-        .status-content {
-            width: 100%;
-            padding: 0 16px;
-        }
-
-        /* 按钮样式 */
-        .btn-icon {
-            width: 32px;
-            height: 32px;
-            border: none;
-            background: #f5f5f5;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .btn-icon:hover {
-            background: #e3f2fd;
-            color: #2196F3;
-        }
-
-        .btn-icon .icon {
-            font-size: 14px;
-        }
-
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .btn-primary {
-            background: #2196F3;
-            color: #fff;
-        }
-
-        .btn-primary:hover {
-            background: #1976D2;
-        }
-
-        .btn-secondary {
-            background: #f5f5f5;
-            color: #333;
-            border: 1px solid #e0e0e0;
-        }
-
-        .btn-secondary:hover {
-            background: #e3f2fd;
-            border-color: #2196F3;
-            color: #2196F3;
-        }
-
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-
-        /* 流程图预览样式 */
-        .flow-preview {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background: #f8f9fa;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-
-        .flow-canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            cursor: grab;
-        }
-
-        .flow-canvas:active {
-            cursor: grabbing;
-        }
-
-        .flow-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #f8f9fa;
-            z-index: 1;
-        }
-
-        .empty-flow {
-            text-align: center;
-            color: #666;
-        }
-
-        .empty-flow-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-            opacity: 0.3;
-        }
-
-        .empty-flow-text {
-            font-size: 18px;
-            font-weight: 500;
-            margin-bottom: 8px;
-            color: #333;
-        }
-
-        .empty-flow-desc {
-            font-size: 14px;
-            color: #666;
-        }
-
-
-
-        .workflow-info {
-            display: flex;
-            gap: 10px;
-            background: white;
-            border-radius: 8px;
-            padding: 12px;
-            border: 1px solid #e9ecef;
-            margin-bottom: 15px;
-        }
-
-        .workflow-name {
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-
-        .workflow-stats {
-            font-size: 12px;
-            color: #7f8c8d;
-        }
-
-        .action-buttons {
-            display: flex;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .btn {
-            padding: 10px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-            text-align: center;
-        }
-
-        .btn-primary {
-            background: #3498db;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #2980b9;
-        }
-
-        .btn-success {
-            background: #27ae60;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #229954;
-        }
-
-        .btn-secondary {
-            background: #95a5a6;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #7f8c8d;
-        }
-
-        .btn-danger {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #c0392b;
-        }
-
-        /* 配置操作按钮样式 */
-        .config-actions .btn {
-            transition: all 0.2s ease;
-            font-weight: 500;
-        }
-
-        .config-actions .btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .config-actions .btn:active {
-            transform: translateY(0);
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        /* 编辑按钮特殊样式 */
-        #editConfigBtn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        }
-
-        #editConfigBtn:hover {
-            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%) !important;
-        }
-
-        /* 删除按钮特殊样式 */
-        #deleteConfigBtn {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%) !important;
-        }
-
-        #deleteConfigBtn:hover {
-            background: linear-gradient(135deg, #ff5252 0%, #e53935 100%) !important;
-        }
-
-        .tools-section {
-            margin-bottom: 20px;
-        }
-
-        .tool-grid {
-            display: flex;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-        }
-
-        .tool-btn {
-            background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            padding: 10px 8px;
-            cursor: pointer;
-            font-size: 11px;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .tool-btn:hover {
-            background: #e9ecef;
-            border-color: #3498db;
-        }
-
-        .tool-btn .icon {
-            font-size: 16px;
-            margin-bottom: 3px;
-            display: block;
-        }
-
-        .steps-section {
-            margin-bottom: 20px;
-        }
-
-        .steps-container {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            background: white;
-            display: block;
-        }
-
-        .step-item {
-            width: 100%;
-            padding: 10px;
-            border-bottom: 1px solid #f8f9fa;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: relative;
-            cursor: pointer;
-        }
-
-        .step-item:last-child {
-            border-bottom: none;
-        }
-
-        .step-item:hover {
-            background: #f8f9fa;
-        }
-
-
-
-        .step-info {
-            flex: 1;
-        }
-
-        .step-name {
-            font-size: 12px;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-bottom: 2px;
-        }
-
-        .step-details {
-            font-size: 10px;
-            color: #7f8c8d;
-        }
-
-        .step-actions {
-            display: flex;
-            gap: 5px;
-        }
-
-        .step-action-btn {
-            background: none;
-            border: none;
-            color: #7f8c8d;
-            cursor: pointer;
-            padding: 2px;
-            border-radius: 3px;
-            font-size: 12px;
-            transition: all 0.2s;
-        }
-
-        .step-action-btn:hover {
-            background: #e9ecef;
-            color: #2c3e50;
-        }
-
-        .step-action-btn[data-action="test"] {
-            color: #28a745;
-        }
-
-        .step-action-btn[data-action="test"]:hover {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .step-action-btn[data-action="edit"] {
-            color: #007bff;
-        }
-
-        .step-action-btn[data-action="edit"]:hover {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .step-action-btn[data-action="delete"] {
-            color: #dc3545;
-        }
-
-        .step-action-btn[data-action="delete"]:hover {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .empty-steps {
-            padding: 30px;
-            text-align: center;
-            color: #7f8c8d;
-            font-size: 12px;
-        }
-
-        .execution-section {
-            margin-bottom: 15px;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        .progress-text {
-            font-size: 11px;
-            color: #7f8c8d;
-            text-align: center;
-        }
-
-        .status-message {
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            margin-bottom: 10px;
-            display: none;
-        }
-
-        .status-success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-
-        .status-error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-
-        .status-info {
-            background: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-        }
-
-        .form-group {
-            margin-bottom: 12px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 11px;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 6px 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 11px;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-
-        .help-text {
-            font-size: 10px;
-            color: #7f8c8d;
-            margin-top: 2px;
-        }
-
-        /* 定位器测试相关样式 */
-        .input-with-test {
-            display: flex;
-            gap: 5px;
-            align-items: center;
-        }
-
-        .input-with-test input {
-            flex: 1;
-        }
-
-        .test-locator-btn {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 11px;
-            white-space: nowrap;
-            transition: background-color 0.2s;
-        }
-
-        .test-locator-btn:hover {
-            background: #2980b9;
-        }
-
-        .test-locator-btn:disabled {
-            background: #bdc3c7;
-            cursor: not-allowed;
-        }
-
-        .test-result {
-            margin-top: 5px;
-            padding: 5px 8px;
-            border-radius: 3px;
-            font-size: 11px;
-            font-weight: bold;
-        }
-
-        .test-result.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .test-result.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .test-result.empty {
-            display: none;
-        }
-
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            display: none;
-        }
-
-        .modal {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            width: 90%;
-            max-width: 350px;
-            max-height: 80%;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .modal-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #2c3e50;
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            color: #7f8c8d;
-        }
-
-        .modal-close:hover {
-            color: #e74c3c;
-        }
-
-        /* 子操作列表样式 */
-        .sub-operations-empty {
-            text-align: center;
-            color: #666;
-            font-style: italic;
-            padding: 20px;
-            background-color: #f8f9fa;
-            border-radius: 4px;
-            border: 1px dashed #dee2e6;
-        }
-
-        .sub-operation-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            margin: 5px 0;
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-        }
-
-        .sub-operation-info {
-            flex: 1;
-        }
-
-        .sub-operation-type {
-            font-weight: bold;
-            color: #007bff;
-            margin-right: 10px;
-        }
-
-        .sub-operation-detail {
-            color: #666;
-            font-size: 12px;
-        }
-
-        .sub-operation-actions {
-            display: flex;
-            gap: 5px;
-        }
-
-        .btn-small {
-            padding: 4px 8px;
-            font-size: 12px;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            background-color: #007bff;
-            color: white;
-        }
-
-        .btn-small:hover {
-            background-color: #0056b3;
-        }
-
-        .btn-small.btn-danger {
-            background-color: #dc3545;
-        }
-
-        .btn-small.btn-danger:hover {
-            background-color: #c82333;
-        }
-
-        /* 详细进度显示样式 */
-        .detailed-progress {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 6px;
-            border: 1px solid #e9ecef;
-        }
-
-        .progress-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 5px 0;
-            padding: 3px 0;
-        }
-
-        .progress-label {
-            font-size: 12px;
-            color: #6c757d;
-            font-weight: 500;
-        }
-
-        .progress-value {
-            font-size: 12px;
-            color: #495057;
-            font-weight: bold;
-        }
-
-        .overall-progress {
-            margin-bottom: 5px;
-        }
-
-        /* 暂停按钮样式 */
-        #pauseResumeBtn {
-            min-width: 70px;
-        }
-
-        #pauseResumeBtn.paused {
-            background-color: #28a745;
-            border-color: #28a745;
-        }
-
-        #pauseResumeBtn.paused:hover {
-            background-color: #218838;
-            border-color: #1e7e34;
-        }
-
-        /* 执行状态指示器 */
-        .execution-status-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 5px;
-        }
-
-        .execution-status-indicator.running {
-            background-color: #28a745;
-            animation: pulse 1.5s infinite;
-        }
-
-        .execution-status-indicator.paused {
-            background-color: #ffc107;
-        }
-
-        .execution-status-indicator.stopped {
-            background-color: #6c757d;
-        }
-
-        @keyframes pulse {
-            0% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-
-            100% {
-                opacity: 1;
-            }
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        width: 800px;
+        height: 600px;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f8f9fa;
+        color: #333;
+        overflow: hidden;
+      }
+
+      .app-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background: #fff;
+      }
+
+      .main-content {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
+
+      /* 左侧配置管理面板 */
+      .left-panel {
+        width: 280px;
+        min-width: 200px;
+        max-width: 400px;
+        background: #fafafa;
+        border-right: 1px solid #e0e0e0;
+        display: flex;
+        flex-direction: column;
+        transition: width 0.3s ease;
+      }
+
+      .left-panel.collapsed {
+        width: 40px;
+      }
+
+      .left-panel.collapsed .panel-content {
+        display: none;
+      }
+
+      /* 分割线 */
+      .divider {
+        width: 4px;
+        background: #e0e0e0;
+        cursor: col-resize;
+        transition: background-color 0.2s;
+      }
+
+      .divider:hover {
+        background: #2196f3;
+      }
+
+      /* 右侧流程图预览面板 */
+      .right-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 300px;
+      }
+
+      /* 面板头部 */
+      .panel-header {
+        height: 50px;
+        padding: 0 16px;
+        background: #fff;
+        border-bottom: 1px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .panel-header h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 8px;
+      }
+
+      /* 面板内容 */
+      .panel-content {
+        flex: 1;
+        padding: 16px;
+        overflow: auto;
+        min-height: 0;
+
+        #flowPreview {
+          width: 100%;
+          height: 100%;
+        }
+      }
+
+      /* 底部执行状态栏 */
+      .bottom-panel {
+        height: 80px;
+        background: #f8f9fa;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+      }
+
+      .status-content {
+        width: 100%;
+        padding: 0 16px;
+      }
+
+      /* 按钮样式 */
+      .btn-icon {
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: #f5f5f5;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+      }
+
+      .btn-icon:hover {
+        background: #e3f2fd;
+        color: #2196f3;
+      }
+
+      .btn-icon .icon {
+        font-size: 14px;
+      }
+
+      .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .btn-primary {
+        background: #2196f3;
+        color: #fff;
+      }
+
+      .btn-primary:hover {
+        background: #1976d2;
+      }
+
+      .btn-secondary {
+        background: #f5f5f5;
+        color: #333;
+        border: 1px solid #e0e0e0;
+      }
+
+      .btn-secondary:hover {
+        background: #e3f2fd;
+        border-color: #2196f3;
+        color: #2196f3;
+      }
+
+      .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+
+      /* 流程图预览样式 */
+      .flow-preview {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: #f8f9fa;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+
+      .flow-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+      }
+
+      .flow-canvas:active {
+        cursor: grabbing;
+      }
+
+      .flow-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+        z-index: 1;
+      }
+
+      .empty-flow {
+        text-align: center;
+        color: #666;
+      }
+
+      .empty-flow-icon {
+        font-size: 64px;
+        margin-bottom: 16px;
+        opacity: 0.3;
+      }
+
+      .empty-flow-text {
+        font-size: 18px;
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: #333;
+      }
+
+      .empty-flow-desc {
+        font-size: 14px;
+        color: #666;
+      }
+
+      .workflow-info {
+        display: flex;
+        gap: 10px;
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        border: 1px solid #e9ecef;
+        margin-bottom: 15px;
+      }
+
+      .workflow-name {
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 5px;
+      }
+
+      .workflow-stats {
+        font-size: 12px;
+        color: #7f8c8d;
+      }
+
+      .action-buttons {
+        display: flex;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      .btn {
+        padding: 10px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        text-align: center;
+      }
+
+      .btn-primary {
+        background: #3498db;
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: #2980b9;
+      }
+
+      .btn-success {
+        background: #27ae60;
+        color: white;
+      }
+
+      .btn-success:hover {
+        background: #229954;
+      }
+
+      .btn-secondary {
+        background: #95a5a6;
+        color: white;
+      }
+
+      .btn-secondary:hover {
+        background: #7f8c8d;
+      }
+
+      .btn-danger {
+        background: #e74c3c;
+        color: white;
+      }
+
+      .btn-danger:hover {
+        background: #c0392b;
+      }
+
+      /* 配置操作按钮样式 */
+      .config-actions .btn {
+        transition: all 0.2s ease;
+        font-weight: 500;
+      }
+
+      .config-actions .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      }
+
+      .config-actions .btn:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      /* 编辑按钮特殊样式 */
+      #editConfigBtn {
+        background: linear-gradient(
+          135deg,
+          #667eea 0%,
+          #764ba2 100%
+        ) !important;
+      }
+
+      #editConfigBtn:hover {
+        background: linear-gradient(
+          135deg,
+          #5a6fd8 0%,
+          #6a4190 100%
+        ) !important;
+      }
+
+      /* 删除按钮特殊样式 */
+      #deleteConfigBtn {
+        background: linear-gradient(
+          135deg,
+          #ff6b6b 0%,
+          #ee5a52 100%
+        ) !important;
+      }
+
+      #deleteConfigBtn:hover {
+        background: linear-gradient(
+          135deg,
+          #ff5252 0%,
+          #e53935 100%
+        ) !important;
+      }
+
+      .tools-section {
+        margin-bottom: 20px;
+      }
+
+      .tool-grid {
+        display: flex;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .tool-btn {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 10px 8px;
+        cursor: pointer;
+        font-size: 11px;
+        text-align: center;
+        transition: all 0.3s ease;
+      }
+
+      .tool-btn:hover {
+        background: #e9ecef;
+        border-color: #3498db;
+      }
+
+      .tool-btn .icon {
+        font-size: 16px;
+        margin-bottom: 3px;
+        display: block;
+      }
+
+      .steps-section {
+        margin-bottom: 20px;
+      }
+
+      .steps-container {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        background: white;
+        display: block;
+      }
+
+      .step-item {
+        width: 100%;
+        padding: 10px;
+        border-bottom: 1px solid #f8f9fa;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        cursor: pointer;
+      }
+
+      .step-item:last-child {
+        border-bottom: none;
+      }
+
+      .step-item:hover {
+        background: #f8f9fa;
+      }
+
+      .step-info {
+        flex: 1;
+      }
+
+      .step-name {
+        font-size: 12px;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 2px;
+      }
+
+      .step-details {
+        font-size: 10px;
+        color: #7f8c8d;
+      }
+
+      .step-actions {
+        display: flex;
+        gap: 5px;
+      }
+
+      .step-action-btn {
+        background: none;
+        border: none;
+        color: #7f8c8d;
+        cursor: pointer;
+        padding: 2px;
+        border-radius: 3px;
+        font-size: 12px;
+        transition: all 0.2s;
+      }
+
+      .step-action-btn:hover {
+        background: #e9ecef;
+        color: #2c3e50;
+      }
+
+      .step-action-btn[data-action="test"] {
+        color: #28a745;
+      }
+
+      .step-action-btn[data-action="test"]:hover {
+        background: #d4edda;
+        color: #155724;
+      }
+
+      .step-action-btn[data-action="edit"] {
+        color: #007bff;
+      }
+
+      .step-action-btn[data-action="edit"]:hover {
+        background: #d1ecf1;
+        color: #0c5460;
+      }
+
+      .step-action-btn[data-action="delete"] {
+        color: #dc3545;
+      }
+
+      .step-action-btn[data-action="delete"]:hover {
+        background: #f8d7da;
+        color: #721c24;
+      }
+
+      .empty-steps {
+        padding: 30px;
+        text-align: center;
+        color: #7f8c8d;
+        font-size: 12px;
+      }
+
+      .execution-section {
+        margin-bottom: 15px;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        width: 0%;
+        transition: width 0.3s ease;
+      }
+
+      .progress-text {
+        font-size: 11px;
+        color: #7f8c8d;
+        text-align: center;
+      }
+
+      .status-message {
+        padding: 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        margin-bottom: 10px;
+        display: none;
+      }
+
+      .status-success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+
+      .status-error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+
+      .status-info {
+        background: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+
+      .form-group {
+        margin-bottom: 12px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 11px;
+        font-weight: bold;
+        color: #2c3e50;
+      }
+
+      .form-group input,
+      .form-group select {
+        width: 100%;
+        padding: 6px 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 11px;
+      }
+
+      .form-group input:focus,
+      .form-group select:focus {
+        outline: none;
+        border-color: #3498db;
+      }
+
+      .help-text {
+        font-size: 10px;
+        color: #7f8c8d;
+        margin-top: 2px;
+      }
+
+      /* 定位器测试相关样式 */
+      .input-with-test {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+      }
+
+      .input-with-test input {
+        flex: 1;
+      }
+
+      .test-locator-btn {
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 6px 10px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
+        white-space: nowrap;
+        transition: background-color 0.2s;
+      }
+
+      .test-locator-btn:hover {
+        background: #2980b9;
+      }
+
+      .test-locator-btn:disabled {
+        background: #bdc3c7;
+        cursor: not-allowed;
+      }
+
+      .test-result {
+        margin-top: 5px;
+        padding: 5px 8px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-weight: bold;
+      }
+
+      .test-result.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .test-result.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      .test-result.empty {
+        display: none;
+      }
+
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: none;
+      }
+
+      .modal {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        width: 90%;
+        max-width: 350px;
+        max-height: 80%;
+        overflow-y: auto;
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .modal-title {
+        font-size: 14px;
+        font-weight: bold;
+        color: #2c3e50;
+      }
+
+      .modal-close {
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        color: #7f8c8d;
+      }
+
+      .modal-close:hover {
+        color: #e74c3c;
+      }
+
+      /* 子操作列表样式 */
+      .sub-operations-empty {
+        text-align: center;
+        color: #666;
+        font-style: italic;
+        padding: 20px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        border: 1px dashed #dee2e6;
+      }
+
+      .sub-operation-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        margin: 5px 0;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+      }
+
+      .sub-operation-info {
+        flex: 1;
+      }
+
+      .sub-operation-type {
+        font-weight: bold;
+        color: #007bff;
+        margin-right: 10px;
+      }
+
+      .sub-operation-detail {
+        color: #666;
+        font-size: 12px;
+      }
+
+      .sub-operation-actions {
+        display: flex;
+        gap: 5px;
+      }
+
+      .btn-small {
+        padding: 4px 8px;
+        font-size: 12px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        background-color: #007bff;
+        color: white;
+      }
+
+      .btn-small:hover {
+        background-color: #0056b3;
+      }
+
+      .btn-small.btn-danger {
+        background-color: #dc3545;
+      }
+
+      .btn-small.btn-danger:hover {
+        background-color: #c82333;
+      }
+
+      /* 详细进度显示样式 */
+      .detailed-progress {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #e9ecef;
+      }
+
+      .progress-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 5px 0;
+        padding: 3px 0;
+      }
+
+      .progress-label {
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 500;
+      }
+
+      .progress-value {
+        font-size: 12px;
+        color: #495057;
+        font-weight: bold;
+      }
+
+      .overall-progress {
+        margin-bottom: 5px;
+      }
+
+      /* 暂停按钮样式 */
+      #pauseResumeBtn {
+        min-width: 70px;
+      }
+
+      #pauseResumeBtn.paused {
+        background-color: #28a745;
+        border-color: #28a745;
+      }
+
+      #pauseResumeBtn.paused:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+      }
+
+      /* 执行状态指示器 */
+      .execution-status-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 5px;
+      }
+
+      .execution-status-indicator.running {
+        background-color: #28a745;
+        animation: pulse 1.5s infinite;
+      }
+
+      .execution-status-indicator.paused {
+        background-color: #ffc107;
+      }
+
+      .execution-status-indicator.stopped {
+        background-color: #6c757d;
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+
+        50% {
+          opacity: 0.5;
+        }
+
+        100% {
+          opacity: 1;
+        }
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <!-- <div class="header">
         <h1>🤖 通用自动化</h1>
         <p>智能网页操作助手</p>
     </div> -->
 
     <div class="app-container">
-        <!-- 主内容区域 -->
-        <div class="main-content">
-            <!-- 左侧配置管理面板 -->
-            <div class="left-panel" id="leftPanel">
-                <div class="panel-header">
-                    <h3>配置管理</h3>
+      <!-- 主内容区域 -->
+      <div class="main-content">
+        <!-- 左侧配置管理面板 -->
+        <div class="left-panel" id="leftPanel">
+          <div class="panel-header">
+            <h3>配置管理</h3>
+          </div>
+
+          <div class="panel-content">
+            <!-- 配置管理模块 -->
+            <div id="configManager">
+              <!-- 工具栏 -->
+              <div
+                class="config-toolbar"
+                style="display: flex; gap: 8px; margin-bottom: 16px"
+              >
+                <button class="btn btn-primary btn-sm" id="openDesignerBtn">
+                  <span class="icon">🎨</span>
+                  打开设计器
+                </button>
+                <button class="btn btn-secondary btn-sm" id="importBtn">
+                  <span class="icon">📁</span>
+                  导入配置
+                </button>
+                <button
+                  class="btn btn-secondary btn-sm"
+                  id="clearCacheBtn"
+                  title="清除状态缓存"
+                >
+                  <span class="icon">🧹</span>
+                  清除缓存
+                </button>
+              </div>
+
+              <!-- 配置选择下拉框 -->
+              <div class="config-selector" style="margin-bottom: 16px">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 8px;
+                  "
+                >
+                  <label
+                    for="configSelect"
+                    style="font-size: 14px; font-weight: 500; color: #333"
+                    >选择配置:</label
+                  >
+                  <button
+                    id="refreshConfigBtn"
+                    style="
+                      padding: 4px 8px;
+                      font-size: 12px;
+                      background: #f0f0f0;
+                      border: 1px solid #ddd;
+                      border-radius: 4px;
+                      cursor: pointer;
+                    "
+                    title="刷新配置列表"
+                  >
+                    🔄 刷新
+                  </button>
                 </div>
+                <select
+                  id="configSelect"
+                  style="
+                    width: 100%;
+                    padding: 10px 12px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    background: #fff;
+                    cursor: pointer;
+                  "
+                >
+                  <option value="">请选择一个配置...</option>
+                </select>
+              </div>
 
-                <div class="panel-content">
-                    <!-- 配置管理模块 -->
-                    <div id="configManager">
-                        <!-- 工具栏 -->
-                        <div class="config-toolbar" style="display: flex; gap: 8px; margin-bottom: 16px;">
-                            <button class="btn btn-primary btn-sm" id="openDesignerBtn">
-                                <span class="icon">🎨</span>
-                                打开设计器
-                            </button>
-                            <button class="btn btn-secondary btn-sm" id="importBtn">
-                                <span class="icon">📁</span>
-                                导入配置
-                            </button>
-                            <button class="btn btn-secondary btn-sm" id="clearCacheBtn" title="清除状态缓存">
-                                <span class="icon">🧹</span>
-                                清除缓存
-                            </button>
-                        </div>
-
-                        <!-- 配置选择下拉框 -->
-                        <div class="config-selector" style="margin-bottom: 16px;">
-                            <div
-                                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                <label for="configSelect"
-                                    style="font-size: 14px; font-weight: 500; color: #333;">选择配置:</label>
-                                <button id="refreshConfigBtn"
-                                    style="padding: 4px 8px; font-size: 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;"
-                                    title="刷新配置列表">
-                                    🔄 刷新
-                                </button>
-                            </div>
-                            <select id="configSelect"
-                                style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; background: #fff; cursor: pointer;">
-                                <option value="">请选择一个配置...</option>
-                            </select>
-                        </div>
-
-                        <!-- 当前配置信息 -->
-                        <div class="current-config" id="currentConfig"
-                            style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; background: #f8f9fa; margin-bottom: 16px; display: none;">
-                            <div class="config-info" style="font-size: 13px; color: #666;">
-                                <div class="config-name" style="font-weight: 600; color: #333; margin-bottom: 4px;">
-                                    未选择配置</div>
-                                <div class="config-stats">0 个步骤</div>
-                            </div>
-                            <!-- 配置操作按钮 -->
-                            <div class="config-actions" style="display: flex; gap: 8px; margin-top: 12px;">
-                                <button class="btn btn-sm" id="editConfigBtn"
-                                    style="flex: 1; background: #ff6b6b; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                                    编辑
-                                </button>
-                                <button class="btn btn-sm" id="deleteConfigBtn"
-                                    style="flex: 1; background: #ff6b6b; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                                    删除
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- 执行控制按钮 -->
-                        <div class="config-actions" style="margin-top: 16px;">
-                            <button class="btn btn-primary" id="executeBtn" disabled
-                                style="width: 100%; padding: 12px; margin-bottom: 8px;">
-                                <span class="icon">▶️</span>
-                                执行工作流
-                            </button>
-                            <div class="execution-controls" style="display: none; gap: 8px;" id="executionControls">
-                                <button class="btn btn-warning" id="pauseResumeBtn" style="flex: 1; padding: 8px;">
-                                    <span class="icon">⏸️</span>
-                                    暂停
-                                </button>
-                                <button class="btn btn-danger" id="stopBtn" style="flex: 1; padding: 8px;">
-                                    <span class="icon">⏹️</span>
-                                    停止
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+              <!-- 当前配置信息 -->
+              <div
+                class="current-config"
+                id="currentConfig"
+                style="
+                  border: 1px solid #e0e0e0;
+                  border-radius: 6px;
+                  padding: 12px;
+                  background: #f8f9fa;
+                  margin-bottom: 16px;
+                  display: none;
+                "
+              >
+                <div class="config-info" style="font-size: 13px; color: #666">
+                  <div
+                    class="config-name"
+                    style="font-weight: 600; color: #333; margin-bottom: 4px"
+                  >
+                    未选择配置
+                  </div>
+                  <div class="config-stats">0 个步骤</div>
                 </div>
+                <!-- 配置操作按钮 -->
+                <div
+                  class="config-actions"
+                  style="display: flex; gap: 8px; margin-top: 12px"
+                >
+                  <button
+                    class="btn btn-sm"
+                    id="editConfigBtn"
+                    style="
+                      flex: 1;
+                      background: #ff6b6b;
+                      color: white;
+                      border: none;
+                      padding: 8px 12px;
+                      border-radius: 4px;
+                      cursor: pointer;
+                      font-size: 12px;
+                    "
+                  >
+                    编辑
+                  </button>
+                  <button
+                    class="btn btn-sm"
+                    id="deleteConfigBtn"
+                    style="
+                      flex: 1;
+                      background: #ff6b6b;
+                      color: white;
+                      border: none;
+                      padding: 8px 12px;
+                      border-radius: 4px;
+                      cursor: pointer;
+                      font-size: 12px;
+                    "
+                  >
+                    删除
+                  </button>
+                </div>
+              </div>
+
+              <!-- 执行控制按钮 -->
+              <div class="config-actions" style="margin-top: 16px">
+                <button
+                  class="btn btn-primary"
+                  id="executeBtn"
+                  disabled
+                  style="width: 100%; padding: 12px; margin-bottom: 8px"
+                >
+                  <span class="icon">▶️</span>
+                  执行工作流
+                </button>
+                <div
+                  class="execution-controls"
+                  style="display: none; gap: 8px"
+                  id="executionControls"
+                >
+                  <button
+                    class="btn btn-warning"
+                    id="pauseResumeBtn"
+                    style="flex: 1; padding: 8px"
+                  >
+                    <span class="icon">⏸️</span>
+                    暂停
+                  </button>
+                  <button
+                    class="btn btn-danger"
+                    id="stopBtn"
+                    style="flex: 1; padding: 8px"
+                  >
+                    <span class="icon">⏹️</span>
+                    停止
+                  </button>
+                </div>
+              </div>
             </div>
-
-            <!-- 中间分割线 -->
-            <div class="divider" id="divider"></div>
-
-            <!-- 右侧流程图预览面板 -->
-            <div class="right-panel" id="rightPanel">
-                <div class="panel-header">
-                    <h3>流程预览</h3>
-                </div>
-
-                <div class="panel-content">
-                    <!-- 流程图预览模块 -->
-                    <div id="flowPreview">
-                        <div class="flow-preview">
-                            <div id="flowGraphContainer" class="flow-graph-container"
-                                style="width: 100%; height: 100%; background: white; position: relative;">
-                                <div class="loading" style="display: none;">
-                                    <div class="spinner"></div>
-                                    <div>正在加载...</div>
-                                </div>
-                            </div>
-                            <div class="flow-overlay" id="flowOverlay">
-                                <div class="empty-flow">
-                                    <div class="empty-flow-icon">🔄</div>
-                                    <div class="empty-flow-text">暂无流程图</div>
-                                    <div class="empty-flow-desc">请从左侧选择一个配置来预览流程</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+          </div>
         </div>
 
-        <!-- 底部执行状态栏 -->
-        <div class="bottom-panel" id="bottomPanel">
-            <div class="status-content">
-                <!-- 执行状态模块 -->
-                <div id="executionStatus">
-                    <div class="execution-status"
-                        style="display: flex; align-items: center; gap: 16px; padding: 0 4px; height: 100%;">
-                        <!-- 状态指示器 -->
-                        <div class="status-indicator-section"
-                            style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
-                            <div class="status-icon"
-                                style="font-size: 20px; width: 24px; text-align: center; color: #6c757d;">⏸️</div>
-                            <div class="status-info" style="display: flex; flex-direction: column; gap: 2px;">
-                                <div class="status-text" style="font-size: 14px; font-weight: 600; color: #6c757d;">空闲
-                                </div>
-                                <div class="status-message" style="font-size: 12px; color: #666;">等待执行...</div>
-                            </div>
-                        </div>
+        <!-- 中间分割线 -->
+        <div class="divider" id="divider"></div>
 
-                        <!-- 执行时间显示 -->
-                        <div class="execution-time"
-                            style="display: none; align-items: center; gap: 6px; font-size: 12px; color: #666; flex-shrink: 0; margin-left: auto;">
-                            <span class="time-label" style="font-weight: 500;">执行时间:</span>
-                            <span class="time-value"
-                                style="font-family: 'Courier New', monospace; font-weight: 600; color: #333;">00:00</span>
-                        </div>
-                    </div>
+        <!-- 右侧流程图预览面板 -->
+        <div class="right-panel" id="rightPanel">
+          <div class="panel-header">
+            <h3>流程预览</h3>
+          </div>
+
+          <div class="panel-content">
+            <!-- 流程图预览模块 -->
+            <div id="flowPreview">
+              <div class="flow-preview">
+                <div
+                  id="flowGraphContainer"
+                  class="flow-graph-container"
+                  style="
+                    width: 100%;
+                    height: 100%;
+                    background: white;
+                    position: relative;
+                  "
+                >
+                  <div class="loading" style="display: none">
+                    <div class="spinner"></div>
+                    <div>正在加载...</div>
+                  </div>
                 </div>
+                <div class="flow-overlay" id="flowOverlay">
+                  <div class="empty-flow">
+                    <div class="empty-flow-icon">🔄</div>
+                    <div class="empty-flow-text">暂无流程图</div>
+                    <div class="empty-flow-desc">
+                      请从左侧选择一个配置来预览流程
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
         </div>
+      </div>
+
+      <!-- 底部执行状态栏 -->
+      <div class="bottom-panel" id="bottomPanel">
+        <div class="status-content">
+          <!-- 执行状态模块 -->
+          <div id="executionStatus">
+            <div
+              class="execution-status"
+              style="
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                padding: 0 4px;
+                height: 100%;
+              "
+            >
+              <!-- 状态指示器 -->
+              <div
+                class="status-indicator-section"
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 12px;
+                  flex-shrink: 0;
+                "
+              >
+                <div
+                  class="status-icon"
+                  style="
+                    font-size: 20px;
+                    width: 24px;
+                    text-align: center;
+                    color: #6c757d;
+                  "
+                >
+                  ⏸️
+                </div>
+                <div
+                  class="status-info"
+                  style="display: flex; flex-direction: column; gap: 2px"
+                >
+                  <div
+                    class="status-text"
+                    style="font-size: 14px; font-weight: 600; color: #6c757d"
+                  >
+                    空闲
+                  </div>
+                  <div
+                    class="status-message"
+                    style="font-size: 12px; color: #666"
+                  >
+                    等待执行...
+                  </div>
+                </div>
+              </div>
+
+              <!-- 执行时间显示 -->
+              <div
+                class="execution-time"
+                style="
+                  display: none;
+                  align-items: center;
+                  gap: 6px;
+                  font-size: 12px;
+                  color: #666;
+                  flex-shrink: 0;
+                  margin-left: auto;
+                "
+              >
+                <span class="time-label" style="font-weight: 500"
+                  >执行时间:</span
+                >
+                <span
+                  class="time-value"
+                  style="
+                    font-family: 'Courier New', monospace;
+                    font-weight: 600;
+                    color: #333;
+                  "
+                  >00:00</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <!-- 隐藏的文件输入 -->
-    <input type="file" id="fileInput" accept=".json" style="display: none;">
+    <input type="file" id="fileInput" accept=".json" style="display: none" />
 
     <!-- 主脚本 -->
     <script type="module" src="plugin-automation-popup.js"></script>
 
     <!-- 右键菜单 -->
-    <div id="contextMenu" class="context-menu hidden"
-        style="position: fixed; background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); padding: 8px 0; min-width: 180px; z-index: 10000; display: none;">
-        <div class="menu-item" id="testNodeBtn"
-            style="padding: 10px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background-color 0.2s;">
-            <span class="icon" style="font-size: 14px; width: 18px; text-align: center;">🧪</span>
-            <span class="text" style="font-size: 13px; color: #333;">测试节点</span>
-        </div>
-        <div class="menu-item" id="viewConfigBtn"
-            style="padding: 10px 16px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background-color 0.2s;">
-            <span class="icon" style="font-size: 14px; width: 18px; text-align: center;">⚙️</span>
-            <span class="text" style="font-size: 13px; color: #333;">查看配置</span>
-        </div>
+    <div
+      id="contextMenu"
+      class="context-menu hidden"
+      style="
+        position: fixed;
+        background: #fff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        padding: 8px 0;
+        min-width: 180px;
+        z-index: 10000;
+        display: none;
+      "
+    >
+      <div
+        class="menu-item"
+        id="testNodeBtn"
+        style="
+          padding: 10px 16px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        "
+      >
+        <span
+          class="icon"
+          style="font-size: 14px; width: 18px; text-align: center"
+          >🧪</span
+        >
+        <span class="text" style="font-size: 13px; color: #333">测试节点</span>
+      </div>
+      <div
+        class="menu-item"
+        id="viewConfigBtn"
+        style="
+          padding: 10px 16px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        "
+      >
+        <span
+          class="icon"
+          style="font-size: 14px; width: 18px; text-align: center"
+          >⚙️</span
+        >
+        <span class="text" style="font-size: 13px; color: #333">查看配置</span>
+      </div>
     </div>
 
     <!-- 模态框 -->
-    <div class="modal-overlay" id="modalOverlay"
-        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; display: none;">
-        <div class="modal" id="stepModal"
-            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; padding: 20px; width: 90%; max-width: 350px; max-height: 80%; overflow-y: auto;">
-            <div class="modal-header"
-                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #e9ecef;">
-                <h3 class="modal-title" id="modalTitle" style="font-size: 14px; font-weight: bold; color: #2c3e50;">编辑步骤
-                </h3>
-                <button class="modal-close" id="modalCloseBtn"
-                    style="background: none; border: none; font-size: 18px; cursor: pointer; color: #7f8c8d;">&times;</button>
-            </div>
-            <div class="modal-content" id="modalContent">
-                <!-- 动态内容将在这里插入 -->
-            </div>
+    <div
+      class="modal-overlay"
+      id="modalOverlay"
+      style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: none;
+      "
+    >
+      <div
+        class="modal"
+        id="stepModal"
+        style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: white;
+          border-radius: 8px;
+          padding: 20px;
+          width: 90%;
+          max-width: 350px;
+          max-height: 80%;
+          overflow-y: auto;
+        "
+      >
+        <div
+          class="modal-header"
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e9ecef;
+          "
+        >
+          <h3
+            class="modal-title"
+            id="modalTitle"
+            style="font-size: 14px; font-weight: bold; color: #2c3e50"
+          >
+            编辑步骤
+          </h3>
+          <button
+            class="modal-close"
+            id="modalCloseBtn"
+            style="
+              background: none;
+              border: none;
+              font-size: 18px;
+              cursor: pointer;
+              color: #7f8c8d;
+            "
+          >
+            &times;
+          </button>
         </div>
+        <div class="modal-content" id="modalContent">
+          <!-- 动态内容将在这里插入 -->
+        </div>
+      </div>
     </div>
-
-
 
     <!-- 核心引擎 -->
     <script src="universal-automation-engine.js"></script>
@@ -1055,6 +1314,5 @@
 
     <!-- 模块化主文件 -->
     <script type="module" src="plugin-automation-popup.js"></script>
-</body>
-
+  </body>
 </html>

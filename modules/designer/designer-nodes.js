@@ -1237,7 +1237,7 @@ class DesignerNodes {
           </div>
       </div>
       ${
-        config.loopType === "self"
+        config.loopType === "self" || config.loopType === "container"
           ? `
       <div class="form-group">
           <label class="form-label">操作类型</label>
@@ -1252,6 +1252,11 @@ class DesignerNodes {
                 config.operationType === "hover" ? "selected" : ""
               }>悬停</option>
           </select>
+          ${
+            config.loopType === "container"
+              ? '<div class="form-help">容器循环的操作类型用于点击容器元素</div>'
+              : '<div class="form-help">自循环的操作类型用于对每个匹配元素执行的操作</div>'
+          }
       </div>
       `
           : ""
@@ -1650,6 +1655,11 @@ class DesignerNodes {
     const operationType = document.getElementById("operationType");
     if (operationType) {
       config.operationType = operationType.value;
+    } else {
+      // 如果没有找到操作类型字段，确保有默认值
+      if (!config.operationType) {
+        config.operationType = "click";
+      }
     }
 
     const operationDelay = document.getElementById("operationDelay");

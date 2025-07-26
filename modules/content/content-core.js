@@ -9,14 +9,26 @@ let testHighlightedElements = [];
 /**
  * 监听来自后台脚本的消息
  */
-if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-  chrome.runtime.onMessage.addListener(function (request, _sender, sendResponse) {
+if (
+  typeof chrome !== "undefined" &&
+  chrome.runtime &&
+  chrome.runtime.onMessage
+) {
+  chrome.runtime.onMessage.addListener(function (
+    request,
+    _sender,
+    sendResponse
+  ) {
     console.log("Content script收到消息:", request);
 
     // 处理ping请求，用于检测content script是否已加载
     if (request.action === "ping") {
       console.log("收到ping请求");
-      sendResponse({ success: true, status: "ready", message: "Content script已加载" });
+      sendResponse({
+        success: true,
+        status: "ready",
+        message: "Content script已加载",
+      });
       return true;
     }
 
@@ -28,8 +40,10 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
         // 清除可能存在的引擎实例
         if (window.UniversalAutomationEngine) {
           // 移除旧的脚本标签
-          const oldScripts = document.querySelectorAll('script[data-automation-engine="true"]');
-          oldScripts.forEach(script => {
+          const oldScripts = document.querySelectorAll(
+            'script[data-automation-engine="true"]'
+          );
+          oldScripts.forEach((script) => {
             script.remove();
             console.log("🗑️ 已移除旧的引擎脚本");
           });
@@ -49,7 +63,10 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
 
     // 处理通用自动化工作流执行
     if (request.action === "executeWorkflow") {
-      console.log("🔧 [DEBUG] 收到工作流执行请求，工作流数据:", JSON.stringify(request.data, null, 2));
+      console.log(
+        "🔧 [DEBUG] 收到工作流执行请求，工作流数据:",
+        JSON.stringify(request.data, null, 2)
+      );
 
       // 验证工作流数据结构
       if (request.data && request.data.steps) {
@@ -60,13 +77,16 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
             locator: step.locator,
             hasLocator: !!step.locator,
             locatorStrategy: step.locator?.strategy || step.locator?.type,
-            locatorValue: step.locator?.value
+            locatorValue: step.locator?.value,
           });
         });
       }
 
       // 调用自动化执行模块
-      if (window.ContentAutomation && window.ContentAutomation.executeUniversalWorkflow) {
+      if (
+        window.ContentAutomation &&
+        window.ContentAutomation.executeUniversalWorkflow
+      ) {
         window.ContentAutomation.executeUniversalWorkflow(request.data)
           .then((result) => {
             sendResponse({ success: true, result });
@@ -165,34 +185,42 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
 
     // 处理暂停执行请求
     if (request.action === "pauseExecution") {
-      console.log('🔧 [DEBUG] Content script 收到暂停请求');
-      console.log('🔧 [DEBUG] 当前引擎状态:', {
+      console.log("🔧 [DEBUG] Content script 收到暂停请求");
+      console.log("🔧 [DEBUG] 当前引擎状态:", {
         hasAutomationEngine: !!window.automationEngine,
         hasSimplifiedControl: !!window.simplifiedExecutionControl,
-        automationEngineRunning: window.automationEngine ? window.automationEngine.isRunning : false,
-        automationEnginePaused: window.automationEngine ? window.automationEngine.isPaused : false,
-        simplifiedControlPaused: window.simplifiedExecutionControl ? window.simplifiedExecutionControl.isPaused : false
+        automationEngineRunning: window.automationEngine
+          ? window.automationEngine.isRunning
+          : false,
+        automationEnginePaused: window.automationEngine
+          ? window.automationEngine.isPaused
+          : false,
+        simplifiedControlPaused: window.simplifiedExecutionControl
+          ? window.simplifiedExecutionControl.isPaused
+          : false,
       });
 
       try {
         if (window.automationEngine && window.automationEngine.isRunning) {
-          console.log('🔧 [DEBUG] 使用高级引擎暂停（引擎正在运行）');
+          console.log("🔧 [DEBUG] 使用高级引擎暂停（引擎正在运行）");
           // 高级引擎模式
           window.automationEngine.pause();
-          console.log('🔧 [DEBUG] 高级引擎暂停调用完成');
-          sendResponse({ success: true, mode: 'advanced' });
+          console.log("🔧 [DEBUG] 高级引擎暂停调用完成");
+          sendResponse({ success: true, mode: "advanced" });
         } else if (window.simplifiedExecutionControl) {
-          console.log('🔧 [DEBUG] 使用简化模式暂停');
+          console.log("🔧 [DEBUG] 使用简化模式暂停");
           // 简化模式
           window.simplifiedExecutionControl.pause();
-          console.log('🔧 [DEBUG] 简化模式暂停调用完成');
-          sendResponse({ success: true, mode: 'simplified' });
+          console.log("🔧 [DEBUG] 简化模式暂停调用完成");
+          sendResponse({ success: true, mode: "simplified" });
         } else {
-          console.log('❌ [DEBUG] 没有可用的执行引擎或引擎未运行');
-          console.log('🔧 [DEBUG] 详细状态:', {
+          console.log("❌ [DEBUG] 没有可用的执行引擎或引擎未运行");
+          console.log("🔧 [DEBUG] 详细状态:", {
             hasEngine: !!window.automationEngine,
-            engineRunning: window.automationEngine ? window.automationEngine.isRunning : 'N/A',
-            hasSimplified: !!window.simplifiedExecutionControl
+            engineRunning: window.automationEngine
+              ? window.automationEngine.isRunning
+              : "N/A",
+            hasSimplified: !!window.simplifiedExecutionControl,
           });
           sendResponse({ success: false, error: "自动化引擎未初始化或未运行" });
         }
@@ -256,7 +284,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
     }
   });
 } else {
-  console.warn('Chrome runtime API not available');
+  console.warn("Chrome runtime API not available");
 }
 
 /**
@@ -303,54 +331,54 @@ async function testElementLocator(locator) {
  * 高亮显示元素
  * @param {HTMLElement} element - 要高亮的元素
  */
-function highlightElement(element, type = 'processing') {
+function highlightElement(element, type = "processing") {
   if (!element) return;
 
   // 保存原始样式
   if (!element._originalStyle) {
     element._originalStyle = {
-      outline: element.style.outline || '',
-      backgroundColor: element.style.backgroundColor || '',
-      transition: element.style.transition || ''
+      outline: element.style.outline || "",
+      backgroundColor: element.style.backgroundColor || "",
+      transition: element.style.transition || "",
     };
   }
 
   // 设置高亮样式
-  element.style.transition = 'all 0.3s ease';
+  element.style.transition = "all 0.3s ease";
 
   switch (type) {
-    case 'processing':
-      element.style.outline = '3px solid #3498db';
-      element.style.backgroundColor = 'rgba(52, 152, 219, 0.1)';
+    case "processing":
+      element.style.outline = "3px solid #3498db";
+      element.style.backgroundColor = "rgba(52, 152, 219, 0.1)";
       break;
-    case 'click':
-      element.style.outline = '3px solid #f39c12';
-      element.style.backgroundColor = 'rgba(243, 156, 18, 0.2)';
+    case "click":
+      element.style.outline = "3px solid #f39c12";
+      element.style.backgroundColor = "rgba(243, 156, 18, 0.2)";
       break;
-    case 'input':
-      element.style.outline = '3px solid #9b59b6';
-      element.style.backgroundColor = 'rgba(155, 89, 182, 0.1)';
+    case "input":
+      element.style.outline = "3px solid #9b59b6";
+      element.style.backgroundColor = "rgba(155, 89, 182, 0.1)";
       break;
-    case 'loop':
-      element.style.outline = '3px solid #e67e22';
-      element.style.backgroundColor = 'rgba(230, 126, 34, 0.15)';
+    case "loop":
+      element.style.outline = "3px solid #e67e22";
+      element.style.backgroundColor = "rgba(230, 126, 34, 0.15)";
       break;
-    case 'success':
-      element.style.outline = '3px solid #27ae60';
-      element.style.backgroundColor = 'rgba(39, 174, 96, 0.1)';
+    case "success":
+      element.style.outline = "3px solid #27ae60";
+      element.style.backgroundColor = "rgba(39, 174, 96, 0.1)";
       break;
-    case 'error':
-      element.style.outline = '3px solid #e74c3c';
-      element.style.backgroundColor = 'rgba(231, 76, 60, 0.1)';
+    case "error":
+      element.style.outline = "3px solid #e74c3c";
+      element.style.backgroundColor = "rgba(231, 76, 60, 0.1)";
       break;
-    case 'skip':
-      element.style.outline = '3px solid #95a5a6';
-      element.style.backgroundColor = 'rgba(149, 165, 166, 0.15)';
+    case "skip":
+      element.style.outline = "3px solid #95a5a6";
+      element.style.backgroundColor = "rgba(149, 165, 166, 0.15)";
       break;
   }
 
   // 滚动到元素可见
-  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  element.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 /**
@@ -618,18 +646,22 @@ async function performAsyncElementSearch(strategy, value, timeout) {
   let elements = [];
 
   // 减少轮询频率，特别是对于文本查找
-  const pollingInterval = strategy === "text" || strategy === "contains" ? 300 : 100;
+  const pollingInterval =
+    strategy === "text" || strategy === "contains" ? 300 : 100;
 
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态 - 如果暂停则立即停止搜索
-    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      console.log('🔧 [DEBUG] 元素搜索检测到暂停状态，停止搜索');
+    if (
+      window.simplifiedExecutionControl &&
+      window.simplifiedExecutionControl.isPaused
+    ) {
+      console.log("🔧 [DEBUG] 元素搜索检测到暂停状态，停止搜索");
       break;
     }
 
     // 检查高级引擎暂停状态
     if (window.automationEngine && window.automationEngine.isPaused) {
-      console.log('🔧 [DEBUG] 元素搜索检测到高级引擎暂停状态，停止搜索');
+      console.log("🔧 [DEBUG] 元素搜索检测到高级引擎暂停状态，停止搜索");
       break;
     }
 
@@ -646,7 +678,7 @@ async function performAsyncElementSearch(strategy, value, timeout) {
 
     // 使用 requestAnimationFrame 或 setTimeout 让出主线程，避免阻塞
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, pollingInterval));
       } else {
         setTimeout(resolve, pollingInterval);
@@ -697,15 +729,15 @@ async function performSingleElementSearch(strategy, value) {
 
     case "text":
       // 精确文本匹配，使用遍历方式避免XPath转义问题
-      elements = Array.from(document.querySelectorAll('*')).filter(el =>
-        el.textContent && el.textContent.trim() === value.trim()
+      elements = Array.from(document.querySelectorAll("*")).filter(
+        (el) => el.textContent && el.textContent.trim() === value.trim()
       );
       break;
 
     case "contains":
       // 包含文本匹配，使用遍历方式避免XPath转义问题
-      elements = Array.from(document.querySelectorAll('*')).filter(el =>
-        el.textContent && el.textContent.includes(value)
+      elements = Array.from(document.querySelectorAll("*")).filter(
+        (el) => el.textContent && el.textContent.includes(value)
       );
       break;
 
@@ -749,14 +781,17 @@ async function findElement(strategy, selector, timeout = 5000) {
 
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
-    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      console.log('🔧 [DEBUG] findElement检测到暂停状态，停止查找');
-      throw new Error('查找已暂停');
+    if (
+      window.simplifiedExecutionControl &&
+      window.simplifiedExecutionControl.isPaused
+    ) {
+      console.log("🔧 [DEBUG] findElement检测到暂停状态，停止查找");
+      throw new Error("查找已暂停");
     }
 
     if (window.automationEngine && window.automationEngine.isPaused) {
-      console.log('🔧 [DEBUG] findElement检测到高级引擎暂停状态，停止查找');
-      throw new Error('查找已暂停');
+      console.log("🔧 [DEBUG] findElement检测到高级引擎暂停状态，停止查找");
+      throw new Error("查找已暂停");
     }
 
     let element = null;
@@ -783,7 +818,7 @@ async function findElement(strategy, selector, timeout = 5000) {
 
     // 使用异步等待避免阻塞主线程
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, 100));
       } else {
         setTimeout(resolve, 100);
@@ -807,14 +842,19 @@ async function findElementByText(text, tagNames = ["*"], timeout = 5000) {
 
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
-    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      console.log('🔧 [DEBUG] findElementByText检测到暂停状态，停止查找');
-      throw new Error('查找已暂停');
+    if (
+      window.simplifiedExecutionControl &&
+      window.simplifiedExecutionControl.isPaused
+    ) {
+      console.log("🔧 [DEBUG] findElementByText检测到暂停状态，停止查找");
+      throw new Error("查找已暂停");
     }
 
     if (window.automationEngine && window.automationEngine.isPaused) {
-      console.log('🔧 [DEBUG] findElementByText检测到高级引擎暂停状态，停止查找');
-      throw new Error('查找已暂停');
+      console.log(
+        "🔧 [DEBUG] findElementByText检测到高级引擎暂停状态，停止查找"
+      );
+      throw new Error("查找已暂停");
     }
 
     for (const tagName of tagNames) {
@@ -830,7 +870,7 @@ async function findElementByText(text, tagNames = ["*"], timeout = 5000) {
 
     // 使用异步等待避免阻塞主线程
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, 100));
       } else {
         setTimeout(resolve, 100);
@@ -858,12 +898,15 @@ async function findElementContainingText(
 
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
-    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      throw new Error('查找已暂停');
+    if (
+      window.simplifiedExecutionControl &&
+      window.simplifiedExecutionControl.isPaused
+    ) {
+      throw new Error("查找已暂停");
     }
 
     if (window.automationEngine && window.automationEngine.isPaused) {
-      throw new Error('查找已暂停');
+      throw new Error("查找已暂停");
     }
 
     for (const tagName of tagNames) {
@@ -879,7 +922,7 @@ async function findElementContainingText(
 
     // 使用异步等待避免阻塞主线程
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, 100));
       } else {
         setTimeout(resolve, 100);
@@ -902,14 +945,19 @@ async function findElementByXPath(xpath, timeout = 5000) {
 
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
-    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      console.log('🔧 [DEBUG] findElementByXPath检测到暂停状态，停止查找');
-      throw new Error('查找已暂停');
+    if (
+      window.simplifiedExecutionControl &&
+      window.simplifiedExecutionControl.isPaused
+    ) {
+      console.log("🔧 [DEBUG] findElementByXPath检测到暂停状态，停止查找");
+      throw new Error("查找已暂停");
     }
 
     if (window.automationEngine && window.automationEngine.isPaused) {
-      console.log('🔧 [DEBUG] findElementByXPath检测到高级引擎暂停状态，停止查找');
-      throw new Error('查找已暂停');
+      console.log(
+        "🔧 [DEBUG] findElementByXPath检测到高级引擎暂停状态，停止查找"
+      );
+      throw new Error("查找已暂停");
     }
 
     try {
@@ -933,7 +981,7 @@ async function findElementByXPath(xpath, timeout = 5000) {
 
     // 使用异步等待避免阻塞主线程
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, 100));
       } else {
         setTimeout(resolve, 100);
@@ -1047,7 +1095,7 @@ async function inputText(element, text) {
  * 测试条件判断
  */
 function testCondition(condition) {
-  console.log('🧪 测试条件:', condition);
+  console.log("🧪 测试条件:", condition);
 
   try {
     // 清除之前的测试高亮
@@ -1058,7 +1106,7 @@ function testCondition(condition) {
     if (!locator || !locator.strategy || !locator.value) {
       return {
         success: false,
-        error: '缺少定位器配置'
+        error: "缺少定位器配置",
       };
     }
 
@@ -1067,8 +1115,8 @@ function testCondition(condition) {
     if (!element) {
       return {
         success: false,
-        error: '元素未找到',
-        conditionMet: false
+        error: "元素未找到",
+        conditionMet: false,
       };
     }
 
@@ -1077,66 +1125,69 @@ function testCondition(condition) {
 
     // 执行条件判断
     let conditionResult = false;
-    let actualValue = '';
-    let expectedValue = condition.expectedValue || '';
-    const attributeName = condition.attributeName || '';
+    let actualValue = "";
+    let expectedValue = condition.expectedValue || "";
+    const attributeName = condition.attributeName || "";
 
     // 获取实际值
     switch (condition.conditionType) {
-      case 'attribute':
-        actualValue = element.getAttribute(attributeName) || '';
+      case "attribute":
+        actualValue = element.getAttribute(attributeName) || "";
         break;
-      case 'text':
-        actualValue = element.textContent || '';
+      case "text":
+        actualValue = element.textContent || "";
         break;
-      case 'class':
-        actualValue = element.className || '';
+      case "class":
+        actualValue = element.className || "";
         break;
-      case 'style':
-        actualValue = getComputedStyle(element)[attributeName] || '';
+      case "style":
+        actualValue = getComputedStyle(element)[attributeName] || "";
         break;
-      case 'value':
-        actualValue = element.value || '';
+      case "value":
+        actualValue = element.value || "";
         break;
-      case 'exists':
+      case "exists":
         conditionResult = true; // 元素已找到
         break;
-      case 'visible':
+      case "visible":
         conditionResult = element.offsetParent !== null;
         break;
     }
 
     // 执行比较
-    if (condition.conditionType !== 'exists' && condition.conditionType !== 'visible') {
+    if (
+      condition.conditionType !== "exists" &&
+      condition.conditionType !== "visible"
+    ) {
       switch (condition.comparisonType) {
-        case 'equals':
+        case "equals":
           conditionResult = actualValue === expectedValue;
           break;
-        case 'notEquals':
+        case "notEquals":
           conditionResult = actualValue !== expectedValue;
           break;
-        case 'contains':
+        case "contains":
           conditionResult = actualValue.includes(expectedValue);
           break;
-        case 'notContains':
+        case "notContains":
           conditionResult = !actualValue.includes(expectedValue);
           break;
-        case 'startsWith':
+        case "startsWith":
           conditionResult = actualValue.startsWith(expectedValue);
           break;
-        case 'endsWith':
+        case "endsWith":
           conditionResult = actualValue.endsWith(expectedValue);
           break;
-        case 'isEmpty':
-          conditionResult = actualValue === '';
+        case "isEmpty":
+          conditionResult = actualValue === "";
           break;
-        case 'isNotEmpty':
-          conditionResult = actualValue !== '';
+        case "isNotEmpty":
+          conditionResult = actualValue !== "";
           break;
-        case 'hasAttribute':
+        case "hasAttribute":
           conditionResult = element.hasAttribute(attributeName);
           break;
-        case 'notHasAttribute':
+        case "notHasAttribute":
           conditionResult = !element.hasAttribute(attributeName);
           break;
       }
@@ -1146,15 +1197,15 @@ function testCondition(condition) {
     return {
       success: true,
       conditionMet: conditionResult,
-      message: `条件${conditionResult ? '满足' : '不满足'}`,
+      message: `条件${conditionResult ? "满足" : "不满足"}`,
       actualValue,
-      expectedValue
+      expectedValue,
     };
   } catch (error) {
-    console.error('❌ 测试条件失败:', error);
+    console.error("❌ 测试条件失败:", error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -1165,9 +1216,9 @@ function testCondition(condition) {
 function findSingleElement(strategy, value) {
   try {
     switch (strategy) {
-      case 'css':
+      case "css":
         return document.querySelector(value);
-      case 'xpath':
+      case "xpath":
         const xpathResult = document.evaluate(
           value,
           document,
@@ -1176,20 +1227,20 @@ function findSingleElement(strategy, value) {
           null
         );
         return xpathResult.singleNodeValue;
-      case 'id':
+      case "id":
         return document.getElementById(value);
-      case 'className':
+      case "className":
         const elements = document.getElementsByClassName(value);
         return elements.length > 0 ? elements[0] : null;
-      case 'text':
-        return Array.from(document.querySelectorAll('*')).find(el =>
-          el.textContent && el.textContent.trim() === value.trim()
+      case "text":
+        return Array.from(document.querySelectorAll("*")).find(
+          (el) => el.textContent && el.textContent.trim() === value.trim()
         );
-      case 'contains':
-        return Array.from(document.querySelectorAll('*')).find(el =>
-          el.textContent && el.textContent.includes(value)
+      case "contains":
+        return Array.from(document.querySelectorAll("*")).find(
+          (el) => el.textContent && el.textContent.includes(value)
         );
-      case 'tagName':
+      case "tagName":
         const tagElements = document.getElementsByTagName(value);
         return tagElements.length > 0 ? tagElements[0] : null;
       default:
@@ -1205,7 +1256,7 @@ function findSingleElement(strategy, value) {
  * 测试定位器元素数量
  */
 function testLocatorElements(locator) {
-  console.log('🔍 测试定位器:', locator);
+  console.log("🔍 测试定位器:", locator);
 
   try {
     // 清除之前的测试高亮
@@ -1214,10 +1265,10 @@ function testLocatorElements(locator) {
     let elements;
 
     switch (locator.strategy) {
-      case 'css':
+      case "css":
         elements = document.querySelectorAll(locator.value);
         break;
-      case 'xpath':
+      case "xpath":
         const xpathResult = document.evaluate(
           locator.value,
           document,
@@ -1230,26 +1281,27 @@ function testLocatorElements(locator) {
           elements.push(xpathResult.snapshotItem(i));
         }
         break;
-      case 'id':
+      case "id":
         const idElement = document.getElementById(locator.value);
         elements = idElement ? [idElement] : [];
         break;
-      case 'className':
+      case "className":
         elements = document.getElementsByClassName(locator.value);
         break;
-      case 'tagName':
+      case "tagName":
         elements = document.getElementsByTagName(locator.value);
         break;
-      case 'text':
+      case "text":
         // 精确文本匹配，使用遍历方式避免XPath转义问题
-        elements = Array.from(document.querySelectorAll('*')).filter(el =>
-          el.textContent && el.textContent.trim() === locator.value.trim()
+        elements = Array.from(document.querySelectorAll("*")).filter(
+          (el) =>
+            el.textContent && el.textContent.trim() === locator.value.trim()
         );
         break;
-      case 'contains':
+      case "contains":
         // 包含文本匹配，使用遍历方式避免XPath转义问题
-        elements = Array.from(document.querySelectorAll('*')).filter(el =>
-          el.textContent && el.textContent.includes(locator.value)
+        elements = Array.from(document.querySelectorAll("*")).filter(
+          (el) => el.textContent && el.textContent.includes(locator.value)
         );
         break;
       default:
@@ -1266,7 +1318,7 @@ function testLocatorElements(locator) {
 
     return { count };
   } catch (error) {
-    console.error('❌ 测试定位器失败:', error);
+    console.error("❌ 测试定位器失败:", error);
     // 发生错误时也清除高亮
     clearTestHighlights();
     throw error;
@@ -1288,18 +1340,18 @@ function highlightTestElements(elements) {
     // 保存原始样式
     if (!element._testOriginalStyle) {
       element._testOriginalStyle = {
-        outline: element.style.outline || '',
-        backgroundColor: element.style.backgroundColor || '',
-        transition: element.style.transition || '',
-        zIndex: element.style.zIndex || ''
+        outline: element.style.outline || "",
+        backgroundColor: element.style.backgroundColor || "",
+        transition: element.style.transition || "",
+        zIndex: element.style.zIndex || "",
       };
     }
 
     // 设置测试高亮样式（橙色）
-    element.style.transition = 'all 0.3s ease';
-    element.style.outline = '2px solid orange';
-    element.style.backgroundColor = 'rgba(255, 165, 0, 0.1)';
-    element.style.zIndex = '9999';
+    element.style.transition = "all 0.3s ease";
+    element.style.outline = "2px solid orange";
+    element.style.backgroundColor = "rgba(255, 165, 0, 0.1)";
+    element.style.zIndex = "9999";
 
     // 标记为测试高亮元素
     element._isTestHighlighted = true;
@@ -1311,11 +1363,11 @@ function highlightTestElements(elements) {
   // 滚动到第一个元素
   if (elements.length > 0 && elements[0]) {
     elements[0].scrollIntoView({
-      behavior: 'smooth',
-      block: 'center',
-      inline: 'center'
+      behavior: "smooth",
+      block: "center",
+      inline: "center",
     });
-    console.log('📍 已滚动到第一个匹配元素');
+    console.log("📍 已滚动到第一个匹配元素");
   }
 }
 
@@ -1325,11 +1377,12 @@ function highlightTestElements(elements) {
 function clearTestHighlights() {
   console.log(`🧹 清除 ${testHighlightedElements.length} 个测试高亮元素`);
 
-  testHighlightedElements.forEach(element => {
+  testHighlightedElements.forEach((element) => {
     if (element && element._testOriginalStyle) {
       // 恢复原始样式
       element.style.outline = element._testOriginalStyle.outline;
-      element.style.backgroundColor = element._testOriginalStyle.backgroundColor;
+      element.style.backgroundColor =
+        element._testOriginalStyle.backgroundColor;
       element.style.transition = element._testOriginalStyle.transition;
       element.style.zIndex = element._testOriginalStyle.zIndex;
 
@@ -1341,7 +1394,7 @@ function clearTestHighlights() {
 
   // 清空数组
   testHighlightedElements = [];
-  console.log('✅ 所有测试高亮已清除');
+  console.log("✅ 所有测试高亮已清除");
 }
 
 /**
@@ -1350,32 +1403,32 @@ function clearTestHighlights() {
 function highlightExecutionProgress(element) {
   if (!element) return;
 
-  console.log('🟢 添加执行进度高亮');
+  console.log("🟢 添加执行进度高亮");
 
   // 保存原始样式（如果还没保存的话）
   if (!element._executionOriginalStyle) {
     element._executionOriginalStyle = {
-      outline: element.style.outline || '',
-      backgroundColor: element.style.backgroundColor || '',
-      transition: element.style.transition || '',
-      zIndex: element.style.zIndex || ''
+      outline: element.style.outline || "",
+      backgroundColor: element.style.backgroundColor || "",
+      transition: element.style.transition || "",
+      zIndex: element.style.zIndex || "",
     };
   }
 
   // 设置执行进度高亮样式（绿色）
-  element.style.transition = 'all 0.3s ease';
-  element.style.outline = '3px solid #27ae60';
-  element.style.backgroundColor = 'rgba(39, 174, 96, 0.1)';
-  element.style.zIndex = '10000'; // 比测试高亮更高的层级
+  element.style.transition = "all 0.3s ease";
+  element.style.outline = "3px solid #27ae60";
+  element.style.backgroundColor = "rgba(39, 174, 96, 0.1)";
+  element.style.zIndex = "10000"; // 比测试高亮更高的层级
 
   // 标记为执行进度高亮
   element._isExecutionHighlighted = true;
 
   // 滚动到当前元素
   element.scrollIntoView({
-    behavior: 'smooth',
-    block: 'center',
-    inline: 'center'
+    behavior: "smooth",
+    block: "center",
+    inline: "center",
   });
 }
 
@@ -1385,11 +1438,12 @@ function highlightExecutionProgress(element) {
 function clearExecutionProgress(element) {
   if (!element || !element._executionOriginalStyle) return;
 
-  console.log('🧹 清除执行进度高亮');
+  console.log("🧹 清除执行进度高亮");
 
   // 恢复原始样式
   element.style.outline = element._executionOriginalStyle.outline;
-  element.style.backgroundColor = element._executionOriginalStyle.backgroundColor;
+  element.style.backgroundColor =
+    element._executionOriginalStyle.backgroundColor;
   element.style.transition = element._executionOriginalStyle.transition;
   element.style.zIndex = element._executionOriginalStyle.zIndex;
 
@@ -1414,10 +1468,10 @@ window.ContentCore = {
   clearExecutionProgress,
   elementToString,
   performSingleElementSearch,
-  performAsyncElementSearch
+  performAsyncElementSearch,
 };
 
-console.log('✅ Content Core 模块已加载');
+console.log("✅ Content Core 模块已加载");
 
 /**
  * 测试敏感词检测功能
@@ -1426,29 +1480,34 @@ console.log('✅ Content Core 模块已加载');
  */
 async function testSensitiveWordDetection(data) {
   try {
-    console.log('🔍 开始测试敏感词检测:', data);
+    console.log("🔍 开始测试敏感词检测:", data);
 
     const { loopLocator, sensitiveWordConfig } = data;
 
     if (!loopLocator || !sensitiveWordConfig) {
-      throw new Error('缺少必要的测试参数');
+      throw new Error("缺少必要的测试参数");
     }
 
     // 清除之前的测试高亮
     clearTestHighlights();
 
     // 查找循环元素
-    const elements = await findElementsByStrategy(loopLocator.strategy, loopLocator.value);
-    
+    const elements = await findElementsByStrategy(
+      loopLocator.strategy,
+      loopLocator.value
+    );
+
     if (elements.length === 0) {
-      throw new Error(`未找到循环元素: ${loopLocator.strategy}=${loopLocator.value}`);
+      throw new Error(
+        `未找到循环元素: ${loopLocator.strategy}=${loopLocator.value}`
+      );
     }
 
     console.log(`🔍 找到 ${elements.length} 个循环元素，开始敏感词检测测试`);
 
     // 创建敏感词检测器实例
     if (!window.SensitiveWordDetector) {
-      throw new Error('敏感词检测模块未加载');
+      throw new Error("敏感词检测模块未加载");
     }
 
     const detector = new window.SensitiveWordDetector();
@@ -1456,26 +1515,30 @@ async function testSensitiveWordDetection(data) {
     const testResults = [];
 
     // 测试每个元素
-    for (let i = 0; i < Math.min(elements.length, 10); i++) { // 限制测试前10个元素
+    for (let i = 0; i < Math.min(elements.length, 10); i++) {
+      // 限制测试前10个元素
       const element = elements[i];
-      
+
       try {
-        const skipResult = await detector.checkShouldSkipElement(element, sensitiveWordConfig);
-        
+        const skipResult = await detector.checkShouldSkipElement(
+          element,
+          sensitiveWordConfig
+        );
+
         testResults.push({
           index: i,
           shouldSkip: skipResult.shouldSkip,
           reason: skipResult.reason,
-          matchedWords: skipResult.matchedWords
+          matchedWords: skipResult.matchedWords,
         });
 
         if (skipResult.shouldSkip) {
           skippedCount++;
           // 高亮被跳过的元素
-          highlightElement(element, 'skip');
+          highlightElement(element, "skip");
         } else {
           // 高亮通过检测的元素
-          highlightElement(element, 'success');
+          highlightElement(element, "success");
         }
       } catch (error) {
         console.error(`测试第 ${i + 1} 个元素时出错:`, error);
@@ -1483,16 +1546,16 @@ async function testSensitiveWordDetection(data) {
           index: i,
           shouldSkip: false,
           reason: `检测失败: ${error.message}`,
-          matchedWords: []
+          matchedWords: [],
         });
         // 高亮出错的元素
-        highlightElement(element, 'error');
+        highlightElement(element, "error");
       }
     }
 
     // 5秒后清除高亮
     setTimeout(() => {
-      elements.forEach(element => {
+      elements.forEach((element) => {
         clearElementHighlight(element);
       });
     }, 5000);
@@ -1503,14 +1566,16 @@ async function testSensitiveWordDetection(data) {
       skippedElements: skippedCount,
       passedElements: Math.min(elements.length, 10) - skippedCount,
       testResults: testResults,
-      message: `测试完成：共 ${elements.length} 个元素，测试了前 ${Math.min(elements.length, 10)} 个，其中 ${skippedCount} 个包含敏感词被跳过`
+      message: `测试完成：共 ${elements.length} 个元素，测试了前 ${Math.min(
+        elements.length,
+        10
+      )} 个，其中 ${skippedCount} 个包含敏感词被跳过`,
     };
 
-    console.log('🔍 敏感词检测测试结果:', result);
+    console.log("🔍 敏感词检测测试结果:", result);
     return result;
-
   } catch (error) {
-    console.error('❌ 敏感词检测测试失败:', error);
+    console.error("❌ 敏感词检测测试失败:", error);
     throw error;
   }
 }

@@ -1478,7 +1478,33 @@ async function executeContainerLoopAction(element, step) {
 
     console.log(`✅ 容器内所有子操作执行完成`);
   } else {
-    console.log(`⚠️ 容器循环没有配置子操作`);
+    console.log(`📦 容器循环没有配置子操作，执行直接操作`);
+
+    // 获取操作类型
+    const actionType = step.actionType || step.operationType || "click";
+    console.log(`🔧 执行操作类型: ${actionType}`);
+
+    // 执行指定的操作
+    switch (actionType) {
+      case "click":
+        element.click();
+        console.log(`👆 已点击容器元素`);
+        break;
+      case "input":
+        if (step.inputText) {
+          element.value = step.inputText;
+          element.dispatchEvent(new Event("input", { bubbles: true }));
+          element.dispatchEvent(new Event("change", { bubbles: true }));
+          console.log(`📝 已输入文本: ${step.inputText}`);
+        }
+        break;
+      case "hover":
+        element.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+        console.log(`🖱️ 已悬停元素`);
+        break;
+      default:
+        console.log(`⚠️ 不支持的操作类型: ${actionType}`);
+    }
   }
 
   // 操作延迟
@@ -1830,8 +1856,8 @@ async function executeSubOperationAutoLoop(operation, parentElement = null) {
   );
 
   // 获取操作类型和配置
-  const actionType = operation.actionType || "click";
-  const actionDelay = operation.actionDelay || 200;
+  const actionType = operation.actionType || operation.operationType || "click";
+  const actionDelay = operation.actionDelay || operation.operationDelay || 200;
   const errorHandling = operation.errorHandling || "continue";
 
   // 依次处理每个元素
