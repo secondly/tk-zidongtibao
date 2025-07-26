@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作流测试Demo - 提报系统模拟</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #1890ff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        /* 表格样式 */
+        .core-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .core-table-body {
+            background: white;
+        }
+
+        .core-table-tr {
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+
+        .core-table-tr:hover {
+            background-color: #fafafa;
+        }
+
+        .core-table-td {
+            padding: 12px 16px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        .align-start {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .w-full {
+            flex: 1;
+        }
+
+        .text-neutral-text1 {
+            color: #262626;
+            font-weight: 500;
+        }
+
+        /* 按钮样式 */
+        .pulse-button {
+            background: #1890ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .pulse-button:hover {
+            background: #40a9ff;
+            transform: translateY(-1px);
+        }
+
+        .pulse-button:active {
+            transform: translateY(0);
+        }
+
+        /* 抽屉样式 */
+        .core-drawer-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 16px 24px;
+            border-top: 1px solid #f0f0f0;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 1000;
+        }
+
+        .core-drawer-footer.show {
+            display: block;
+        }
+
+        .pulse-drawer-footer {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .space-x-12 {
+            display: flex;
+            gap: 12px;
+        }
+
+        .space-x-12 button {
+            padding: 8px 24px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .space-x-12 button:nth-of-type(1) {
+            background: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+
+        .space-x-12 button:nth-of-type(1):hover {
+            background: #40a9ff;
+        }
+
+        /* 商品选择弹窗 */
+        .slideRight-enter-done {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slideRight-enter-done.show {
+            display: flex;
+        }
+
+        .product-modal {
+            background: white;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80%;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #f0f0f0;
+            background: #fafafa;
+        }
+
+        .modal-body {
+            padding: 16px 24px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .core-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .core-checkbox input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .product-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .product-image {
+            width: 40px;
+            height: 40px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .status-indicator {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #f6ffed;
+            color: #52c41a;
+        }
+
+        .status-pending {
+            background: #fff7e6;
+            color: #fa8c16;
+        }
+
+        .status-rally {
+            background: #fff2f0;
+            color: #ff4d4f;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .control-group label {
+            min-width: 100px;
+            font-weight: 500;
+        }
+
+        .control-group button {
+            padding: 4px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .control-group button:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 提报系统测试Demo</h1>
+            <p>模拟您的工作流配置 - 包含循环操作、智能等待、敏感词检测等功能</p>
+        </div>
+
+        <div class="content">
+            <div class="controls">
+                <h3>🎮 测试控制</h3>
+                <div class="control-group">
+                    <label>添加数据:</label>
+                    <button onclick="addNormalItem()">添加正常项目</button>
+                    <button onclick="addRallyItem()">添加Rally项目</button>
+                    <button onclick="clearAll()">清空所有</button>
+                </div>
+                <div class="control-group">
+                    <label>状态控制:</label>
+                    <button onclick="showDrawer()">显示抽屉</button>
+                    <button onclick="hideDrawer()">隐藏抽屉</button>
+                    <button onclick="showProductModal()">显示商品选择</button>
+                    <button onclick="hideProductModal()">隐藏商品选择</button>
+                </div>
+            </div>
+
+            <h3>📊 提报列表 (虚拟列表模拟)</h3>
+            <table class="core-table">
+                <thead>
+                    <tr style="background: #fafafa;">
+                        <th style="padding: 12px 16px; text-align: left;">项目名称</th>
+                        <th style="padding: 12px 16px; text-align: left;">状态</th>
+                        <th style="padding: 12px 16px; text-align: left;">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="core-table-body" id="tableBody">
+                    <!-- 动态生成的行 -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 抽屉底部 -->
+    <div class="core-drawer-footer" id="drawerFooter">
+        <div class="pulse-drawer-footer">
+            <div class="space-x-12">
+                <button onclick="selectProducts()">选择商品</button>
+                <button onclick="hideDrawer()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 商品选择弹窗 -->
+    <div class="slideRight-enter-done" id="productModal">
+        <div class="product-modal">
+            <div class="modal-header">
+                <h3>选择商品</h3>
+            </div>
+            <div class="modal-body">
+                <table class="core-table">
+                    <tbody id="productTableBody">
+                        <!-- 动态生成的商品行 -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="core-drawer-footer" style="position: relative; display: block;">
+                <div class="pulse-drawer-footer">
+                    <div class="space-x-12">
+                        <button onclick="confirmSelection()">确认选择</button>
+                        <button onclick="hideProductModal()">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 模拟数据
+        let items = [
+            { id: 1, name: "智能手机项目", status: "active", type: "normal" },
+            { id: 2, name: "笔记本电脑项目", status: "pending", type: "normal" },
+            { id: 3, name: "Rally敏捷开发", status: "rally", type: "rally" },
+            { id: 4, name: "平板电脑项目", status: "active", type: "normal" },
+            { id: 5, name: "智能手表项目", status: "pending", type: "normal" }
+        ];
+
+        let products = [
+            { id: 1, name: "iPhone 15 Pro", price: "¥8999", category: "手机" },
+            { id: 2, name: "MacBook Pro", price: "¥12999", category: "电脑" },
+            { id: 3, name: "iPad Air", price: "¥4599", category: "平板" },
+            { id: 4, name: "Apple Watch", price: "¥2999", category: "手表" },
+            { id: 5, name: "AirPods Pro", price: "¥1899", category: "耳机" }
+        ];
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            items.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'core-table-tr';
+                
+                const statusClass = item.status === 'active' ? 'status-active' : 
+                                  item.status === 'pending' ? 'status-pending' : 'status-rally';
+                const statusText = item.status === 'active' ? '进行中' : 
+                                 item.status === 'pending' ? '待处理' : 'Rally项目';
+
+                row.innerHTML = `
+                    <td class="core-table-td">
+                        <div class="align-start">
+                            <div class="w-full">
+                                <div class="text-neutral-text1">${item.name}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="core-table-td">
+                        <span class="status-indicator ${statusClass}">${statusText}</span>
+                    </td>
+                    <td class="core-table-td">
+                        <button class="pulse-button" onclick="handleItemClick(${item.id})">
+                            提报
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function renderProducts() {
+            const tbody = document.getElementById('productTableBody');
+            tbody.innerHTML = '';
+
+            products.forEach(product => {
+                const row = document.createElement('tr');
+                row.className = 'core-table-tr';
+                
+                row.innerHTML = `
+                    <td class="core-table-td">
+                        <div class="core-checkbox">
+                            <input type="checkbox" id="product_${product.id}" value="${product.id}">
+                        </div>
+                    </td>
+                    <td class="core-table-td">
+                        <div class="product-info">
+                            <div class="product-image">📱</div>
+                            <div>
+                                <div class="text-neutral-text1">${product.name}</div>
+                                <div style="font-size: 12px; color: #999;">${product.category}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="core-table-td">
+                        <span style="font-weight: 500; color: #1890ff;">${product.price}</span>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        function handleItemClick(itemId) {
+            console.log(`🎯 点击了项目 ${itemId} 的提报按钮`);
+            
+            // 模拟智能等待 - 显示抽屉
+            setTimeout(() => {
+                showDrawer();
+                console.log("✅ 智能等待完成 - 抽屉已显示");
+            }, 500);
+        }
+
+        function showDrawer() {
+            document.getElementById('drawerFooter').classList.add('show');
+            console.log("📋 显示抽屉底部");
+        }
+
+        function hideDrawer() {
+            document.getElementById('drawerFooter').classList.remove('show');
+            console.log("❌ 隐藏抽屉底部");
+        }
+
+        function selectProducts() {
+            console.log("🛍️ 点击选择商品按钮");
+            
+            // 模拟等待时间
+            setTimeout(() => {
+                showProductModal();
+                console.log("✅ 商品选择弹窗已显示");
+            }, 200);
+        }
+
+        function showProductModal() {
+            document.getElementById('productModal').classList.add('show');
+            console.log("🛒 显示商品选择弹窗");
+        }
+
+        function hideProductModal() {
+            document.getElementById('productModal').classList.remove('show');
+            console.log("❌ 隐藏商品选择弹窗");
+        }
+
+        function confirmSelection() {
+            const checkboxes = document.querySelectorAll('.slideRight-enter-done .core-table-tr .core-checkbox input:checked');
+            console.log(`✅ 确认选择了 ${checkboxes.length} 个商品`);
+            
+            checkboxes.forEach((checkbox, index) => {
+                console.log(`   - 商品 ${checkbox.value}`);
+            });
+            
+            hideProductModal();
+            hideDrawer();
+        }
+
+        function addNormalItem() {
+            const newId = items.length + 1;
+            items.push({
+                id: newId,
+                name: `新项目 ${newId}`,
+                status: Math.random() > 0.5 ? 'active' : 'pending',
+                type: 'normal'
+            });
+            renderTable();
+            console.log("➕ 添加了新的正常项目");
+        }
+
+        function addRallyItem() {
+            const newId = items.length + 1;
+            items.push({
+                id: newId,
+                name: `Rally项目 ${newId}`,
+                status: 'rally',
+                type: 'rally'
+            });
+            renderTable();
+            console.log("➕ 添加了新的Rally项目（敏感词）");
+        }
+
+        function clearAll() {
+            items = [];
+            renderTable();
+            console.log("🗑️ 清空了所有项目");
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            renderTable();
+            renderProducts();
+            console.log("🚀 Demo页面初始化完成");
+            console.log("💡 提示：这个页面模拟了您的工作流配置中的所有元素");
+            console.log("📝 您可以在工作流设计器中使用这些选择器进行测试：");
+            console.log("   - 提报按钮: .core-table .core-table-body .core-table-tr .core-table-td .pulse-button");
+            console.log("   - 选择商品按钮: .core-drawer-footer .pulse-drawer-footer .space-x-12 button:nth-of-type(1)");
+            console.log("   - 商品复选框: .slideRight-enter-done .core-table-tr .core-checkbox input");
+            console.log("   - 敏感词检测: .text-neutral-text1 (包含'rally'的项目)");
+        });
+
+        // 模拟虚拟列表滚动
+        let scrollCount = 0;
+        function simulateVirtualListScroll() {
+            scrollCount++;
+            console.log(`📜 模拟虚拟列表滚动 ${scrollCount} 次`);
+            
+            // 添加更多项目模拟滚动加载
+            if (scrollCount <= 3) {
+                for (let i = 0; i < 2; i++) {
+                    addNormalItem();
+                }
+            }
+        }
+
+        // 每5秒模拟一次滚动
+        setInterval(simulateVirtualListScroll, 5000);
+    </script>
+</body>
+</html>

@@ -7,14 +7,14 @@ class DesignerNodes {
   constructor(core) {
     this.core = core;
     // 使用属性访问器，确保总是获取最新的图形实例
-    Object.defineProperty(this, 'graph', {
-      get: () => this.core.graph
+    Object.defineProperty(this, "graph", {
+      get: () => this.core.graph,
     });
-    Object.defineProperty(this, 'nodeConfigs', {
-      get: () => this.core.nodeConfigs
+    Object.defineProperty(this, "nodeConfigs", {
+      get: () => this.core.nodeConfigs,
     });
-    Object.defineProperty(this, 'nodeTypes', {
-      get: () => this.core.nodeTypes
+    Object.defineProperty(this, "nodeTypes", {
+      get: () => this.core.nodeTypes,
     });
   }
 
@@ -24,7 +24,7 @@ class DesignerNodes {
       console.warn("图形实例未初始化，无法添加节点");
       return;
     }
-    
+
     const config = this.nodeTypes[nodeType];
     if (!config) return;
 
@@ -52,7 +52,7 @@ class DesignerNodes {
           enabled: false,
           sensitiveWords: "",
           locatorStrategy: "css",
-          locatorValue: ""
+          locatorValue: "",
         },
         // 虚拟列表相关配置
         isVirtualList: false,
@@ -92,13 +92,19 @@ class DesignerNodes {
     const form = document.getElementById("propertyForm");
 
     // 如果是同一个节点，不需要重新生成表单，避免丢失用户输入
-    if (this.core.currentDisplayedCell && this.core.currentDisplayedCell.id === cell.id) {
+    if (
+      this.core.currentDisplayedCell &&
+      this.core.currentDisplayedCell.id === cell.id
+    ) {
       console.log(`🔧 [DEBUG] 同一节点，跳过表单重新生成: ${cell.id}`);
       return;
     }
 
     // 如果之前有显示的节点，先保存其配置
-    if (this.core.currentDisplayedCell && this.core.currentDisplayedCell.id !== cell.id) {
+    if (
+      this.core.currentDisplayedCell &&
+      this.core.currentDisplayedCell.id !== cell.id
+    ) {
       console.log(
         `🔧 [DEBUG] 切换节点前保存配置: ${this.core.currentDisplayedCell.id} -> ${cell.id}`
       );
@@ -122,33 +128,44 @@ class DesignerNodes {
     if (!config || !config.type) {
       const cellValue = cell.value || "";
       console.log(`🔧 [DEBUG] 节点没有配置，尝试从标签推断: ${cellValue}`);
-      
+
       // 根据节点标签推断类型
       let inferredType = "click"; // 默认类型
       if (cellValue.includes("输入") || cellValue.includes("input")) {
         inferredType = "input";
       } else if (cellValue.includes("等待") || cellValue.includes("wait")) {
         inferredType = "wait";
-      } else if (cellValue.includes("智能等待") || cellValue.includes("smartWait")) {
+      } else if (
+        cellValue.includes("智能等待") ||
+        cellValue.includes("smartWait")
+      ) {
         inferredType = "smartWait";
       } else if (cellValue.includes("循环") || cellValue.includes("loop")) {
         inferredType = "loop";
-      } else if (cellValue.includes("条件") || cellValue.includes("condition")) {
+      } else if (
+        cellValue.includes("条件") ||
+        cellValue.includes("condition")
+      ) {
         inferredType = "condition";
-      } else if (cellValue.includes("检测") || cellValue.includes("checkState")) {
+      } else if (
+        cellValue.includes("检测") ||
+        cellValue.includes("checkState")
+      ) {
         inferredType = "checkState";
       }
 
       config = {
         type: inferredType,
         name: cellValue || this.nodeTypes[inferredType]?.name || "未命名节点",
-        locator: { strategy: "css", value: "" }
+        locator: { strategy: "css", value: "" },
       };
 
       // 保存推断的配置
       this.nodeConfigs.set(cell.id, config);
       cell.nodeData = config;
-      console.log(`🔧 [DEBUG] 为节点创建默认配置: ${cell.id} -> ${inferredType}`);
+      console.log(
+        `🔧 [DEBUG] 为节点创建默认配置: ${cell.id} -> ${inferredType}`
+      );
     }
 
     // 为旧的条件判断节点添加默认配置（向后兼容性）
@@ -253,9 +270,9 @@ class DesignerNodes {
 
     // 绑定测试定位器按钮（排除敏感词检测按钮）
     const testButtons = document.querySelectorAll(".test-locator-btn");
-    testButtons.forEach(button => {
+    testButtons.forEach((button) => {
       // 只绑定非敏感词检测的测试按钮
-      if (!button.textContent.includes('🔍 测试检测')) {
+      if (!button.textContent.includes("🔍 测试检测")) {
         button.addEventListener("click", () => {
           this.testLocator(button);
         });
@@ -263,10 +280,33 @@ class DesignerNodes {
     });
 
     // 绑定测试条件按钮
-    const testConditionButtons = document.querySelectorAll(".test-condition-btn");
-    testConditionButtons.forEach(button => {
+    const testConditionButtons = document.querySelectorAll(
+      ".test-condition-btn"
+    );
+    testConditionButtons.forEach((button) => {
       button.addEventListener("click", () => {
-        this.testCondition(button);
+        // 检查是否是智能等待步骤的测试按钮
+        // 查找整个配置容器而不是只查找最近的form-group
+        let configContainer = document;
+
+        // 安全的closest实现
+        let element = button;
+        while (element && element !== document) {
+          if (
+            element.id === "nodeConfigForm" ||
+            element.classList.contains("node-config-container")
+          ) {
+            configContainer = element;
+            break;
+          }
+          element = element.parentElement;
+        }
+
+        if (configContainer.querySelector("#attributeName")) {
+          this.testAttributeCondition(button);
+        } else {
+          this.testCondition(button);
+        }
       });
     });
 
@@ -420,9 +460,7 @@ class DesignerNodes {
           <label class="form-label">错误处理</label>
           <select class="form-select" id="errorHandling">
               <option value="continue" ${
-                config.errorHandling === "continue"
-                  ? "selected"
-                  : ""
+                config.errorHandling === "continue" ? "selected" : ""
               }>继续执行</option>
               <option value="stop" ${
                 config.errorHandling === "stop" ? "selected" : ""
@@ -515,9 +553,7 @@ class DesignerNodes {
           <label class="form-label">错误处理</label>
           <select class="form-select" id="errorHandling">
               <option value="continue" ${
-                config.errorHandling === "continue"
-                  ? "selected"
-                  : ""
+                config.errorHandling === "continue" ? "selected" : ""
               }>继续执行</option>
               <option value="stop" ${
                 config.errorHandling === "stop" ? "selected" : ""
@@ -543,9 +579,7 @@ class DesignerNodes {
           <label class="form-label">错误处理</label>
           <select class="form-select" id="errorHandling">
               <option value="continue" ${
-                config.errorHandling === "continue"
-                  ? "selected"
-                  : ""
+                config.errorHandling === "continue" ? "selected" : ""
               }>继续执行</option>
               <option value="stop" ${
                 config.errorHandling === "stop" ? "selected" : ""
@@ -553,8 +587,8 @@ class DesignerNodes {
           </select>
       </div>
     `;
-  }  
-generateSmartWaitForm(config) {
+  }
+  generateSmartWaitForm(config) {
     return `
       <div class="form-group">
           <label class="form-label">定位策略</label>
@@ -612,46 +646,33 @@ generateSmartWaitForm(config) {
           <div class="form-help">等待出现或消失的元素定位值</div>
       </div>
       <div class="form-group">
-          <label class="form-label">等待条件</label>
-          <select class="form-select" id="waitCondition">
-              <option value="appear" ${
-                config.waitCondition === "appear"
-                  ? "selected"
-                  : ""
-              }>等待元素出现</option>
-              <option value="disappear" ${
-                config.waitCondition === "disappear"
-                  ? "selected"
-                  : ""
-              }>等待元素消失</option>
-              <option value="visible" ${
-                config.waitCondition === "visible"
-                  ? "selected"
-                  : ""
-              }>等待元素可见</option>
-              <option value="hidden" ${
-                config.waitCondition === "hidden"
-                  ? "selected"
-                  : ""
-              }>等待元素隐藏</option>
-              <option value="attributeAppear" ${
-                config.waitCondition === "attributeAppear"
-                  ? "selected"
-                  : ""
-              }>等待属性出现</option>
-          </select>
-      </div>
-      <div class="form-group" id="attributeNameGroup" style="display: ${
-        config.waitCondition === "attributeAppear"
-          ? "block"
-          : "none"
-      };">
-          <label class="form-label">等待的属性内容</label>
+          <label class="form-label">属性名称</label>
           <input type="text" class="form-input" id="attributeName" value="${
             config.attributeName || ""
-          }" placeholder="例如：disabled、checked、data-loaded等">
-          <button type="button" class="test-attribute-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🧪 测试等待</button>
-          <div class="form-help">要等待出现的属性名称</div>
+          }" placeholder="例如：class、disabled、data-value等">
+          <div class="form-help">要等待的属性名称</div>
+      </div>
+
+      <div class="form-group">
+          <label class="form-label">比较方式</label>
+          <select class="form-select" id="comparisonType">
+              <option value="equals" ${
+                config.comparisonType === "equals" ? "selected" : ""
+              }>等于</option>
+              <option value="contains" ${
+                config.comparisonType === "contains" ? "selected" : ""
+              }>包含</option>
+          </select>
+          <div class="form-help">属性值的比较方式</div>
+      </div>
+
+      <div class="form-group">
+          <label class="form-label">期望值</label>
+          <input type="text" class="form-input" id="expectedValue" value="${
+            config.expectedValue || ""
+          }" placeholder="输入期望的值">
+          <button type="button" class="test-condition-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🧪 测试条件</button>
+          <div class="form-help">期望的属性值</div>
       </div>
       <div class="form-group">
           <label class="form-label">超时时间(毫秒)</label>
@@ -751,7 +772,9 @@ generateSmartWaitForm(config) {
           </select>
       </div>
       <div class="form-group" id="expectedValueGroup" style="display: ${
-        config.checkType === "text" || config.checkType === "attribute" ? "block" : "none"
+        config.checkType === "text" || config.checkType === "attribute"
+          ? "block"
+          : "none"
       };">
           <label class="form-label">期望值</label>
           <input type="text" class="form-input" id="expectedValue" value="${
@@ -779,39 +802,59 @@ generateSmartWaitForm(config) {
     }
 
     // 降级方案：简单的拖拽配置表单
-    const locator = config.locator || { strategy: 'css', value: '' };
+    const locator = config.locator || { strategy: "css", value: "" };
     return `
       <div class="form-group">
         <label class="form-label">定位策略</label>
         <select class="form-select" id="locatorType">
-          <option value="css" ${locator.strategy === 'css' ? 'selected' : ''}>CSS选择器</option>
-          <option value="xpath" ${locator.strategy === 'xpath' ? 'selected' : ''}>XPath路径</option>
-          <option value="id" ${locator.strategy === 'id' ? 'selected' : ''}>ID属性</option>
-          <option value="className" ${locator.strategy === 'className' ? 'selected' : ''}>Class名称</option>
-          <option value="text" ${locator.strategy === 'text' ? 'selected' : ''}>精确文本</option>
-          <option value="contains" ${locator.strategy === 'contains' ? 'selected' : ''}>包含文本</option>
+          <option value="css" ${
+            locator.strategy === "css" ? "selected" : ""
+          }>CSS选择器</option>
+          <option value="xpath" ${
+            locator.strategy === "xpath" ? "selected" : ""
+          }>XPath路径</option>
+          <option value="id" ${
+            locator.strategy === "id" ? "selected" : ""
+          }>ID属性</option>
+          <option value="className" ${
+            locator.strategy === "className" ? "selected" : ""
+          }>Class名称</option>
+          <option value="text" ${
+            locator.strategy === "text" ? "selected" : ""
+          }>精确文本</option>
+          <option value="contains" ${
+            locator.strategy === "contains" ? "selected" : ""
+          }>包含文本</option>
         </select>
       </div>
       <div class="form-group">
         <label class="form-label">定位值</label>
         <div style="display: flex; gap: 10px; align-items: center;">
-          <input type="text" class="form-input" id="locatorValue" value="${locator.value}" placeholder="输入定位表达式">
+          <input type="text" class="form-input" id="locatorValue" value="${
+            locator.value
+          }" placeholder="输入定位表达式">
           <button type="button" class="test-locator-btn" style="padding: 5px 10px; background: #27ae60; color: white; border: none; border-radius: 3px;">🔍 测试</button>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label">水平移动距离（像素）</label>
-        <input type="number" class="form-input" id="horizontalDistance" value="${config.horizontalDistance || 0}" min="-2000" max="2000">
+        <input type="number" class="form-input" id="horizontalDistance" value="${
+          config.horizontalDistance || 0
+        }" min="-2000" max="2000">
         <div class="form-help">正数向右移动，负数向左移动</div>
       </div>
       <div class="form-group">
         <label class="form-label">垂直移动距离（像素）</label>
-        <input type="number" class="form-input" id="verticalDistance" value="${config.verticalDistance || 0}" min="-2000" max="2000">
+        <input type="number" class="form-input" id="verticalDistance" value="${
+          config.verticalDistance || 0
+        }" min="-2000" max="2000">
         <div class="form-help">正数向下移动，负数向上移动</div>
       </div>
       <div class="form-group">
         <label class="form-label">操作超时（毫秒）</label>
-        <input type="number" class="form-input" id="dragTimeout" value="${config.timeout || 10000}" min="1000" max="60000" step="1000">
+        <input type="number" class="form-input" id="dragTimeout" value="${
+          config.timeout || 10000
+        }" min="1000" max="60000" step="1000">
       </div>
     `;
   }
@@ -886,7 +929,9 @@ generateSmartWaitForm(config) {
           }" placeholder="例如：class、disabled、data-value等">
       </div>
       <div class="form-group" id="comparisonGroup" style="display: ${
-        config.conditionType === "text" || config.conditionType === "attribute" ? "block" : "none"
+        config.conditionType === "text" || config.conditionType === "attribute"
+          ? "block"
+          : "none"
       };">
           <label class="form-label">比较方式</label>
           <select class="form-select" id="comparisonType">
@@ -905,7 +950,9 @@ generateSmartWaitForm(config) {
           </select>
       </div>
       <div class="form-group" id="expectedValueGroup" style="display: ${
-        config.conditionType === "text" || config.conditionType === "attribute" ? "block" : "none"
+        config.conditionType === "text" || config.conditionType === "attribute"
+          ? "block"
+          : "none"
       };">
           <label class="form-label">期望值</label>
           <input type="text" class="form-input" id="expectedValue" value="${
@@ -921,7 +968,9 @@ generateSmartWaitForm(config) {
       <div class="form-group">
           <label class="form-label">循环类型</label>
           <input type="text" class="form-input" value="${
-            config.loopType === "container" ? "循环操作带子操作（容器）" : "自循环操作"
+            config.loopType === "container"
+              ? "循环操作带子操作（容器）"
+              : "自循环操作"
           }" readonly>
       </div>
       <div class="form-group">
@@ -987,33 +1036,71 @@ generateSmartWaitForm(config) {
       <!-- 敏感词检测配置 -->
       <div class="form-group">
           <label class="form-label">
-              <input type="checkbox" id="enableSensitiveWordDetection" ${config.sensitiveWordDetection?.enabled ? 'checked' : ''} style="margin-right: 8px;">
+              <input type="checkbox" id="enableSensitiveWordDetection" ${
+                config.sensitiveWordDetection?.enabled ? "checked" : ""
+              } style="margin-right: 8px;">
               敏感词检测
           </label>
           <div class="form-help">启用后，包含敏感词的循环元素将被跳过</div>
       </div>
 
-      <div id="sensitiveWordConfig" style="display: ${config.sensitiveWordDetection?.enabled ? 'block' : 'none'}; margin-left: 20px; border-left: 3px solid #e74c3c; padding-left: 15px;">
+      <div id="sensitiveWordConfig" style="display: ${
+        config.sensitiveWordDetection?.enabled ? "block" : "none"
+      }; margin-left: 20px; border-left: 3px solid #e74c3c; padding-left: 15px;">
           <div class="form-group">
               <label class="form-label">敏感词列表</label>
-              <textarea class="form-textarea" id="sensitiveWords" placeholder="输入敏感词，用英文逗号分隔，例如：广告,推广,营销" rows="3">${config.sensitiveWordDetection?.sensitiveWords || ''}</textarea>
+              <textarea class="form-textarea" id="sensitiveWords" placeholder="输入敏感词，用英文逗号分隔，例如：广告,推广,营销" rows="3">${
+                config.sensitiveWordDetection?.sensitiveWords || ""
+              }</textarea>
               <div class="form-help">每个敏感词用英文逗号分隔，检测时不区分大小写</div>
           </div>
           <div class="form-group">
               <label class="form-label">敏感词检测定位策略</label>
               <select class="form-select" id="sensitiveWordLocatorStrategy">
-                  <option value="css" ${config.sensitiveWordDetection?.locatorStrategy === "css" ? "selected" : ""}>CSS选择器 [示例: .content, .title]</option>
-                  <option value="xpath" ${config.sensitiveWordDetection?.locatorStrategy === "xpath" ? "selected" : ""}>XPath [示例: //div[@class='content']]</option>
-                  <option value="id" ${config.sensitiveWordDetection?.locatorStrategy === "id" ? "selected" : ""}>ID [示例: content-text]</option>
-                  <option value="className" ${config.sensitiveWordDetection?.locatorStrategy === "className" ? "selected" : ""}>类名 [示例: content-text]</option>
-                  <option value="text" ${config.sensitiveWordDetection?.locatorStrategy === "text" ? "selected" : ""}>文本内容 [示例: 标题文本]</option>
-                  <option value="contains" ${config.sensitiveWordDetection?.locatorStrategy === "contains" ? "selected" : ""}>包含文本 [示例: 部分文本匹配]</option>
-                  <option value="tagName" ${config.sensitiveWordDetection?.locatorStrategy === "tagName" ? "selected" : ""}>标签名 [示例: p, span, div]</option>
+                  <option value="css" ${
+                    config.sensitiveWordDetection?.locatorStrategy === "css"
+                      ? "selected"
+                      : ""
+                  }>CSS选择器 [示例: .content, .title]</option>
+                  <option value="xpath" ${
+                    config.sensitiveWordDetection?.locatorStrategy === "xpath"
+                      ? "selected"
+                      : ""
+                  }>XPath [示例: //div[@class='content']]</option>
+                  <option value="id" ${
+                    config.sensitiveWordDetection?.locatorStrategy === "id"
+                      ? "selected"
+                      : ""
+                  }>ID [示例: content-text]</option>
+                  <option value="className" ${
+                    config.sensitiveWordDetection?.locatorStrategy ===
+                    "className"
+                      ? "selected"
+                      : ""
+                  }>类名 [示例: content-text]</option>
+                  <option value="text" ${
+                    config.sensitiveWordDetection?.locatorStrategy === "text"
+                      ? "selected"
+                      : ""
+                  }>文本内容 [示例: 标题文本]</option>
+                  <option value="contains" ${
+                    config.sensitiveWordDetection?.locatorStrategy ===
+                    "contains"
+                      ? "selected"
+                      : ""
+                  }>包含文本 [示例: 部分文本匹配]</option>
+                  <option value="tagName" ${
+                    config.sensitiveWordDetection?.locatorStrategy === "tagName"
+                      ? "selected"
+                      : ""
+                  }>标签名 [示例: p, span, div]</option>
               </select>
           </div>
           <div class="form-group">
               <label class="form-label">敏感词检测定位值</label>
-              <input type="text" class="form-input" id="sensitiveWordLocatorValue" value="${config.sensitiveWordDetection?.locatorValue || ""}" placeholder="留空则检测整个循环元素的文本">
+              <input type="text" class="form-input" id="sensitiveWordLocatorValue" value="${
+                config.sensitiveWordDetection?.locatorValue || ""
+              }" placeholder="留空则检测整个循环元素的文本">
               <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #e74c3c; color: white; border: none; border-radius: 3px;">🔍 测试检测</button>
               <div class="form-help">指定要检测敏感词的元素位置，留空则检测整个循环元素</div>
           </div>
@@ -1022,64 +1109,136 @@ generateSmartWaitForm(config) {
       <!-- 虚拟列表配置 -->
       <div class="form-group">
           <label class="form-label">
-              <input type="checkbox" id="isVirtualList" ${config.isVirtualList ? 'checked' : ''} style="margin-right: 8px;">
+              <input type="checkbox" id="isVirtualList" ${
+                config.isVirtualList ? "checked" : ""
+              } style="margin-right: 8px;">
               启用虚拟列表模式
           </label>
           <div class="form-help">适用于需要滚动加载的长列表，自动遍历所有项目</div>
       </div>
 
-      <div id="virtualListConfig" style="display: ${config.isVirtualList ? 'block' : 'none'}; margin-left: 20px; border-left: 3px solid #3498db; padding-left: 15px;">
+      <div id="virtualListConfig" style="display: ${
+        config.isVirtualList ? "block" : "none"
+      }; margin-left: 20px; border-left: 3px solid #3498db; padding-left: 15px;">
           <div class="form-group">
               <label class="form-label">容器定位策略</label>
               <select class="form-select" id="virtualListContainerStrategy">
-                  <option value="css" ${config.virtualListContainer?.strategy === "css" ? "selected" : ""}>CSS选择器 [示例: .list-container, #virtual-list]</option>
-                  <option value="xpath" ${config.virtualListContainer?.strategy === "xpath" ? "selected" : ""}>XPath [示例: //div[@class='list-container']]</option>
-                  <option value="id" ${config.virtualListContainer?.strategy === "id" ? "selected" : ""}>ID [示例: virtual-list-container]</option>
-                  <option value="className" ${config.virtualListContainer?.strategy === "className" ? "selected" : ""}>类名 [示例: list-container]</option>
-                  <option value="text" ${config.virtualListContainer?.strategy === "text" ? "selected" : ""}>文本内容 [示例: 列表容器]</option>
-                  <option value="contains" ${config.virtualListContainer?.strategy === "contains" ? "selected" : ""}>包含文本 [示例: 部分文本匹配]</option>
-                  <option value="tagName" ${config.virtualListContainer?.strategy === "tagName" ? "selected" : ""}>标签名 [示例: div, ul]</option>
+                  <option value="css" ${
+                    config.virtualListContainer?.strategy === "css"
+                      ? "selected"
+                      : ""
+                  }>CSS选择器 [示例: .list-container, #virtual-list]</option>
+                  <option value="xpath" ${
+                    config.virtualListContainer?.strategy === "xpath"
+                      ? "selected"
+                      : ""
+                  }>XPath [示例: //div[@class='list-container']]</option>
+                  <option value="id" ${
+                    config.virtualListContainer?.strategy === "id"
+                      ? "selected"
+                      : ""
+                  }>ID [示例: virtual-list-container]</option>
+                  <option value="className" ${
+                    config.virtualListContainer?.strategy === "className"
+                      ? "selected"
+                      : ""
+                  }>类名 [示例: list-container]</option>
+                  <option value="text" ${
+                    config.virtualListContainer?.strategy === "text"
+                      ? "selected"
+                      : ""
+                  }>文本内容 [示例: 列表容器]</option>
+                  <option value="contains" ${
+                    config.virtualListContainer?.strategy === "contains"
+                      ? "selected"
+                      : ""
+                  }>包含文本 [示例: 部分文本匹配]</option>
+                  <option value="tagName" ${
+                    config.virtualListContainer?.strategy === "tagName"
+                      ? "selected"
+                      : ""
+                  }>标签名 [示例: div, ul]</option>
               </select>
           </div>
           <div class="form-group">
               <label class="form-label">容器定位值</label>
-              <input type="text" class="form-input" id="virtualListContainerValue" value="${config.virtualListContainer?.value || ""}" placeholder="虚拟列表容器的选择器">
+              <input type="text" class="form-input" id="virtualListContainerValue" value="${
+                config.virtualListContainer?.value || ""
+              }" placeholder="虚拟列表容器的选择器">
               <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🎯 测试容器</button>
           </div>
           <div class="form-group">
               <label class="form-label">标题定位策略</label>
               <select class="form-select" id="virtualListTitleStrategy">
-                  <option value="css" ${config.virtualListTitleLocator?.strategy === "css" ? "selected" : ""}>CSS选择器 [示例: .item-title, .list-item h3]</option>
-                  <option value="xpath" ${config.virtualListTitleLocator?.strategy === "xpath" ? "selected" : ""}>XPath [示例: //div[@class='item-title']]</option>
-                  <option value="id" ${config.virtualListTitleLocator?.strategy === "id" ? "selected" : ""}>ID [示例: item-title]</option>
-                  <option value="className" ${config.virtualListTitleLocator?.strategy === "className" ? "selected" : ""}>类名 [示例: item-title]</option>
-                  <option value="text" ${config.virtualListTitleLocator?.strategy === "text" ? "selected" : ""}>文本内容 [示例: 标题文本]</option>
-                  <option value="contains" ${config.virtualListTitleLocator?.strategy === "contains" ? "selected" : ""}>包含文本 [示例: 部分标题文本]</option>
-                  <option value="tagName" ${config.virtualListTitleLocator?.strategy === "tagName" ? "selected" : ""}>标签名 [示例: h1, h2, span]</option>
+                  <option value="css" ${
+                    config.virtualListTitleLocator?.strategy === "css"
+                      ? "selected"
+                      : ""
+                  }>CSS选择器 [示例: .item-title, .list-item h3]</option>
+                  <option value="xpath" ${
+                    config.virtualListTitleLocator?.strategy === "xpath"
+                      ? "selected"
+                      : ""
+                  }>XPath [示例: //div[@class='item-title']]</option>
+                  <option value="id" ${
+                    config.virtualListTitleLocator?.strategy === "id"
+                      ? "selected"
+                      : ""
+                  }>ID [示例: item-title]</option>
+                  <option value="className" ${
+                    config.virtualListTitleLocator?.strategy === "className"
+                      ? "selected"
+                      : ""
+                  }>类名 [示例: item-title]</option>
+                  <option value="text" ${
+                    config.virtualListTitleLocator?.strategy === "text"
+                      ? "selected"
+                      : ""
+                  }>文本内容 [示例: 标题文本]</option>
+                  <option value="contains" ${
+                    config.virtualListTitleLocator?.strategy === "contains"
+                      ? "selected"
+                      : ""
+                  }>包含文本 [示例: 部分标题文本]</option>
+                  <option value="tagName" ${
+                    config.virtualListTitleLocator?.strategy === "tagName"
+                      ? "selected"
+                      : ""
+                  }>标签名 [示例: h1, h2, span]</option>
               </select>
           </div>
           <div class="form-group">
               <label class="form-label">标题定位值</label>
-              <input type="text" class="form-input" id="virtualListTitleValue" value="${config.virtualListTitleLocator?.value || ""}" placeholder="列表项标题元素的选择器">
+              <input type="text" class="form-input" id="virtualListTitleValue" value="${
+                config.virtualListTitleLocator?.value || ""
+              }" placeholder="列表项标题元素的选择器">
               <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🎯 测试标题</button>
           </div>
           <div class="form-group">
               <label class="form-label">滚动距离(px)</label>
-              <input type="number" class="form-input" id="virtualListScrollDistance" value="${config.virtualListScrollDistance || 100}" min="10" max="1000" step="10">
+              <input type="number" class="form-input" id="virtualListScrollDistance" value="${
+                config.virtualListScrollDistance || 100
+              }" min="10" max="1000" step="10">
               <div class="form-help">每次滚动的像素距离</div>
           </div>
           <div class="form-group">
               <label class="form-label">滚动等待时间(毫秒)</label>
-              <input type="number" class="form-input" id="virtualListWaitTime" value="${config.virtualListWaitTime || 1000}" min="100" max="10000" step="100">
+              <input type="number" class="form-input" id="virtualListWaitTime" value="${
+                config.virtualListWaitTime || 1000
+              }" min="100" max="10000" step="100">
               <div class="form-help">滚动后等待新内容渲染的时间</div>
           </div>
           <div class="form-group">
               <label class="form-label">最大重试次数</label>
-              <input type="number" class="form-input" id="virtualListMaxRetries" value="${config.virtualListMaxRetries || 10}" min="1" max="100">
+              <input type="number" class="form-input" id="virtualListMaxRetries" value="${
+                config.virtualListMaxRetries || 10
+              }" min="1" max="100">
               <div class="form-help">防止死循环的保护机制</div>
           </div>
       </div>
-      ${config.loopType === "self" ? `
+      ${
+        config.loopType === "self"
+          ? `
       <div class="form-group">
           <label class="form-label">操作类型</label>
           <select class="form-select" id="operationType">
@@ -1094,7 +1253,9 @@ generateSmartWaitForm(config) {
               }>悬停</option>
           </select>
       </div>
-      ` : ''}
+      `
+          : ""
+      }
     `;
   }
 
@@ -1109,53 +1270,87 @@ generateSmartWaitForm(config) {
 
     // 绑定测试定位器按钮
     const testButtons = document.querySelectorAll(".test-locator-btn");
-    testButtons.forEach(button => {
+    testButtons.forEach((button) => {
       button.addEventListener("click", () => {
         this.testLocator(button);
       });
     });
 
     // 绑定敏感词检测复选框事件监听器
-    const sensitiveWordCheckbox = document.getElementById('enableSensitiveWordDetection');
-    const sensitiveWordConfig = document.getElementById('sensitiveWordConfig');
+    const sensitiveWordCheckbox = document.getElementById(
+      "enableSensitiveWordDetection"
+    );
+    const sensitiveWordConfig = document.getElementById("sensitiveWordConfig");
     if (sensitiveWordCheckbox && sensitiveWordConfig) {
-      sensitiveWordCheckbox.addEventListener('change', (e) => {
-        sensitiveWordConfig.style.display = e.target.checked ? 'block' : 'none';
+      sensitiveWordCheckbox.addEventListener("change", (e) => {
+        sensitiveWordConfig.style.display = e.target.checked ? "block" : "none";
       });
     }
 
     // 绑定虚拟列表复选框事件监听器
-    const virtualListCheckbox = document.getElementById('isVirtualList');
-    const virtualListConfig = document.getElementById('virtualListConfig');
+    const virtualListCheckbox = document.getElementById("isVirtualList");
+    const virtualListConfig = document.getElementById("virtualListConfig");
     if (virtualListCheckbox && virtualListConfig) {
-      virtualListCheckbox.addEventListener('change', (e) => {
-        virtualListConfig.style.display = e.target.checked ? 'block' : 'none';
+      virtualListCheckbox.addEventListener("change", (e) => {
+        virtualListConfig.style.display = e.target.checked ? "block" : "none";
       });
     }
 
     // 绑定测试条件按钮
-    const testConditionButtons = document.querySelectorAll(".test-condition-btn");
-    testConditionButtons.forEach(button => {
+    const testConditionButtons = document.querySelectorAll(
+      ".test-condition-btn"
+    );
+    testConditionButtons.forEach((button) => {
       button.addEventListener("click", () => {
-        this.testCondition(button);
+        // 检查是否是智能等待步骤的测试按钮
+        // 查找整个配置容器而不是只查找最近的form-group
+        let configContainer = document;
+
+        // 安全的closest实现
+        let element = button;
+        while (element && element !== document) {
+          if (
+            element.id === "nodeConfigForm" ||
+            element.classList.contains("node-config-container")
+          ) {
+            configContainer = element;
+            break;
+          }
+          element = element.parentElement;
+        }
+
+        if (configContainer.querySelector("#attributeName")) {
+          this.testAttributeCondition(button);
+        } else {
+          this.testCondition(button);
+        }
       });
     });
 
     // 绑定测试敏感词检测按钮（使用更精确的选择器和延迟绑定）
     setTimeout(() => {
-      const testSensitiveWordButton = document.querySelector("#sensitiveWordConfig .test-locator-btn");
-      if (testSensitiveWordButton && testSensitiveWordButton.textContent.includes('🔍 测试检测')) {
+      const testSensitiveWordButton = document.querySelector(
+        "#sensitiveWordConfig .test-locator-btn"
+      );
+      if (
+        testSensitiveWordButton &&
+        testSensitiveWordButton.textContent.includes("🔍 测试检测")
+      ) {
         // 移除可能存在的旧事件监听器
-        testSensitiveWordButton.replaceWith(testSensitiveWordButton.cloneNode(true));
-        const newButton = document.querySelector("#sensitiveWordConfig .test-locator-btn");
-        
+        testSensitiveWordButton.replaceWith(
+          testSensitiveWordButton.cloneNode(true)
+        );
+        const newButton = document.querySelector(
+          "#sensitiveWordConfig .test-locator-btn"
+        );
+
         newButton.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
-          console.log('🔍 敏感词检测测试按钮被点击');
+          console.log("🔍 敏感词检测测试按钮被点击");
           this.testSensitiveWordDetection(newButton);
         });
-        console.log('🔍 敏感词检测测试按钮事件已绑定');
+        console.log("🔍 敏感词检测测试按钮事件已绑定");
       }
     }, 100);
 
@@ -1253,20 +1448,20 @@ generateSmartWaitForm(config) {
     }
 
     // 降级方案：基本的拖拽事件绑定
-    const horizontalDistance = document.getElementById('horizontalDistance');
-    const verticalDistance = document.getElementById('verticalDistance');
+    const horizontalDistance = document.getElementById("horizontalDistance");
+    const verticalDistance = document.getElementById("verticalDistance");
 
     if (horizontalDistance || verticalDistance) {
-      console.log('🖱️ 绑定拖拽操作表单事件');
+      console.log("🖱️ 绑定拖拽操作表单事件");
 
       // 绑定距离输入变化事件（用于实时预览）
-      [horizontalDistance, verticalDistance].forEach(input => {
+      [horizontalDistance, verticalDistance].forEach((input) => {
         if (input) {
-          input.addEventListener('input', () => {
+          input.addEventListener("input", () => {
             // 可以在这里添加实时预览逻辑
-            console.log('🖱️ 拖拽距离已更新:', {
+            console.log("🖱️ 拖拽距离已更新:", {
               horizontal: horizontalDistance?.value || 0,
-              vertical: verticalDistance?.value || 0
+              vertical: verticalDistance?.value || 0,
             });
           });
         }
@@ -1278,7 +1473,7 @@ generateSmartWaitForm(config) {
     if (!cell) return;
 
     const config = this.nodeConfigs.get(cell.id) || {};
-    
+
     // 保存基本信息
     const nameInput = document.getElementById("nodeName");
     if (nameInput) {
@@ -1328,11 +1523,11 @@ generateSmartWaitForm(config) {
   saveLocatorConfig(config) {
     const locatorType = document.getElementById("locatorType");
     const locatorValue = document.getElementById("locatorValue");
-    
+
     if (locatorType && locatorValue) {
       config.locator = {
         strategy: locatorType.value,
-        value: locatorValue.value.trim()
+        value: locatorValue.value.trim(),
       };
     }
 
@@ -1355,11 +1550,6 @@ generateSmartWaitForm(config) {
     }
 
     // 保存智能等待特定配置
-    const waitCondition = document.getElementById("waitCondition");
-    if (waitCondition) {
-      config.waitCondition = waitCondition.value;
-    }
-
     const timeout = document.getElementById("timeout");
     if (timeout) {
       config.timeout = parseInt(timeout.value) || 30000;
@@ -1376,15 +1566,23 @@ generateSmartWaitForm(config) {
       config.attributeName = attributeName.value.trim();
     }
 
-    // 保存状态检查特定配置
-    const checkType = document.getElementById("checkType");
-    if (checkType) {
-      config.checkType = checkType.value;
+    const comparisonType = document.getElementById("comparisonType");
+    if (comparisonType) {
+      config.comparisonType = comparisonType.value;
     }
 
     const expectedValue = document.getElementById("expectedValue");
     if (expectedValue) {
       config.expectedValue = expectedValue.value.trim();
+    }
+
+    // 设置等待条件为属性等待
+    config.waitCondition = "attributeWait";
+
+    // 保存状态检查特定配置
+    const checkType = document.getElementById("checkType");
+    if (checkType) {
+      config.checkType = checkType.value;
     }
 
     // 保存条件判断特定配置
@@ -1393,9 +1591,9 @@ generateSmartWaitForm(config) {
       config.conditionType = conditionType.value;
     }
 
-    const comparisonType = document.getElementById("comparisonType");
-    if (comparisonType) {
-      config.comparisonType = comparisonType.value;
+    const comparisonTypeElement = document.getElementById("comparisonType");
+    if (comparisonTypeElement) {
+      config.comparisonType = comparisonTypeElement.value;
     }
 
     // 保存错误处理配置
@@ -1419,13 +1617,17 @@ generateSmartWaitForm(config) {
   }
 
   saveLoopConfig(config) {
-    const locatorStrategy = document.getElementById("locatorStrategy") || document.getElementById("locatorType");
-    const loopSelector = document.getElementById("loopSelector") || document.getElementById("locatorValue");
-    
+    const locatorStrategy =
+      document.getElementById("locatorStrategy") ||
+      document.getElementById("locatorType");
+    const loopSelector =
+      document.getElementById("loopSelector") ||
+      document.getElementById("locatorValue");
+
     if (locatorStrategy && loopSelector) {
       config.locator = {
         strategy: locatorStrategy.value,
-        value: loopSelector.value.trim()
+        value: loopSelector.value.trim(),
       };
       config.loopSelector = loopSelector.value.trim();
     }
@@ -1456,55 +1658,72 @@ generateSmartWaitForm(config) {
     }
 
     // 保存敏感词检测配置
-    const enableSensitiveWordDetection = document.getElementById("enableSensitiveWordDetection");
+    const enableSensitiveWordDetection = document.getElementById(
+      "enableSensitiveWordDetection"
+    );
     if (enableSensitiveWordDetection) {
       if (!config.sensitiveWordDetection) {
         config.sensitiveWordDetection = {};
       }
-      config.sensitiveWordDetection.enabled = enableSensitiveWordDetection.checked;
-      
+      config.sensitiveWordDetection.enabled =
+        enableSensitiveWordDetection.checked;
+
       if (config.sensitiveWordDetection.enabled) {
         const sensitiveWords = document.getElementById("sensitiveWords");
-        const sensitiveWordLocatorStrategy = document.getElementById("sensitiveWordLocatorStrategy");
-        const sensitiveWordLocatorValue = document.getElementById("sensitiveWordLocatorValue");
-        
+        const sensitiveWordLocatorStrategy = document.getElementById(
+          "sensitiveWordLocatorStrategy"
+        );
+        const sensitiveWordLocatorValue = document.getElementById(
+          "sensitiveWordLocatorValue"
+        );
+
         if (sensitiveWords) {
-          config.sensitiveWordDetection.sensitiveWords = sensitiveWords.value.trim();
+          config.sensitiveWordDetection.sensitiveWords =
+            sensitiveWords.value.trim();
         }
-        
+
         if (sensitiveWordLocatorStrategy) {
-          config.sensitiveWordDetection.locatorStrategy = sensitiveWordLocatorStrategy.value;
+          config.sensitiveWordDetection.locatorStrategy =
+            sensitiveWordLocatorStrategy.value;
         }
-        
+
         if (sensitiveWordLocatorValue) {
-          config.sensitiveWordDetection.locatorValue = sensitiveWordLocatorValue.value.trim();
+          config.sensitiveWordDetection.locatorValue =
+            sensitiveWordLocatorValue.value.trim();
         }
       }
-      
-      console.log('🔍 [DEBUG] 保存敏感词检测配置:', config.sensitiveWordDetection);
+
+      console.log(
+        "🔍 [DEBUG] 保存敏感词检测配置:",
+        config.sensitiveWordDetection
+      );
     }
 
     // 保存虚拟列表配置
     const isVirtualList = document.getElementById("isVirtualList");
     if (isVirtualList) {
       config.isVirtualList = isVirtualList.checked;
-      console.log('🔍 [DEBUG] 保存虚拟列表配置:', {
+      console.log("🔍 [DEBUG] 保存虚拟列表配置:", {
         checkboxExists: !!isVirtualList,
         isChecked: isVirtualList.checked,
-        configValue: config.isVirtualList
+        configValue: config.isVirtualList,
       });
     } else {
-      console.log('🔍 [DEBUG] 虚拟列表复选框未找到');
+      console.log("🔍 [DEBUG] 虚拟列表复选框未找到");
     }
 
     if (config.isVirtualList) {
       // 容器定位配置
-      const containerStrategy = document.getElementById("virtualListContainerStrategy");
-      const containerValue = document.getElementById("virtualListContainerValue");
+      const containerStrategy = document.getElementById(
+        "virtualListContainerStrategy"
+      );
+      const containerValue = document.getElementById(
+        "virtualListContainerValue"
+      );
       if (containerStrategy && containerValue) {
         config.virtualListContainer = {
           strategy: containerStrategy.value,
-          value: containerValue.value.trim()
+          value: containerValue.value.trim(),
         };
       }
 
@@ -1514,14 +1733,17 @@ generateSmartWaitForm(config) {
       if (titleStrategy && titleValue) {
         config.virtualListTitleLocator = {
           strategy: titleStrategy.value,
-          value: titleValue.value.trim()
+          value: titleValue.value.trim(),
         };
       }
 
       // 滚动配置
-      const scrollDistance = document.getElementById("virtualListScrollDistance");
+      const scrollDistance = document.getElementById(
+        "virtualListScrollDistance"
+      );
       if (scrollDistance) {
-        config.virtualListScrollDistance = parseInt(scrollDistance.value) || 100;
+        config.virtualListScrollDistance =
+          parseInt(scrollDistance.value) || 100;
       }
 
       const waitTime = document.getElementById("virtualListWaitTime");
@@ -1583,12 +1805,13 @@ generateSmartWaitForm(config) {
     if (!cell || !this.graph) return;
 
     const config = this.nodeConfigs.get(cell.id) || {};
-    const name = config.name || this.nodeTypes[config.type]?.name || "未命名节点";
-    
+    const name =
+      config.name || this.nodeTypes[config.type]?.name || "未命名节点";
+
     try {
       // 更新节点标签
       this.graph.getModel().setValue(cell, name);
-      
+
       // 刷新显示
       this.graph.refresh();
     } catch (error) {
@@ -1612,9 +1835,11 @@ generateSmartWaitForm(config) {
         // 如果是循环容器，需要删除所有子节点的配置
         if (this.graph.isSwimlane(cell)) {
           const children = this.graph.getChildVertices(cell);
-          console.log(`🗑️ 循环容器包含 ${children.length} 个子节点，将一并删除`);
+          console.log(
+            `🗑️ 循环容器包含 ${children.length} 个子节点，将一并删除`
+          );
 
-          children.forEach(child => {
+          children.forEach((child) => {
             console.log(`🗑️ 删除子节点配置: ${child.id}`);
             this.nodeConfigs.delete(child.id);
           });
@@ -1654,15 +1879,24 @@ generateSmartWaitForm(config) {
     const expectedValueGroup = document.getElementById("expectedValueGroup");
 
     if (attributeGroup) {
-      attributeGroup.style.display = select.value === "attribute" ? "block" : "none";
+      attributeGroup.style.display =
+        select.value === "attribute" ? "block" : "none";
     }
 
     if (comparisonGroup) {
-      comparisonGroup.style.display = ["text", "attribute"].includes(select.value) ? "block" : "none";
+      comparisonGroup.style.display = ["text", "attribute"].includes(
+        select.value
+      )
+        ? "block"
+        : "none";
     }
 
     if (expectedValueGroup) {
-      expectedValueGroup.style.display = ["text", "attribute"].includes(select.value) ? "block" : "none";
+      expectedValueGroup.style.display = ["text", "attribute"].includes(
+        select.value
+      )
+        ? "block"
+        : "none";
     }
   }
 
@@ -1670,16 +1904,17 @@ generateSmartWaitForm(config) {
   toggleExpectedValueField(select) {
     const expectedValueGroup = document.getElementById("expectedValueGroup");
     if (expectedValueGroup) {
-      const hideValues = ["exists", "visible", "isEmpty", "isNotEmpty", "hasAttribute", "notHasAttribute"];
-      expectedValueGroup.style.display = hideValues.includes(select.value) ? "none" : "block";
-    }
-  }
-
-  // 切换智能等待属性字段显示
-  toggleAttributeField(select) {
-    const attributeGroup = document.getElementById("attributeNameGroup");
-    if (attributeGroup) {
-      attributeGroup.style.display = select.value === "attributeAppear" ? "block" : "none";
+      const hideValues = [
+        "exists",
+        "visible",
+        "isEmpty",
+        "isNotEmpty",
+        "hasAttribute",
+        "notHasAttribute",
+      ];
+      expectedValueGroup.style.display = hideValues.includes(select.value)
+        ? "none"
+        : "block";
     }
   }
 
@@ -1689,11 +1924,16 @@ generateSmartWaitForm(config) {
     const attributeNameGroup = document.getElementById("attributeNameGroup");
 
     if (expectedValueGroup) {
-      expectedValueGroup.style.display = ["text", "attribute"].includes(select.value) ? "block" : "none";
+      expectedValueGroup.style.display = ["text", "attribute"].includes(
+        select.value
+      )
+        ? "block"
+        : "none";
     }
 
     if (attributeNameGroup) {
-      attributeNameGroup.style.display = select.value === "attribute" ? "block" : "none";
+      attributeNameGroup.style.display =
+        select.value === "attribute" ? "block" : "none";
     }
   }
 
@@ -1712,7 +1952,7 @@ generateSmartWaitForm(config) {
     console.log("🔧 [DEBUG] 初始查找结果:");
     console.log("  - strategySelect存在:", !!strategySelect);
     console.log("  - valueInput存在:", !!valueInput);
-    console.log("  - 按钮文本:", button.textContent || button.innerText || '');
+    console.log("  - 按钮文本:", button.textContent || button.innerText || "");
 
     // 特殊处理：如果是循环操作表单，使用loopSelector作为定位值
     if (strategySelect && !valueInput) {
@@ -1744,12 +1984,12 @@ generateSmartWaitForm(config) {
     }
 
     // 特殊处理虚拟列表的测试按钮
-    const buttonText = button.textContent || button.innerText || '';
-    if (buttonText.includes('测试容器')) {
+    const buttonText = button.textContent || button.innerText || "";
+    if (buttonText.includes("测试容器")) {
       strategySelect = document.getElementById("virtualListContainerStrategy");
       valueInput = document.getElementById("virtualListContainerValue");
       console.log("🔧 [DEBUG] 虚拟列表容器测试按钮");
-    } else if (buttonText.includes('测试标题')) {
+    } else if (buttonText.includes("测试标题")) {
       strategySelect = document.getElementById("virtualListTitleStrategy");
       valueInput = document.getElementById("virtualListTitleValue");
       console.log("🔧 [DEBUG] 虚拟列表标题测试按钮");
@@ -1769,7 +2009,10 @@ generateSmartWaitForm(config) {
       console.error("🔧 [DEBUG] 最终查找失败:");
       console.error("  - strategySelect:", strategySelect);
       console.error("  - valueInput:", valueInput);
-      console.error("  - 按钮文本:", button.textContent || button.innerText || '');
+      console.error(
+        "  - 按钮文本:",
+        button.textContent || button.innerText || ""
+      );
       alert("请先选择定位策略和输入定位值");
       return;
     }
@@ -1805,6 +2048,461 @@ generateSmartWaitForm(config) {
     );
   }
 
+  async testAttributeCondition(button) {
+    console.log(
+      "🚀 [DEBUG] testAttributeCondition 方法被调用 - 这是最新版本的代码"
+    );
+    console.log("🔧 开始属性条件测试");
+
+    const locatorStrategy = document.getElementById("locatorType");
+    const locatorValue = document.getElementById("locatorValue");
+    const attributeName = document.getElementById("attributeName");
+    const comparisonType = document.getElementById("comparisonType");
+    const expectedValue = document.getElementById("expectedValue");
+
+    console.log("📋 获取的元素:", {
+      locatorStrategy: locatorStrategy,
+      locatorValue: locatorValue,
+      attributeName: attributeName,
+      comparisonType: comparisonType,
+      expectedValue: expectedValue,
+    });
+
+    if (
+      !locatorStrategy ||
+      !locatorValue ||
+      !attributeName ||
+      !comparisonType ||
+      !expectedValue ||
+      !locatorStrategy.value ||
+      !locatorValue.value.trim() ||
+      !attributeName.value.trim() ||
+      !comparisonType.value ||
+      !expectedValue.value.trim()
+    ) {
+      console.error("❌ 验证失败，缺少必要字段");
+      alert("请完整填写属性等待配置");
+      return;
+    }
+
+    console.log("✅ 字段验证通过");
+
+    const originalText = button.textContent;
+    button.style.background = "#ffc107";
+    button.textContent = "🔄 测试中...";
+    button.disabled = true;
+
+    try {
+      console.log("🔍 检查运行环境:", {
+        chrome: typeof chrome,
+        chromeTabs: typeof chrome !== "undefined" ? !!chrome.tabs : false,
+        chromeTabsQuery:
+          typeof chrome !== "undefined" && chrome.tabs
+            ? !!chrome.tabs.query
+            : false,
+      });
+
+      // 简化判断：如果当前页面是file://协议，直接使用本地模拟
+      const isLocalFile = window.location.protocol === "file:";
+      const isRealExtensionEnvironment =
+        !isLocalFile &&
+        typeof chrome !== "undefined" &&
+        chrome.tabs &&
+        chrome.tabs.query &&
+        chrome.runtime &&
+        chrome.runtime.id;
+
+      console.log("🔍 环境检测结果:", {
+        isLocalFile,
+        isRealExtensionEnvironment,
+        protocol: window.location.protocol,
+        chromeRuntime: typeof chrome !== "undefined" ? !!chrome.runtime : false,
+      });
+
+      if (isRealExtensionEnvironment) {
+        console.log("🌐 在扩展环境中进行真实测试");
+        try {
+          // 真正的扩展环境测试逻辑
+          const tabs = await chrome.tabs.query({
+            active: true,
+            currentWindow: true,
+          });
+
+          const response = await chrome.tabs.sendMessage(tabs[0].id, {
+            action: "testAttributeCondition",
+            data: {
+              locator: {
+                strategy: locatorStrategy.value,
+                value: locatorValue.value.trim(),
+              },
+              attributeName: attributeName.value.trim(),
+              comparisonType: comparisonType.value,
+              expectedValue: expectedValue.value.trim(),
+            },
+          });
+
+          if (response && response.success) {
+            if (response.conditionMet) {
+              button.style.background = "#28a745";
+              button.textContent = "✅ 条件满足";
+              console.log(`✅ 属性条件测试通过: ${response.message}`);
+            } else {
+              button.style.background = "#ffc107";
+              button.textContent = "⚠️ 条件不满足";
+              console.log(`⚠️ 属性条件测试失败: ${response.message}`);
+            }
+          } else {
+            button.style.background = "#dc3545";
+            button.textContent = "❌ 测试失败";
+            console.error("属性条件测试失败:", response?.error || "未知错误");
+          }
+        } catch (extError) {
+          console.log(
+            "🔧 扩展环境测试失败，回退到页面选择测试:",
+            extError.message
+          );
+          // 回退到页面选择测试
+          this.runPageSelectionTest(
+            button,
+            locatorStrategy,
+            locatorValue,
+            attributeName,
+            comparisonType,
+            expectedValue
+          );
+        }
+      } else {
+        // 本地环境真实测试
+        console.log("🔧 进入本地环境测试分支");
+        this.runLocalTest(
+          button,
+          locatorStrategy,
+          locatorValue,
+          attributeName,
+          comparisonType,
+          expectedValue
+        );
+      }
+    } catch (error) {
+      button.style.background = "#dc3545";
+      button.textContent = "❌ 测试失败";
+      console.error("❌ 属性条件测试出错:", error);
+      console.error("错误详情:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+
+      // 显示具体错误信息给用户
+      alert(`测试失败：${error.message}`);
+    } finally {
+      setTimeout(() => {
+        button.style.background = "#28a745";
+        button.textContent = originalText;
+        button.disabled = false;
+      }, 3000);
+    }
+  }
+
+  runLocalTest(
+    button,
+    locatorStrategy,
+    locatorValue,
+    attributeName,
+    comparisonType,
+    expectedValue
+  ) {
+    console.log("🔧 开始本地真实测试");
+
+    try {
+      // 获取测试配置
+      const config = {
+        strategy: locatorStrategy.value,
+        value: locatorValue.value.trim(),
+        attributeName: attributeName.value.trim(),
+        comparisonType: comparisonType.value,
+        expectedValue: expectedValue.value.trim(),
+      };
+
+      console.log("📋 详细测试配置:");
+      console.log("  - 定位策略:", config.strategy);
+      console.log("  - 定位值:", config.value);
+      console.log("  - 属性名称:", config.attributeName);
+      console.log("  - 比较方式:", config.comparisonType);
+      console.log("  - 期望值:", config.expectedValue);
+
+      // 验证配置完整性
+      if (
+        !config.strategy ||
+        !config.value ||
+        !config.attributeName ||
+        !config.comparisonType ||
+        !config.expectedValue
+      ) {
+        throw new Error("配置不完整，请检查所有字段是否已填写");
+      }
+
+      // 使用本地元素查找逻辑（与定位测试保持一致）
+      let element = null;
+
+      console.log(
+        `🔍 使用策略 "${config.strategy}" 查找元素 "${config.value}"`
+      );
+
+      try {
+        switch (config.strategy) {
+          case "id":
+            element = document.getElementById(config.value);
+            console.log("ID查找结果:", element);
+            break;
+          case "className":
+            const classElements = document.getElementsByClassName(config.value);
+            element = classElements.length > 0 ? classElements[0] : null;
+            console.log(
+              `类名查找结果: 找到${classElements.length}个元素`,
+              element
+            );
+            break;
+          case "tagName":
+            const tagElements = document.getElementsByTagName(config.value);
+            element = tagElements.length > 0 ? tagElements[0] : null;
+            console.log(
+              `标签名查找结果: 找到${tagElements.length}个元素`,
+              element
+            );
+            break;
+          case "name":
+            const nameElements = document.getElementsByName(config.value);
+            element = nameElements.length > 0 ? nameElements[0] : null;
+            console.log(
+              `name属性查找结果: 找到${nameElements.length}个元素`,
+              element
+            );
+            break;
+          case "css":
+            element = document.querySelector(config.value);
+            console.log("CSS选择器查找结果:", element);
+            break;
+          case "xpath":
+            const xpathResult = document.evaluate(
+              config.value,
+              document,
+              null,
+              XPathResult.FIRST_ORDERED_NODE_TYPE,
+              null
+            );
+            element = xpathResult.singleNodeValue;
+            console.log("XPath查找结果:", element);
+            break;
+          default:
+            throw new Error(`不支持的定位策略: ${config.strategy}`);
+        }
+      } catch (searchError) {
+        console.error("元素查找过程中出错:", searchError);
+        throw new Error(`查找元素时出错: ${searchError.message}`);
+      }
+
+      if (!element) {
+        button.style.background = "#ffc107";
+        button.textContent = "⚠️ 元素未找到";
+        console.log(`⚠️ 未找到元素: ${config.strategy}="${config.value}"`);
+        return;
+      }
+
+      console.log("✅ 找到元素:", element);
+
+      // 获取元素属性值
+      let actualValue = "";
+      if (
+        config.attributeName === "textContent" ||
+        config.attributeName === "text"
+      ) {
+        actualValue = element.textContent || "";
+      } else if (config.attributeName === "innerHTML") {
+        actualValue = element.innerHTML || "";
+      } else {
+        actualValue = element.getAttribute(config.attributeName) || "";
+      }
+
+      console.log(`📋 属性 "${config.attributeName}" 的实际值:`, actualValue);
+      console.log(`🎯 期望值:`, config.expectedValue);
+
+      // 执行比较
+      let conditionMet = false;
+
+      switch (config.comparisonType) {
+        case "equals":
+          conditionMet = actualValue === config.expectedValue;
+          break;
+        case "contains":
+          conditionMet = actualValue.includes(config.expectedValue);
+          break;
+        case "startsWith":
+          conditionMet = actualValue.startsWith(config.expectedValue);
+          break;
+        case "endsWith":
+          conditionMet = actualValue.endsWith(config.expectedValue);
+          break;
+        default:
+          throw new Error(`不支持的比较方式: ${config.comparisonType}`);
+      }
+
+      // 显示测试结果
+      if (conditionMet) {
+        button.style.background = "#28a745";
+        button.textContent = "✅ 条件满足";
+        console.log("✅ 测试通过：条件满足");
+      } else {
+        button.style.background = "#ffc107";
+        button.textContent = "⚠️ 条件不满足";
+        console.log("⚠️ 测试失败：条件不满足");
+      }
+    } catch (error) {
+      button.style.background = "#dc3545";
+      button.textContent = "❌ 测试出错";
+      console.error("❌ 本地测试出错:", error);
+    }
+  }
+
+  async runPageSelectionTest(
+    button,
+    locatorStrategy,
+    locatorValue,
+    attributeName,
+    comparisonType,
+    expectedValue
+  ) {
+    console.log("🔧 开始页面选择测试");
+
+    try {
+      // 获取测试配置
+      const config = {
+        strategy: locatorStrategy.value,
+        value: locatorValue.value.trim(),
+        attributeName: attributeName.value.trim(),
+        comparisonType: comparisonType.value,
+        expectedValue: expectedValue.value.trim(),
+      };
+
+      console.log("📋 页面选择测试配置:", config);
+
+      // 验证配置完整性
+      if (
+        !config.strategy ||
+        !config.value ||
+        !config.attributeName ||
+        !config.comparisonType ||
+        !config.expectedValue
+      ) {
+        throw new Error("配置不完整，请检查所有字段是否已填写");
+      }
+
+      // 使用TabSelector选择页面
+      if (!window.globalTabSelector) {
+        window.globalTabSelector = new TabSelector();
+      }
+
+      console.log("🔍 显示页面选择器...");
+      const selectedTab = await window.globalTabSelector.showTabSelector();
+
+      if (!selectedTab) {
+        button.style.background = "#6c757d";
+        button.textContent = "🚫 已取消测试";
+        console.log("用户取消了页面选择");
+        return;
+      }
+
+      console.log("✅ 选择的页面:", selectedTab.title, selectedTab.url);
+
+      // 检查是否为本地文件，如果是则使用本地测试模式
+      if (selectedTab.url.startsWith("file://")) {
+        console.log("🔧 检测到本地文件，切换到本地测试模式");
+
+        // 切换到选中的标签页
+        await chrome.tabs.update(selectedTab.id, { active: true });
+
+        // 等待一下确保页面激活
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // 在选中的标签页中执行本地测试脚本
+        try {
+          const results = await chrome.scripting.executeScript({
+            target: { tabId: selectedTab.id },
+            func: executeLocalAttributeTest,
+            args: [config],
+          });
+
+          console.log("🔍 脚本执行结果:", results);
+
+          if (!results || results.length === 0) {
+            throw new Error("脚本执行失败：没有返回结果");
+          }
+
+          const result = results[0]?.result;
+
+          if (!result) {
+            throw new Error("脚本执行失败：结果为空");
+          }
+
+          if (result.success) {
+            if (result.conditionMet) {
+              button.style.background = "#28a745";
+              button.textContent = "✅ 条件满足";
+              console.log(`✅ 本地文件属性测试通过: ${result.message}`);
+            } else {
+              button.style.background = "#ffc107";
+              button.textContent = "⚠️ 条件不满足";
+              console.log(`⚠️ 本地文件属性测试失败: ${result.message}`);
+            }
+          } else {
+            button.style.background = "#dc3545";
+            button.textContent = "❌ 测试失败";
+            console.error("本地文件属性测试失败:", result.error);
+          }
+        } catch (scriptError) {
+          console.error("执行本地测试脚本失败:", scriptError);
+          button.style.background = "#dc3545";
+          button.textContent = "❌ 脚本执行失败";
+        }
+        return;
+      }
+
+      // 在选中的页面上执行属性测试
+      const response = await chrome.tabs.sendMessage(selectedTab.id, {
+        action: "testAttributeCondition",
+        data: {
+          locator: {
+            strategy: config.strategy,
+            value: config.value,
+          },
+          attributeName: config.attributeName,
+          comparisonType: config.comparisonType,
+          expectedValue: config.expectedValue,
+        },
+      });
+
+      if (response && response.success) {
+        if (response.conditionMet) {
+          button.style.background = "#28a745";
+          button.textContent = "✅ 条件满足";
+          console.log(`✅ 属性条件测试通过: ${response.message}`);
+        } else {
+          button.style.background = "#ffc107";
+          button.textContent = "⚠️ 条件不满足";
+          console.log(`⚠️ 属性条件测试失败: ${response.message}`);
+        }
+      } else {
+        button.style.background = "#dc3545";
+        button.textContent = "❌ 测试失败";
+        console.error("属性条件测试失败:", response?.error || "未知错误");
+      }
+    } catch (error) {
+      button.style.background = "#dc3545";
+      button.textContent = "❌ 测试出错";
+      console.error("❌ 页面选择测试出错:", error);
+    }
+  }
+
   async testCondition(button) {
     // 直接使用条件测试器，避免循环调用
     const locatorStrategy = document.getElementById("locatorType");
@@ -1814,7 +2512,12 @@ generateSmartWaitForm(config) {
     const comparisonType = document.getElementById("comparisonType");
     const expectedValue = document.getElementById("expectedValue");
 
-    if (!locatorStrategy || !locatorValue || !conditionType || !comparisonType) {
+    if (
+      !locatorStrategy ||
+      !locatorValue ||
+      !conditionType ||
+      !comparisonType
+    ) {
       alert("请完整填写条件配置");
       return;
     }
@@ -1850,7 +2553,9 @@ generateSmartWaitForm(config) {
       console.log("🧪 开始全局条件测试:", conditionConfig);
 
       // 执行真实的条件测试
-      const result = await window.conditionTester.testCondition(conditionConfig);
+      const result = await window.conditionTester.testCondition(
+        conditionConfig
+      );
 
       console.log("🧪 全局条件测试结果:", result);
 
@@ -1887,18 +2592,22 @@ generateSmartWaitForm(config) {
 
   async testSensitiveWordDetection(button) {
     const originalText = button.textContent;
-    
+
     try {
       button.disabled = true;
       button.style.background = "#007bff";
       button.textContent = "🔍 测试中...";
 
-      console.log('🔍 开始敏感词检测测试');
+      console.log("🔍 开始敏感词检测测试");
 
       // 获取敏感词检测配置
       const sensitiveWords = document.getElementById("sensitiveWords");
-      const sensitiveWordLocatorStrategy = document.getElementById("sensitiveWordLocatorStrategy");
-      const sensitiveWordLocatorValue = document.getElementById("sensitiveWordLocatorValue");
+      const sensitiveWordLocatorStrategy = document.getElementById(
+        "sensitiveWordLocatorStrategy"
+      );
+      const sensitiveWordLocatorValue = document.getElementById(
+        "sensitiveWordLocatorValue"
+      );
       const loopSelector = document.getElementById("loopSelector");
       const locatorType = document.getElementById("locatorType");
 
@@ -1915,9 +2624,13 @@ generateSmartWaitForm(config) {
       const testConfig = {
         sensitiveWords: sensitiveWords.value.trim(),
         loopSelector: loopSelector.value.trim(),
-        locatorStrategy: locatorType ? locatorType.value : 'css',
-        sensitiveWordLocatorStrategy: sensitiveWordLocatorStrategy ? sensitiveWordLocatorStrategy.value : 'css',
-        sensitiveWordLocatorValue: sensitiveWordLocatorValue ? sensitiveWordLocatorValue.value.trim() : ''
+        locatorStrategy: locatorType ? locatorType.value : "css",
+        sensitiveWordLocatorStrategy: sensitiveWordLocatorStrategy
+          ? sensitiveWordLocatorStrategy.value
+          : "css",
+        sensitiveWordLocatorValue: sensitiveWordLocatorValue
+          ? sensitiveWordLocatorValue.value.trim()
+          : "",
       };
 
       console.log("📋 测试配置:", testConfig);
@@ -1930,7 +2643,9 @@ generateSmartWaitForm(config) {
       if (result.success) {
         button.style.background = "#28a745";
         button.textContent = `✅ 找到${result.totalElements}个元素，${result.skippedElements}个被跳过`;
-        console.log(`✅ 测试完成: 总共${result.totalElements}个元素，${result.skippedElements}个包含敏感词被跳过`);
+        console.log(
+          `✅ 测试完成: 总共${result.totalElements}个元素，${result.skippedElements}个包含敏感词被跳过`
+        );
       } else {
         button.style.background = "#dc3545";
         button.textContent = "❌ 测试失败";
@@ -1954,53 +2669,66 @@ generateSmartWaitForm(config) {
 
   async performSimpleSensitiveWordTest(config) {
     try {
-      console.log('🔍 执行简化的敏感词检测测试');
-      
+      console.log("🔍 执行简化的敏感词检测测试");
+
       // 解析敏感词
-      const sensitiveWords = config.sensitiveWords.split(',')
-        .map(word => word.trim().toLowerCase())
-        .filter(word => word.length > 0);
-      
-      console.log('解析的敏感词:', sensitiveWords);
+      const sensitiveWords = config.sensitiveWords
+        .split(",")
+        .map((word) => word.trim().toLowerCase())
+        .filter((word) => word.length > 0);
+
+      console.log("解析的敏感词:", sensitiveWords);
 
       // 尝试查找循环元素
       let elements = [];
       try {
-        if (config.locatorStrategy === 'css' && config.loopSelector) {
+        if (config.locatorStrategy === "css" && config.loopSelector) {
           elements = Array.from(document.querySelectorAll(config.loopSelector));
           console.log(`在当前页面找到 ${elements.length} 个循环元素`);
         }
       } catch (error) {
-        console.warn('无法在当前页面查找元素:', error);
+        console.warn("无法在当前页面查找元素:", error);
       }
-      
+
       let skippedCount = 0;
       const totalElements = Math.max(elements.length, 8);
-      
+
       if (elements.length > 0) {
         // 检测真实元素
         console.log(`开始检测 ${Math.min(elements.length, 10)} 个真实元素`);
-        
+
         for (let i = 0; i < Math.min(elements.length, 10); i++) {
           const element = elements[i];
           try {
             // 获取要检测的文本
-            let textToCheck = '';
+            let textToCheck = "";
             if (config.sensitiveWordLocatorValue) {
-              const targetElement = element.querySelector(config.sensitiveWordLocatorValue);
-              textToCheck = targetElement ? (targetElement.innerText || targetElement.textContent || '') : '';
+              const targetElement = element.querySelector(
+                config.sensitiveWordLocatorValue
+              );
+              textToCheck = targetElement
+                ? targetElement.innerText || targetElement.textContent || ""
+                : "";
             } else {
-              textToCheck = element.innerText || element.textContent || '';
+              textToCheck = element.innerText || element.textContent || "";
             }
-            
+
             // 检测敏感词
             const textLower = textToCheck.toLowerCase();
-            const matchedWords = sensitiveWords.filter(word => textLower.includes(word));
-            
+            const matchedWords = sensitiveWords.filter((word) =>
+              textLower.includes(word)
+            );
+
             if (matchedWords.length > 0) {
               skippedCount++;
-              console.log(`元素 ${i + 1} 被跳过: 包含敏感词 [${matchedWords.join(', ')}]`);
-              console.log(`  文本内容: "${textToCheck.substring(0, 100)}${textToCheck.length > 100 ? '...' : ''}"`);
+              console.log(
+                `元素 ${i + 1} 被跳过: 包含敏感词 [${matchedWords.join(", ")}]`
+              );
+              console.log(
+                `  文本内容: "${textToCheck.substring(0, 100)}${
+                  textToCheck.length > 100 ? "..." : ""
+                }"`
+              );
             } else {
               console.log(`元素 ${i + 1} 通过检测`);
             }
@@ -2010,46 +2738,168 @@ generateSmartWaitForm(config) {
         }
       } else {
         // 使用模拟数据
-        console.log('使用模拟数据进行测试');
+        console.log("使用模拟数据进行测试");
         const mockTexts = [
-          '这是一个正常的内容项目',
-          '这是一个广告内容，用于推广产品',
-          '提供高质量的学习资源',
-          '专业的营销策略和方案',
-          '分享最新的行业动态',
-          'This is spam content',
-          '详细的使用指南和最佳实践',
-          '技术实现细节和优化方案'
+          "这是一个正常的内容项目",
+          "这是一个广告内容，用于推广产品",
+          "提供高质量的学习资源",
+          "专业的营销策略和方案",
+          "分享最新的行业动态",
+          "This is spam content",
+          "详细的使用指南和最佳实践",
+          "技术实现细节和优化方案",
         ];
-        
+
         mockTexts.forEach((text, index) => {
           const textLower = text.toLowerCase();
-          const matchedWords = sensitiveWords.filter(word => textLower.includes(word));
+          const matchedWords = sensitiveWords.filter((word) =>
+            textLower.includes(word)
+          );
           if (matchedWords.length > 0) {
             skippedCount++;
-            console.log(`模拟元素 ${index + 1} 被跳过: 包含敏感词 [${matchedWords.join(', ')}]`);
+            console.log(
+              `模拟元素 ${index + 1} 被跳过: 包含敏感词 [${matchedWords.join(
+                ", "
+              )}]`
+            );
           }
         });
       }
-      
+
       return {
         success: true,
         totalElements: totalElements,
         skippedElements: skippedCount,
         passedElements: totalElements - skippedCount,
-        message: `测试完成：共 ${totalElements} 个元素，${skippedCount} 个包含敏感词被跳过`
+        message: `测试完成：共 ${totalElements} 个元素，${skippedCount} 个包含敏感词被跳过`,
       };
     } catch (error) {
-      console.error('❌ 敏感词检测测试失败:', error);
+      console.error("❌ 敏感词检测测试失败:", error);
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
+}
 
+// 在目标页面中执行的本地属性测试函数（独立函数，用于chrome.scripting.executeScript）
+function executeLocalAttributeTest(config) {
+  try {
+    console.log("🔧 在目标页面执行本地属性测试");
+    console.log("测试配置:", config);
 
+    // 根据定位策略查找元素
+    let element = null;
+
+    switch (config.strategy) {
+      case "id":
+        element = document.getElementById(config.value);
+        break;
+      case "className":
+        const classElements = document.getElementsByClassName(config.value);
+        element = classElements.length > 0 ? classElements[0] : null;
+        break;
+      case "tagName":
+        const tagElements = document.getElementsByTagName(config.value);
+        element = tagElements.length > 0 ? tagElements[0] : null;
+        break;
+      case "name":
+        const nameElements = document.getElementsByName(config.value);
+        element = nameElements.length > 0 ? nameElements[0] : null;
+        break;
+      case "css":
+        element = document.querySelector(config.value);
+        break;
+      case "xpath":
+        const xpathResult = document.evaluate(
+          config.value,
+          document,
+          null,
+          XPathResult.FIRST_ORDERED_NODE_TYPE,
+          null
+        );
+        element = xpathResult.singleNodeValue;
+        break;
+      default:
+        return {
+          success: false,
+          error: `不支持的定位策略: ${config.strategy}`,
+        };
+    }
+
+    if (!element) {
+      return {
+        success: false,
+        error: `未找到元素: ${config.strategy}="${config.value}"`,
+      };
+    }
+
+    console.log("✅ 找到元素:", element);
+
+    // 获取元素属性值
+    let actualValue = "";
+    if (
+      config.attributeName === "textContent" ||
+      config.attributeName === "text"
+    ) {
+      actualValue = element.textContent || "";
+    } else if (config.attributeName === "innerHTML") {
+      actualValue = element.innerHTML || "";
+    } else {
+      actualValue = element.getAttribute(config.attributeName) || "";
+    }
+
+    console.log(`📋 属性 "${config.attributeName}" 的实际值:`, actualValue);
+    console.log(`🎯 期望值:`, config.expectedValue);
+
+    // 执行比较
+    let conditionMet = false;
+
+    switch (config.comparisonType) {
+      case "equals":
+        conditionMet = actualValue === config.expectedValue;
+        break;
+      case "contains":
+        conditionMet = actualValue.includes(config.expectedValue);
+        break;
+      case "startsWith":
+        conditionMet = actualValue.startsWith(config.expectedValue);
+        break;
+      case "endsWith":
+        conditionMet = actualValue.endsWith(config.expectedValue);
+        break;
+      default:
+        return {
+          success: false,
+          error: `不支持的比较方式: ${config.comparisonType}`,
+        };
+    }
+
+    return {
+      success: true,
+      conditionMet: conditionMet,
+      message: `元素 ${config.strategy}="${config.value}" 的属性 "${
+        config.attributeName
+      }" 值为 "${actualValue}"，${conditionMet ? "满足" : "不满足"}条件 "${
+        config.comparisonType
+      }" "${config.expectedValue}"`,
+    };
+  } catch (error) {
+    console.error("本地属性测试出错:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
 }
 
 // 导出节点管理类
 window.DesignerNodes = DesignerNodes;
+
+// 确保类定义可用
+if (typeof DesignerNodes === "undefined") {
+  console.error("DesignerNodes class is not properly defined");
+} else {
+  console.log("DesignerNodes class loaded successfully");
+}
