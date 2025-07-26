@@ -1,4 +1,3 @@
-
 // 内联敏感词检测模块（避免动态加载问题）
 class SensitiveWordDetector {
   constructor() {
@@ -6,19 +5,19 @@ class SensitiveWordDetector {
   }
 
   setSensitiveWords(wordsString) {
-    if (!wordsString || typeof wordsString !== 'string') {
+    if (!wordsString || typeof wordsString !== "string") {
       this.sensitiveWords = [];
       return;
     }
 
     this.sensitiveWords = wordsString
-      .split(',')
-      .map(word => word.trim())
-      .filter(word => word.length > 0);
+      .split(",")
+      .map((word) => word.trim())
+      .filter((word) => word.length > 0);
   }
 
   detectSensitiveWords(text) {
-    if (!text || typeof text !== 'string') {
+    if (!text || typeof text !== "string") {
       return { hasSensitiveWord: false, matchedWords: [] };
     }
 
@@ -122,7 +121,11 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   // 处理ping请求，用于检测content script是否已加载
   if (request.action === "ping") {
     console.log("收到ping请求");
-    sendResponse({ success: true, status: "ready", message: "Content script已加载" });
+    sendResponse({
+      success: true,
+      status: "ready",
+      message: "Content script已加载",
+    });
     return true;
   }
 
@@ -134,8 +137,10 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
       // 清除可能存在的引擎实例
       if (window.UniversalAutomationEngine) {
         // 移除旧的脚本标签
-        const oldScripts = document.querySelectorAll('script[data-automation-engine="true"]');
-        oldScripts.forEach(script => {
+        const oldScripts = document.querySelectorAll(
+          'script[data-automation-engine="true"]'
+        );
+        oldScripts.forEach((script) => {
           script.remove();
           console.log("🗑️ 已移除旧的引擎脚本");
         });
@@ -155,7 +160,10 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
   // 处理通用自动化工作流执行
   if (request.action === "executeWorkflow") {
-    console.log("🔧 [DEBUG] 收到工作流执行请求，工作流数据:", JSON.stringify(request.data, null, 2));
+    console.log(
+      "🔧 [DEBUG] 收到工作流执行请求，工作流数据:",
+      JSON.stringify(request.data, null, 2)
+    );
 
     // 验证工作流数据结构
     if (request.data && request.data.steps) {
@@ -166,7 +174,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
           locator: step.locator,
           hasLocator: !!step.locator,
           locatorStrategy: step.locator?.strategy || step.locator?.type,
-          locatorValue: step.locator?.value
+          locatorValue: step.locator?.value,
         });
       });
     }
@@ -232,6 +240,24 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     return true;
   }
 
+  // 处理属性条件测试请求
+  if (request.action === "testAttributeCondition") {
+    try {
+      testAttributeCondition(request.data)
+        .then((result) => {
+          sendResponse(result);
+        })
+        .catch((error) => {
+          console.error("测试属性条件失败:", error);
+          sendResponse({ success: false, error: error.message });
+        });
+    } catch (error) {
+      console.error("测试属性条件失败:", error);
+      sendResponse({ success: false, error: error.message });
+    }
+    return true;
+  }
+
   // 处理清除测试高亮请求
   if (request.action === "clearTestHighlights") {
     try {
@@ -246,26 +272,32 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
   // 处理暂停执行请求
   if (request.action === "pauseExecution") {
-    console.log('🔧 [DEBUG] Content script 收到暂停请求');
-    console.log('🔧 [DEBUG] 当前引擎状态:', {
+    console.log("🔧 [DEBUG] Content script 收到暂停请求");
+    console.log("🔧 [DEBUG] 当前引擎状态:", {
       hasAutomationEngine: !!window.automationEngine,
       hasSimplifiedControl: !!window.simplifiedExecutionControl,
-      automationEngineRunning: window.automationEngine ? window.automationEngine.isRunning : false,
-      automationEnginePaused: window.automationEngine ? window.automationEngine.isPaused : false,
-      simplifiedControlPaused: window.simplifiedExecutionControl ? window.simplifiedExecutionControl.isPaused : false
+      automationEngineRunning: window.automationEngine
+        ? window.automationEngine.isRunning
+        : false,
+      automationEnginePaused: window.automationEngine
+        ? window.automationEngine.isPaused
+        : false,
+      simplifiedControlPaused: window.simplifiedExecutionControl
+        ? window.simplifiedExecutionControl.isPaused
+        : false,
     });
 
     try {
       if (window.automationEngine && window.automationEngine.isRunning) {
         // 高级引擎模式
         window.automationEngine.pause();
-        sendResponse({ success: true, mode: 'advanced' });
+        sendResponse({ success: true, mode: "advanced" });
       } else if (window.simplifiedExecutionControl) {
         // 简化模式
         window.simplifiedExecutionControl.pause();
-        sendResponse({ success: true, mode: 'simplified' });
+        sendResponse({ success: true, mode: "simplified" });
       } else {
-        console.log('❌ 没有可用的执行引擎或引擎未运行');
+        console.log("❌ 没有可用的执行引擎或引擎未运行");
         sendResponse({ success: false, error: "自动化引擎未初始化或未运行" });
       }
     } catch (error) {
@@ -306,7 +338,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         totalSteps: 0,
         completedSteps: 0,
         startTime: null,
-        currentOperation: null
+        currentOperation: null,
       };
 
       if (window.automationEngine) {
@@ -316,9 +348,11 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
           isPaused: window.automationEngine.isPaused,
           currentStep: window.automationEngine.executionStats?.currentStep || 0,
           totalSteps: window.automationEngine.executionStats?.totalSteps || 0,
-          completedSteps: window.automationEngine.executionStats?.completedSteps || 0,
+          completedSteps:
+            window.automationEngine.executionStats?.completedSteps || 0,
           startTime: window.automationEngine.executionStats?.startTime,
-          currentOperation: window.automationEngine.executionStats?.currentOperation
+          currentOperation:
+            window.automationEngine.executionStats?.currentOperation,
         };
       } else if (window.simplifiedExecutionControl) {
         // 简化模式
@@ -329,14 +363,14 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
           totalSteps: window.simplifiedExecutionControl.totalSteps || 0,
           completedSteps: window.simplifiedExecutionControl.completedSteps || 0,
           startTime: window.simplifiedExecutionControl.startTime,
-          currentOperation: window.simplifiedExecutionControl.currentOperation
+          currentOperation: window.simplifiedExecutionControl.currentOperation,
         };
       }
 
-      console.log('🔧 [DEBUG] 返回执行状态:', executionStatus);
+      console.log("🔧 [DEBUG] 返回执行状态:", executionStatus);
       sendResponse({ success: true, ...executionStatus });
     } catch (error) {
-      console.error('获取执行状态失败:', error);
+      console.error("获取执行状态失败:", error);
       sendResponse({ success: false, error: error.message });
     }
     return true;
@@ -357,7 +391,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         sendResponse({ success: false, error: "没有找到执行控制器" });
       }
     } catch (error) {
-      console.error('停止执行失败:', error);
+      console.error("停止执行失败:", error);
       sendResponse({ success: false, error: error.message });
     }
     return true;
@@ -717,18 +751,22 @@ async function performAsyncElementSearch(strategy, value, timeout) {
   let elements = [];
 
   // 减少轮询频率，特别是对于文本查找
-  const pollingInterval = strategy === "text" || strategy === "contains" ? 300 : 100;
+  const pollingInterval =
+    strategy === "text" || strategy === "contains" ? 300 : 100;
 
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态 - 如果暂停则立即停止搜索
-    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      console.log('🔧 [DEBUG] 元素搜索检测到暂停状态，停止搜索');
+    if (
+      window.simplifiedExecutionControl &&
+      window.simplifiedExecutionControl.isPaused
+    ) {
+      console.log("🔧 [DEBUG] 元素搜索检测到暂停状态，停止搜索");
       break;
     }
 
     // 检查高级引擎暂停状态
     if (window.automationEngine && window.automationEngine.isPaused) {
-      console.log('🔧 [DEBUG] 元素搜索检测到高级引擎暂停状态，停止搜索');
+      console.log("🔧 [DEBUG] 元素搜索检测到高级引擎暂停状态，停止搜索");
       break;
     }
 
@@ -745,7 +783,7 @@ async function performAsyncElementSearch(strategy, value, timeout) {
 
     // 使用 requestAnimationFrame 或 setTimeout 让出主线程，避免阻塞
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, pollingInterval));
       } else {
         setTimeout(resolve, pollingInterval);
@@ -796,15 +834,15 @@ async function performSingleElementSearch(strategy, value) {
 
     case "text":
       // 精确文本匹配，使用遍历方式避免XPath转义问题
-      elements = Array.from(document.querySelectorAll('*')).filter(el =>
-        el.textContent && el.textContent.trim() === value.trim()
+      elements = Array.from(document.querySelectorAll("*")).filter(
+        (el) => el.textContent && el.textContent.trim() === value.trim()
       );
       break;
 
     case "contains":
       // 包含文本匹配，使用遍历方式避免XPath转义问题
-      elements = Array.from(document.querySelectorAll('*')).filter(el =>
-        el.textContent && el.textContent.includes(value)
+      elements = Array.from(document.querySelectorAll("*")).filter(
+        (el) => el.textContent && el.textContent.includes(value)
       );
       break;
 
@@ -848,14 +886,17 @@ async function findElement(strategy, selector, timeout = 5000) {
 
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
-    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      console.log('🔧 [DEBUG] findElement检测到暂停状态，停止查找');
-      throw new Error('查找已暂停');
+    if (
+      window.simplifiedExecutionControl &&
+      window.simplifiedExecutionControl.isPaused
+    ) {
+      console.log("🔧 [DEBUG] findElement检测到暂停状态，停止查找");
+      throw new Error("查找已暂停");
     }
 
     if (window.automationEngine && window.automationEngine.isPaused) {
-      console.log('🔧 [DEBUG] findElement检测到高级引擎暂停状态，停止查找');
-      throw new Error('查找已暂停');
+      console.log("🔧 [DEBUG] findElement检测到高级引擎暂停状态，停止查找");
+      throw new Error("查找已暂停");
     }
 
     let element = null;
@@ -882,7 +923,7 @@ async function findElement(strategy, selector, timeout = 5000) {
 
     // 使用异步等待避免阻塞主线程
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, 100));
       } else {
         setTimeout(resolve, 100);
@@ -906,14 +947,19 @@ async function findElementByText(text, tagNames = ["*"], timeout = 5000) {
 
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
-    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      console.log('🔧 [DEBUG] findElementByText检测到暂停状态，停止查找');
-      throw new Error('查找已暂停');
+    if (
+      window.simplifiedExecutionControl &&
+      window.simplifiedExecutionControl.isPaused
+    ) {
+      console.log("🔧 [DEBUG] findElementByText检测到暂停状态，停止查找");
+      throw new Error("查找已暂停");
     }
 
     if (window.automationEngine && window.automationEngine.isPaused) {
-      console.log('🔧 [DEBUG] findElementByText检测到高级引擎暂停状态，停止查找');
-      throw new Error('查找已暂停');
+      console.log(
+        "🔧 [DEBUG] findElementByText检测到高级引擎暂停状态，停止查找"
+      );
+      throw new Error("查找已暂停");
     }
 
     for (const tagName of tagNames) {
@@ -929,7 +975,7 @@ async function findElementByText(text, tagNames = ["*"], timeout = 5000) {
 
     // 使用异步等待避免阻塞主线程
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, 100));
       } else {
         setTimeout(resolve, 100);
@@ -957,12 +1003,15 @@ async function findElementContainingText(
 
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
-    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      throw new Error('查找已暂停');
+    if (
+      window.simplifiedExecutionControl &&
+      window.simplifiedExecutionControl.isPaused
+    ) {
+      throw new Error("查找已暂停");
     }
 
     if (window.automationEngine && window.automationEngine.isPaused) {
-      throw new Error('查找已暂停');
+      throw new Error("查找已暂停");
     }
 
     for (const tagName of tagNames) {
@@ -978,7 +1027,7 @@ async function findElementContainingText(
 
     // 使用异步等待避免阻塞主线程
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, 100));
       } else {
         setTimeout(resolve, 100);
@@ -1001,14 +1050,19 @@ async function findElementByXPath(xpath, timeout = 5000) {
 
   while (Date.now() - startTime < timeout) {
     // 检查暂停状态
-    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.isPaused) {
-      console.log('🔧 [DEBUG] findElementByXPath检测到暂停状态，停止查找');
-      throw new Error('查找已暂停');
+    if (
+      window.simplifiedExecutionControl &&
+      window.simplifiedExecutionControl.isPaused
+    ) {
+      console.log("🔧 [DEBUG] findElementByXPath检测到暂停状态，停止查找");
+      throw new Error("查找已暂停");
     }
 
     if (window.automationEngine && window.automationEngine.isPaused) {
-      console.log('🔧 [DEBUG] findElementByXPath检测到高级引擎暂停状态，停止查找');
-      throw new Error('查找已暂停');
+      console.log(
+        "🔧 [DEBUG] findElementByXPath检测到高级引擎暂停状态，停止查找"
+      );
+      throw new Error("查找已暂停");
     }
 
     try {
@@ -1032,7 +1086,7 @@ async function findElementByXPath(xpath, timeout = 5000) {
 
     // 使用异步等待避免阻塞主线程
     await new Promise((resolve) => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, 100));
       } else {
         setTimeout(resolve, 100);
@@ -1150,7 +1204,10 @@ window.isVirtualListMode = false;
  * @param {HTMLElement} element - 要滚动到的元素
  * @param {object} options - 滚动选项
  */
-function smartScrollIntoView(element, options = { behavior: 'smooth', block: 'center' }) {
+function smartScrollIntoView(
+  element,
+  options = { behavior: "smooth", block: "center" }
+) {
   if (window.isVirtualListMode) {
     console.log(`🚫 虚拟列表模式：跳过页面滚动`);
     return;
@@ -1167,16 +1224,16 @@ function smartScrollIntoView(element, options = { behavior: 'smooth', block: 'ce
  */
 async function executeUniversalWorkflow(workflow) {
   try {
-    console.log('🚀 开始执行通用自动化工作流:', workflow.name);
+    console.log("🚀 开始执行通用自动化工作流:", workflow.name);
 
     // 尝试加载引擎，如果失败则使用简化执行
     let useAdvancedEngine = false;
     try {
       await loadUniversalAutomationEngine();
       useAdvancedEngine = true;
-      console.log('✅ 使用高级自动化引擎');
+      console.log("✅ 使用高级自动化引擎");
     } catch (error) {
-      console.log('✅ 使用增强的简化执行模式（包含完整功能）');
+      console.log("✅ 使用增强的简化执行模式（包含完整功能）");
       useAdvancedEngine = false;
     }
 
@@ -1187,56 +1244,159 @@ async function executeUniversalWorkflow(workflow) {
 
         // 设置进度回调
         window.automationEngine.onProgress = (progress) => {
-          console.log('📊 执行进度更新:', progress);
+          console.log("📊 执行进度更新:", progress);
           chrome.runtime.sendMessage({
-            action: 'executionProgress',
-            data: progress
+            action: "executionProgress",
+            data: progress,
           });
         };
 
         // 设置完成回调
         window.automationEngine.onComplete = (stats) => {
-          console.log('✅ 执行完成:', stats);
+          console.log("✅ 执行完成:", stats);
           chrome.runtime.sendMessage({
-            action: 'executionComplete',
-            data: stats
+            action: "executionComplete",
+            data: stats,
           });
         };
 
         // 设置错误回调
         window.automationEngine.onError = (error) => {
-          console.error('❌ 执行错误:', error);
+          console.error("❌ 执行错误:", error);
           chrome.runtime.sendMessage({
-            action: 'executionError',
-            data: { error: error.message }
+            action: "executionError",
+            data: { error: error.message },
           });
         };
       }
 
       // 执行工作流
       const result = await window.automationEngine.execute(workflow);
-      console.log('✅ 工作流执行完成');
+      console.log("✅ 工作流执行完成");
       return { success: true, result };
     } else {
       // 使用简化执行模式
-      console.log('🔄 使用简化执行模式');
+      console.log("🔄 使用简化执行模式");
       return await executeSimplifiedWorkflow(workflow);
     }
-
   } catch (error) {
-    console.error('❌ 通用工作流执行失败:', error);
+    console.error("❌ 通用工作流执行失败:", error);
     throw error;
   }
+}
+
+/**
+ * 根据连接关系构建正确的执行顺序（简化版）
+ * @param {Array} steps - 步骤数组
+ * @param {Array} connections - 连接关系数组
+ * @returns {Array} 按正确顺序排列的步骤数组
+ */
+function buildExecutionOrderSimplified(steps, connections = []) {
+  console.log("🔄 简化模式：开始构建执行顺序...");
+
+  // 如果没有连接信息，按原顺序返回
+  if (!connections || connections.length === 0) {
+    console.log("⚠️ 简化模式：没有连接信息，按原顺序执行步骤");
+    return steps;
+  }
+
+  console.log(
+    `📊 简化模式：输入数据: ${steps.length} 个步骤, ${connections.length} 个连接`
+  );
+
+  // 创建步骤映射
+  const stepMap = new Map();
+  steps.forEach((step) => {
+    stepMap.set(step.id, step);
+  });
+
+  // 构建邻接表（有向图）
+  const graph = new Map();
+  const inDegree = new Map();
+
+  // 初始化所有节点
+  steps.forEach((step) => {
+    graph.set(step.id, []);
+    inDegree.set(step.id, 0);
+  });
+
+  // 构建图结构
+  connections.forEach((conn) => {
+    if (stepMap.has(conn.source) && stepMap.has(conn.target)) {
+      graph.get(conn.source).push(conn.target);
+      inDegree.set(conn.target, inDegree.get(conn.target) + 1);
+      console.log(
+        `🔗 简化模式：连接 ${stepMap.get(conn.source).name} -> ${
+          stepMap.get(conn.target).name
+        }`
+      );
+    }
+  });
+
+  // 拓扑排序找到执行顺序
+  const result = [];
+  const queue = [];
+
+  // 找到所有入度为0的节点（起始节点）
+  for (const [nodeId, degree] of inDegree) {
+    if (degree === 0) {
+      queue.push(nodeId);
+      console.log(`🎯 简化模式：找到起始节点: ${stepMap.get(nodeId).name}`);
+    }
+  }
+
+  // 拓扑排序
+  while (queue.length > 0) {
+    const currentId = queue.shift();
+    const currentStep = stepMap.get(currentId);
+
+    if (currentStep) {
+      result.push(currentStep);
+      console.log(
+        `📋 简化模式：添加到执行序列: ${currentStep.name} (${currentStep.type})`
+      );
+
+      // 处理当前节点的所有邻居
+      const neighbors = graph.get(currentId) || [];
+      neighbors.forEach((neighborId) => {
+        inDegree.set(neighborId, inDegree.get(neighborId) - 1);
+        if (inDegree.get(neighborId) === 0) {
+          queue.push(neighborId);
+        }
+      });
+    }
+  }
+
+  // 检查是否有循环依赖
+  if (result.length !== steps.length) {
+    console.log("⚠️ 简化模式：检测到循环依赖或孤立节点，添加剩余步骤");
+    steps.forEach((step) => {
+      if (!result.find((s) => s.id === step.id)) {
+        result.push(step);
+        console.log(`📋 简化模式：添加孤立节点: ${step.name} (${step.type})`);
+      }
+    });
+  }
+
+  console.log(`✅ 简化模式：执行顺序构建完成，共 ${result.length} 个步骤`);
+  return result;
 }
 
 /**
  * 简化执行模式 - 当高级引擎加载失败时使用
  */
 async function executeSimplifiedWorkflow(workflow) {
-  console.log('🔄 开始简化执行模式');
+  console.log("🔄 开始简化执行模式");
+
+  // 构建正确的执行顺序
+  const orderedSteps = buildExecutionOrderSimplified(
+    workflow.steps,
+    workflow.connections
+  );
+  console.log(`🔄 根据连接关系构建执行顺序，共 ${orderedSteps.length} 个步骤`);
 
   let completedSteps = 0;
-  const totalSteps = workflow.steps.length;
+  const totalSteps = orderedSteps.length;
 
   // 创建简化模式的执行控制对象
   window.simplifiedExecutionControl = {
@@ -1248,26 +1408,28 @@ async function executeSimplifiedWorkflow(workflow) {
     totalSteps: totalSteps,
     completedSteps: 0,
     startTime: Date.now(),
-    currentOperation: '开始执行工作流...',
+    currentOperation: "开始执行工作流...",
 
     pause() {
-      console.log('🔧 [DEBUG] 简化模式 pause() 被调用');
+      console.log("🔧 [DEBUG] 简化模式 pause() 被调用");
       this.isPaused = true;
-      console.log('🔧 [DEBUG] 简化模式暂停状态设置为:', this.isPaused);
-      console.log('⏸️ 简化模式执行已暂停');
+      console.log("🔧 [DEBUG] 简化模式暂停状态设置为:", this.isPaused);
+      console.log("⏸️ 简化模式执行已暂停");
 
       // 发送暂停确认消息
-      chrome.runtime.sendMessage({
-        action: 'executionPaused',
-        data: { isPaused: true }
-      }).catch(err => console.error('发送暂停消息失败:', err));
+      chrome.runtime
+        .sendMessage({
+          action: "executionPaused",
+          data: { isPaused: true },
+        })
+        .catch((err) => console.error("发送暂停消息失败:", err));
     },
 
     resume() {
-      console.log('🔧 [DEBUG] 简化模式 resume() 被调用');
+      console.log("🔧 [DEBUG] 简化模式 resume() 被调用");
       this.isPaused = false;
-      console.log('🔧 [DEBUG] 简化模式暂停状态设置为:', this.isPaused);
-      console.log('▶️ 简化模式继续执行');
+      console.log("🔧 [DEBUG] 简化模式暂停状态设置为:", this.isPaused);
+      console.log("▶️ 简化模式继续执行");
 
       if (this.pauseResolve) {
         this.pauseResolve();
@@ -1276,42 +1438,44 @@ async function executeSimplifiedWorkflow(workflow) {
       }
 
       // 发送继续确认消息
-      chrome.runtime.sendMessage({
-        action: 'executionResumed',
-        data: { isPaused: false }
-      }).catch(err => console.error('发送继续消息失败:', err));
+      chrome.runtime
+        .sendMessage({
+          action: "executionResumed",
+          data: { isPaused: false },
+        })
+        .catch((err) => console.error("发送继续消息失败:", err));
     },
 
     async checkPause() {
-      console.log('🔧 [DEBUG] checkPause 被调用，当前状态:', {
+      console.log("🔧 [DEBUG] checkPause 被调用，当前状态:", {
         isRunning: this.isRunning,
-        isPaused: this.isPaused
+        isPaused: this.isPaused,
       });
 
       // 首先检查是否已停止
       if (!this.isRunning) {
-        console.log('🔧 [DEBUG] 检测到停止状态，抛出停止信号');
-        const stopError = new Error('EXECUTION_STOPPED');
+        console.log("🔧 [DEBUG] 检测到停止状态，抛出停止信号");
+        const stopError = new Error("EXECUTION_STOPPED");
         stopError.isStopSignal = true;
         throw stopError;
       }
 
       if (this.isPaused) {
-        console.log('🔧 [DEBUG] 检测到暂停状态，开始等待...');
+        console.log("🔧 [DEBUG] 检测到暂停状态，开始等待...");
         if (!this.pausePromise) {
-          console.log('🔧 [DEBUG] 创建新的暂停Promise');
-          this.pausePromise = new Promise(resolve => {
+          console.log("🔧 [DEBUG] 创建新的暂停Promise");
+          this.pausePromise = new Promise((resolve) => {
             this.pauseResolve = resolve;
           });
         }
-        console.log('🔧 [DEBUG] 等待暂停Promise解决...');
+        console.log("🔧 [DEBUG] 等待暂停Promise解决...");
         await this.pausePromise;
-        console.log('🔧 [DEBUG] 暂停Promise已解决，继续执行');
+        console.log("🔧 [DEBUG] 暂停Promise已解决，继续执行");
 
         // 暂停解除后再次检查是否已停止
         if (!this.isRunning) {
-          console.log('🔧 [DEBUG] 暂停解除后检测到停止状态，抛出停止信号');
-          const stopError = new Error('EXECUTION_STOPPED');
+          console.log("🔧 [DEBUG] 暂停解除后检测到停止状态，抛出停止信号");
+          const stopError = new Error("EXECUTION_STOPPED");
           stopError.isStopSignal = true;
           throw stopError;
         }
@@ -1324,18 +1488,18 @@ async function executeSimplifiedWorkflow(workflow) {
       if (operation) {
         this.currentOperation = operation;
       }
-      console.log('🔧 [DEBUG] 更新执行进度:', {
+      console.log("🔧 [DEBUG] 更新执行进度:", {
         currentStep: this.currentStep,
         completedSteps: this.completedSteps,
-        currentOperation: this.currentOperation
+        currentOperation: this.currentOperation,
       });
     },
 
     stop() {
-      console.log('🔧 [DEBUG] 简化模式停止被调用');
+      console.log("🔧 [DEBUG] 简化模式停止被调用");
       this.isRunning = false;
       this.isPaused = false;
-      this.currentOperation = '执行已停止';
+      this.currentOperation = "执行已停止";
 
       // 解决暂停Promise，让等待的代码继续执行并检查停止状态
       if (this.pauseResolve) {
@@ -1345,11 +1509,13 @@ async function executeSimplifiedWorkflow(workflow) {
       }
 
       // 发送停止确认消息
-      chrome.runtime.sendMessage({
-        action: 'executionStopped',
-        data: { isRunning: false, isStopped: true }
-      }).catch(err => console.error('发送停止消息失败:', err));
-    }
+      chrome.runtime
+        .sendMessage({
+          action: "executionStopped",
+          data: { isRunning: false, isStopped: true },
+        })
+        .catch((err) => console.error("发送停止消息失败:", err));
+    },
   };
 
   // 暂停检查函数
@@ -1357,46 +1523,54 @@ async function executeSimplifiedWorkflow(workflow) {
 
   // 发送初始进度
   chrome.runtime.sendMessage({
-    action: 'executionProgress',
+    action: "executionProgress",
     data: {
       isRunning: true,
       isPaused: false,
       startTime: Date.now(),
       totalSteps: totalSteps,
       completedSteps: 0,
-      currentOperation: '开始执行工作流...'
-    }
+      currentOperation: "开始执行工作流...",
+    },
   });
 
   try {
     // 设置整体执行超时（5分钟）
     const executionTimeout = setTimeout(() => {
-      throw new Error('工作流执行超时（5分钟）');
+      throw new Error("工作流执行超时（5分钟）");
     }, 5 * 60 * 1000);
 
-    for (let i = 0; i < workflow.steps.length; i++) {
+    for (let i = 0; i < orderedSteps.length; i++) {
       // 检查是否需要暂停
       await checkPause();
 
-      const step = workflow.steps[i];
-      console.log(`🎯 执行步骤 ${i + 1}/${totalSteps}: ${step.name} (${step.type})`);
+      const step = orderedSteps[i];
+      console.log(
+        `🎯 执行步骤 ${i + 1}/${totalSteps}: ${step.name} (${step.type})`
+      );
 
       // 更新进度
       chrome.runtime.sendMessage({
-        action: 'executionProgress',
+        action: "executionProgress",
         data: {
           completedSteps: i,
-          currentOperation: `执行步骤: ${step.name || step.type}`
-        }
+          currentOperation: `执行步骤: ${step.name || step.type}`,
+        },
       });
 
       // 更新简化执行控制器的进度
       if (window.simplifiedExecutionControl) {
-        window.simplifiedExecutionControl.updateProgress(i + 1, `执行步骤: ${step.name || step.type}`);
+        window.simplifiedExecutionControl.updateProgress(
+          i + 1,
+          `执行步骤: ${step.name || step.type}`
+        );
       }
 
       // 创建智能超时控制器
-      const timeoutController = new SmartTimeoutController(30000, step.name || step.type);
+      const timeoutController = new SmartTimeoutController(
+        30000,
+        step.name || step.type
+      );
       const stepTimeout = timeoutController.createTimeoutPromise();
 
       const stepExecution = (async () => {
@@ -1404,25 +1578,25 @@ async function executeSimplifiedWorkflow(workflow) {
         timeoutController.pause();
 
         switch (step.type) {
-          case 'click':
+          case "click":
             await executeClickStep(step, timeoutController);
             break;
-          case 'input':
+          case "input":
             await executeInputStep(step, timeoutController);
             break;
-          case 'wait':
+          case "wait":
             await executeWaitStep(step, timeoutController);
             break;
-          case 'smartWait':
+          case "smartWait":
             await executeSmartWaitStep(step, timeoutController);
             break;
-          case 'loop':
+          case "loop":
             await executeLoopStep(step, timeoutController);
             break;
-          case 'condition':
+          case "condition":
             await executeConditionStep(step, timeoutController);
             break;
-          case 'drag':
+          case "drag":
             await executeDragStep(step, timeoutController);
             break;
           default:
@@ -1440,10 +1614,10 @@ async function executeSimplifiedWorkflow(workflow) {
 
       // 更新完成进度
       chrome.runtime.sendMessage({
-        action: 'executionProgress',
+        action: "executionProgress",
         data: {
-          completedSteps: completedSteps
-        }
+          completedSteps: completedSteps,
+        },
       });
 
       // 步骤间等待（支持暂停）
@@ -1452,47 +1626,51 @@ async function executeSimplifiedWorkflow(workflow) {
       while (Date.now() - waitStartTime < waitDuration) {
         // 在等待期间检查暂停状态
         await checkPause();
-        await new Promise(resolve => setTimeout(resolve, Math.min(50, waitDuration - (Date.now() - waitStartTime))));
+        await new Promise((resolve) =>
+          setTimeout(
+            resolve,
+            Math.min(50, waitDuration - (Date.now() - waitStartTime))
+          )
+        );
       }
     }
 
     // 清除超时
     clearTimeout(executionTimeout);
-    console.log('🔧 [DEBUG] 所有步骤执行完成');
+    console.log("🔧 [DEBUG] 所有步骤执行完成");
 
     // 发送完成消息
     chrome.runtime.sendMessage({
-      action: 'executionComplete',
+      action: "executionComplete",
       data: {
         successCount: completedSteps,
         errorCount: 0,
-        totalSteps: totalSteps
-      }
+        totalSteps: totalSteps,
+      },
     });
 
-    console.log('✅ 简化模式工作流执行完成');
-    return { success: true, message: '工作流执行完成' };
-
+    console.log("✅ 简化模式工作流执行完成");
+    return { success: true, message: "工作流执行完成" };
   } catch (error) {
     // 检查是否是停止信号
     if (error.isStopSignal) {
-      console.log('✅ 执行已正常停止');
+      console.log("✅ 执行已正常停止");
 
       // 发送停止完成消息
       chrome.runtime.sendMessage({
-        action: 'executionStopped',
-        data: { message: '执行已停止' }
+        action: "executionStopped",
+        data: { message: "执行已停止" },
       });
 
-      return { success: true, message: '执行已停止' };
+      return { success: true, message: "执行已停止" };
     }
 
-    console.error('❌ 简化模式执行失败:', error);
+    console.error("❌ 简化模式执行失败:", error);
 
     // 发送错误消息
     chrome.runtime.sendMessage({
-      action: 'executionError',
-      data: { error: error.message }
+      action: "executionError",
+      data: { error: error.message },
     });
 
     throw error;
@@ -1504,7 +1682,7 @@ async function executeSimplifiedWorkflow(workflow) {
 
     // 清理简化执行控制对象
     window.simplifiedExecutionControl = null;
-    console.log('🧹 简化模式执行控制已清理');
+    console.log("🧹 简化模式执行控制已清理");
   }
 }
 
@@ -1513,41 +1691,46 @@ async function executeSimplifiedWorkflow(workflow) {
  */
 async function loadUniversalAutomationEngine() {
   return new Promise(async (resolve, reject) => {
-    console.log('🔄 开始加载通用自动化引擎...');
+    console.log("🔄 开始加载通用自动化引擎...");
 
     // 检查是否已经加载
-    if (window.UniversalAutomationEngine && typeof window.UniversalAutomationEngine === 'function') {
-      console.log('✅ 通用自动化引擎已存在');
+    if (
+      window.UniversalAutomationEngine &&
+      typeof window.UniversalAutomationEngine === "function"
+    ) {
+      console.log("✅ 通用自动化引擎已存在");
       resolve();
       return;
     }
 
     // 设置加载超时 - 3秒超时
     const timeoutId = setTimeout(() => {
-      console.warn('⚠️ 引擎加载超时，将使用简化执行模式');
-      reject(new Error('引擎加载超时'));
+      console.warn("⚠️ 引擎加载超时，将使用简化执行模式");
+      reject(new Error("引擎加载超时"));
     }, 3000);
 
     // 清理所有旧的脚本和全局变量
-    const oldScripts = document.querySelectorAll('script[data-automation-engine="true"]');
-    oldScripts.forEach(script => {
-      console.log('🗑️ 移除旧的引擎脚本');
+    const oldScripts = document.querySelectorAll(
+      'script[data-automation-engine="true"]'
+    );
+    oldScripts.forEach((script) => {
+      console.log("🗑️ 移除旧的引擎脚本");
       script.remove();
     });
 
     // 清理全局变量，避免重复声明错误
-    if (typeof window.UniversalAutomationEngine !== 'undefined') {
-      console.log('🗑️ 清理旧的引擎全局变量');
+    if (typeof window.UniversalAutomationEngine !== "undefined") {
+      console.log("🗑️ 清理旧的引擎全局变量");
       delete window.UniversalAutomationEngine;
     }
-    if (typeof window.automationEngine !== 'undefined') {
-      console.log('🗑️ 清理旧的引擎实例');
+    if (typeof window.automationEngine !== "undefined") {
+      console.log("🗑️ 清理旧的引擎实例");
       delete window.automationEngine;
     }
 
     // 暂时禁用高级引擎，直接使用增强的简化模式
-    console.log('✅ 使用增强的简化模式（包含延迟和虚拟列表功能）');
-    reject(new Error('使用增强的简化模式'));
+    console.log("✅ 使用增强的简化模式（包含延迟和虚拟列表功能）");
+    reject(new Error("使用增强的简化模式"));
   });
 }
 
@@ -1559,22 +1742,22 @@ async function executeClickStep(step, timeoutController = null) {
   }
 
   if (!step.locator) {
-    throw new Error('缺少定位器');
+    throw new Error("缺少定位器");
   }
 
   // 检查定位器的完整性
   if (!step.locator.strategy) {
     // 尝试从旧格式转换
     if (step.locator.type) {
-      console.log('🔄 检测到旧格式定位器，进行转换');
+      console.log("🔄 检测到旧格式定位器，进行转换");
       step.locator.strategy = step.locator.type;
     } else {
-      throw new Error('定位器缺少策略(strategy)字段');
+      throw new Error("定位器缺少策略(strategy)字段");
     }
   }
 
   if (!step.locator.value) {
-    throw new Error('定位器缺少值(value)字段');
+    throw new Error("定位器缺少值(value)字段");
   }
 
   // 查找元素时启动超时（可能需要等待）
@@ -1582,9 +1765,14 @@ async function executeClickStep(step, timeoutController = null) {
     timeoutController.start();
   }
 
-  const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
+  const element = await findElementByStrategy(
+    step.locator.strategy,
+    step.locator.value
+  );
   if (!element) {
-    throw new Error(`找不到元素: ${step.locator.strategy}=${step.locator.value}`);
+    throw new Error(
+      `找不到元素: ${step.locator.strategy}=${step.locator.value}`
+    );
   }
 
   // 找到元素后暂停超时（开始正常处理）
@@ -1592,22 +1780,20 @@ async function executeClickStep(step, timeoutController = null) {
     timeoutController.pause();
   }
 
-
-
   // 滚动到元素位置
-  console.log('🔧 [DEBUG] 滚动到目标元素');
+  console.log("🔧 [DEBUG] 滚动到目标元素");
   smartScrollIntoView(element, {
-    behavior: 'smooth',
-    block: 'center',
-    inline: 'center'
+    behavior: "smooth",
+    block: "center",
+    inline: "center",
   });
 
   // 等待滚动完成
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   // 高亮显示元素
-  console.log('🔧 [DEBUG] 高亮显示目标元素');
-  highlightElement(element, 'click');
+  console.log("🔧 [DEBUG] 高亮显示目标元素");
+  highlightElement(element, "click");
 
   // 设置自动清除高亮
   setTimeout(() => {
@@ -1616,22 +1802,30 @@ async function executeClickStep(step, timeoutController = null) {
 
   // 检查元素是否可见和可点击
   const rect = element.getBoundingClientRect();
-  const isVisible = rect.width > 0 && rect.height > 0 &&
-    rect.top >= 0 && rect.left >= 0 &&
+  const isVisible =
+    rect.width > 0 &&
+    rect.height > 0 &&
+    rect.top >= 0 &&
+    rect.left >= 0 &&
     rect.bottom <= window.innerHeight &&
     rect.right <= window.innerWidth;
 
-  console.log('🔧 [DEBUG] 元素可见性检查:', {
+  console.log("🔧 [DEBUG] 元素可见性检查:", {
     isVisible,
-    rect: { width: rect.width, height: rect.height, top: rect.top, left: rect.left }
+    rect: {
+      width: rect.width,
+      height: rect.height,
+      top: rect.top,
+      left: rect.left,
+    },
   });
 
   // 执行点击
-  console.log('🔧 [DEBUG] 执行点击操作');
+  console.log("🔧 [DEBUG] 执行点击操作");
   element.click();
 
   // 等待点击效果
-  await new Promise(resolve => setTimeout(resolve, 200));
+  await new Promise((resolve) => setTimeout(resolve, 200));
 
   console.log(`✅ 点击元素完成: ${step.locator.value}`);
 }
@@ -1642,56 +1836,61 @@ async function executeInputStep(step, timeoutController = null) {
     await window.simplifiedExecutionControl.checkPause();
   }
 
-  const text = step.text || step.inputText || '';
+  const text = step.text || step.inputText || "";
 
   if (!step.locator) {
-    throw new Error('缺少定位器');
+    throw new Error("缺少定位器");
   }
 
-  console.log('🔧 [DEBUG] 查找输入元素:', step.locator);
+  console.log("🔧 [DEBUG] 查找输入元素:", step.locator);
 
   // 检查定位器的完整性
   if (!step.locator.strategy) {
     // 尝试从旧格式转换
     if (step.locator.type) {
-      console.log('🔄 检测到旧格式定位器，进行转换');
+      console.log("🔄 检测到旧格式定位器，进行转换");
       step.locator.strategy = step.locator.type;
     } else {
-      throw new Error('定位器缺少策略(strategy)字段');
+      throw new Error("定位器缺少策略(strategy)字段");
     }
   }
 
   if (!step.locator.value) {
-    throw new Error('定位器缺少值(value)字段');
+    throw new Error("定位器缺少值(value)字段");
   }
 
-  const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
+  const element = await findElementByStrategy(
+    step.locator.strategy,
+    step.locator.value
+  );
   if (!element) {
-    throw new Error(`找不到元素: ${step.locator.strategy}=${step.locator.value}`);
+    throw new Error(
+      `找不到元素: ${step.locator.strategy}=${step.locator.value}`
+    );
   }
 
-  console.log('🔧 [DEBUG] 找到输入元素，准备输入文本:', text);
-  console.log('🔧 [DEBUG] 输入元素信息:', {
+  console.log("🔧 [DEBUG] 找到输入元素，准备输入文本:", text);
+  console.log("🔧 [DEBUG] 输入元素信息:", {
     tagName: element.tagName,
     type: element.type,
     id: element.id,
-    className: element.className
+    className: element.className,
   });
 
   // 滚动到元素位置
-  console.log('🔧 [DEBUG] 滚动到输入元素');
+  console.log("🔧 [DEBUG] 滚动到输入元素");
   smartScrollIntoView(element, {
-    behavior: 'smooth',
-    block: 'center',
-    inline: 'center'
+    behavior: "smooth",
+    block: "center",
+    inline: "center",
   });
 
   // 等待滚动完成
-  await new Promise(resolve => setTimeout(resolve, 300));
+  await new Promise((resolve) => setTimeout(resolve, 300));
 
   // 高亮显示元素
-  console.log('🔧 [DEBUG] 高亮显示输入元素');
-  highlightElement(element, 'input');
+  console.log("🔧 [DEBUG] 高亮显示输入元素");
+  highlightElement(element, "input");
 
   // 设置自动清除高亮
   setTimeout(() => {
@@ -1703,19 +1902,19 @@ async function executeInputStep(step, timeoutController = null) {
 
   // 清空现有内容（如果需要）
   if (step.clearFirst !== false) {
-    element.value = '';
+    element.value = "";
   }
 
   // 输入文本
-  console.log('🔧 [DEBUG] 执行文本输入');
+  console.log("🔧 [DEBUG] 执行文本输入");
   element.value = text;
 
   // 触发输入事件
-  element.dispatchEvent(new Event('input', { bubbles: true }));
-  element.dispatchEvent(new Event('change', { bubbles: true }));
+  element.dispatchEvent(new Event("input", { bubbles: true }));
+  element.dispatchEvent(new Event("change", { bubbles: true }));
 
   // 等待输入效果
-  await new Promise(resolve => setTimeout(resolve, 200));
+  await new Promise((resolve) => setTimeout(resolve, 200));
 
   console.log(`✅ 输入文本完成: "${text}"`);
 }
@@ -1736,7 +1935,9 @@ async function executeWaitStep(step, timeoutController = null) {
     if (window.simplifiedExecutionControl) {
       await window.simplifiedExecutionControl.checkPause();
     }
-    await new Promise(resolve => setTimeout(resolve, Math.min(100, duration - (Date.now() - startTime))));
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.min(100, duration - (Date.now() - startTime)))
+    );
   }
 
   console.log(`✅ 等待完成`);
@@ -1749,30 +1950,42 @@ async function executeSmartWaitStep(step, timeoutController = null) {
   }
 
   if (!step.locator) {
-    throw new Error('智能等待缺少定位器');
+    throw new Error("等待属性缺少定位器");
   }
 
-  console.log('🔧 [DEBUG] 智能等待定位器:', step.locator);
+  console.log("🔧 [DEBUG] 等待属性定位器:", step.locator);
 
   // 检查定位器的完整性
   if (!step.locator.strategy) {
     // 尝试从旧格式转换
     if (step.locator.type) {
-      console.log('🔄 检测到旧格式智能等待定位器，进行转换');
+      console.log("🔄 检测到旧格式等待属性定位器，进行转换");
       step.locator.strategy = step.locator.type;
     } else {
-      throw new Error('智能等待定位器缺少策略(strategy)字段');
+      throw new Error("等待属性定位器缺少策略(strategy)字段");
     }
   }
 
   if (!step.locator.value) {
-    throw new Error('智能等待定位器缺少值(value)字段');
+    throw new Error("等待属性定位器缺少值(value)字段");
   }
 
   const timeout = step.timeout || 30000;
   const checkInterval = step.checkInterval || 500;
+  const attributeName = step.attributeName || "";
+  const comparisonType = step.comparisonType || "equals";
+  const expectedValue = step.expectedValue || "";
 
-  console.log(`🔍 智能等待元素出现: ${step.locator.strategy}=${step.locator.value}, 超时: ${timeout}ms`);
+  if (!attributeName) {
+    throw new Error("等待属性缺少属性名称");
+  }
+
+  console.log(
+    `🔍 等待属性: ${attributeName} ${comparisonType} "${expectedValue}" - ${step.locator.strategy}=${step.locator.value}, 超时: ${timeout}ms`
+  );
+  console.log(
+    `⚙️ 属性条件: ${attributeName} ${comparisonType} "${expectedValue}"`
+  );
 
   // 智能等待时启动超时（正在等待元素出现）
   if (timeoutController) {
@@ -1787,9 +2000,16 @@ async function executeSmartWaitStep(step, timeoutController = null) {
     }
 
     try {
-      const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
-      if (element) {
-        console.log(`✅ 智能等待成功: 元素已出现`);
+      const conditionMet = await checkAttributeConditionSimplified(
+        step.locator,
+        attributeName,
+        comparisonType,
+        expectedValue
+      );
+      if (conditionMet) {
+        console.log(
+          `✅ 等待属性成功: ${attributeName} ${comparisonType} "${expectedValue}"`
+        );
         // 找到元素后暂停超时
         if (timeoutController) {
           timeoutController.pause();
@@ -1798,15 +2018,15 @@ async function executeSmartWaitStep(step, timeoutController = null) {
       }
     } catch (error) {
       // 如果是暂停导致的错误，重新抛出
-      if (error.message === '查找已暂停') {
+      if (error.message === "查找已暂停") {
         throw error;
       }
-      // 其他错误继续等待
+      // 其他错误（包括超时）继续等待
     }
 
     // 使用异步等待避免阻塞主线程
-    await new Promise(resolve => {
-      if (typeof requestAnimationFrame !== 'undefined') {
+    await new Promise((resolve) => {
+      if (typeof requestAnimationFrame !== "undefined") {
         requestAnimationFrame(() => setTimeout(resolve, checkInterval));
       } else {
         setTimeout(resolve, checkInterval);
@@ -1814,12 +2034,190 @@ async function executeSmartWaitStep(step, timeoutController = null) {
     });
   }
 
-  throw new Error(`智能等待超时: 元素未在 ${timeout}ms 内出现`);
+  throw new Error(
+    `等待属性超时: ${attributeName} ${comparisonType} "${expectedValue}" 未在 ${timeout}ms 内满足`
+  );
+}
+
+/**
+ * 获取等待条件的描述（简化版）
+ */
+function getWaitConditionDescription(waitCondition) {
+  switch (waitCondition) {
+    case "appear":
+      return "元素出现";
+    case "disappear":
+      return "元素消失";
+    case "visible":
+      return "元素可见";
+    case "hidden":
+      return "元素隐藏";
+    case "attributeAppear":
+      return "属性出现";
+    default:
+      return "元素出现";
+  }
+}
+
+/**
+ * 检查属性条件是否满足（简化版）
+ */
+async function checkAttributeConditionSimplified(
+  locator,
+  attributeName,
+  comparisonType,
+  expectedValue
+) {
+  try {
+    const element = await findElementByStrategy(
+      locator.strategy,
+      locator.value,
+      100
+    );
+
+    if (!element) {
+      return false;
+    }
+
+    // 获取属性值
+    const actualValue = element.getAttribute(attributeName);
+
+    // 如果属性不存在，返回false
+    if (actualValue === null) {
+      return false;
+    }
+
+    // 根据比较方式进行判断
+    switch (comparisonType) {
+      case "equals":
+        return actualValue === expectedValue;
+      case "contains":
+        return actualValue.includes(expectedValue);
+      default:
+        return actualValue === expectedValue;
+    }
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * 测试属性条件
+ */
+async function testAttributeCondition(data) {
+  try {
+    const { locator, attributeName, comparisonType, expectedValue } = data;
+
+    if (!locator || !attributeName) {
+      return {
+        success: false,
+        error: "缺少必要的参数",
+      };
+    }
+
+    // 查找元素
+    const element = await findElementByStrategy(
+      locator.strategy,
+      locator.value
+    );
+
+    if (!element) {
+      return {
+        success: true,
+        conditionMet: false,
+        message: `找不到元素: ${locator.strategy}=${locator.value}`,
+      };
+    }
+
+    // 高亮显示元素
+    highlightElement(element, "testing");
+
+    // 获取属性值
+    const actualValue = element.getAttribute(attributeName);
+
+    if (actualValue === null) {
+      return {
+        success: true,
+        conditionMet: false,
+        message: `元素不存在属性: ${attributeName}`,
+      };
+    }
+
+    // 检查条件
+    let conditionMet = false;
+    switch (comparisonType) {
+      case "equals":
+        conditionMet = actualValue === expectedValue;
+        break;
+      case "contains":
+        conditionMet = actualValue.includes(expectedValue);
+        break;
+      default:
+        conditionMet = actualValue === expectedValue;
+    }
+
+    const message = conditionMet
+      ? `属性条件满足: ${attributeName}="${actualValue}" ${comparisonType} "${expectedValue}"`
+      : `属性条件不满足: ${attributeName}="${actualValue}" ${comparisonType} "${expectedValue}"`;
+
+    // 清除高亮
+    setTimeout(() => {
+      clearElementHighlight(element);
+    }, 3000);
+
+    return {
+      success: true,
+      conditionMet,
+      message,
+      actualValue,
+    };
+  } catch (error) {
+    console.error("测试属性条件失败:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
+/**
+ * 检查元素是否可见（简化版）
+ */
+function isElementVisibleSimplified(element) {
+  if (!element) return false;
+
+  // 方法1：检查offsetParent（最常用的可见性检查）
+  if (element.offsetParent === null) {
+    // 进一步检查是否是因为position:fixed而导致offsetParent为null
+    const style = getComputedStyle(element);
+    if (style.position !== "fixed") {
+      return false;
+    }
+  }
+
+  // 方法2：检查display和visibility
+  const style = getComputedStyle(element);
+  if (style.display === "none" || style.visibility === "hidden") {
+    return false;
+  }
+
+  // 方法3：检查opacity
+  if (parseFloat(style.opacity) === 0) {
+    return false;
+  }
+
+  // 方法4：检查尺寸
+  const rect = element.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) {
+    return false;
+  }
+
+  return true;
 }
 
 // 执行拖拽步骤
 async function executeDragStep(step, timeoutController = null) {
-  console.log('🔧 [DEBUG] executeDragStep 开始执行');
+  console.log("🔧 [DEBUG] executeDragStep 开始执行");
 
   // 在执行具体操作前检查暂停状态
   if (window.simplifiedExecutionControl) {
@@ -1827,19 +2225,24 @@ async function executeDragStep(step, timeoutController = null) {
   }
 
   if (!step.locator) {
-    throw new Error('拖拽步骤缺少定位器配置');
+    throw new Error("拖拽步骤缺少定位器配置");
   }
 
-  console.log('🔧 [DEBUG] 拖拽定位器:', step.locator);
-  console.log('🔧 [DEBUG] 拖拽距离:', {
+  console.log("🔧 [DEBUG] 拖拽定位器:", step.locator);
+  console.log("🔧 [DEBUG] 拖拽距离:", {
     horizontal: step.horizontalDistance || 0,
-    vertical: step.verticalDistance || 0
+    vertical: step.verticalDistance || 0,
   });
 
   // 查找目标元素
-  const element = await findElementByStrategy(step.locator.strategy, step.locator.value);
+  const element = await findElementByStrategy(
+    step.locator.strategy,
+    step.locator.value
+  );
   if (!element) {
-    throw new Error(`找不到拖拽目标元素: ${step.locator.strategy}=${step.locator.value}`);
+    throw new Error(
+      `找不到拖拽目标元素: ${step.locator.strategy}=${step.locator.value}`
+    );
   }
 
   // 找到元素后暂停超时（开始正常处理）
@@ -1847,20 +2250,20 @@ async function executeDragStep(step, timeoutController = null) {
     timeoutController.pause();
   }
 
-  console.log('🔧 [DEBUG] 找到拖拽目标元素，准备执行拖拽操作');
+  console.log("🔧 [DEBUG] 找到拖拽目标元素，准备执行拖拽操作");
 
   // 滚动到元素位置
   smartScrollIntoView(element, {
-    behavior: 'smooth',
-    block: 'center',
-    inline: 'center'
+    behavior: "smooth",
+    block: "center",
+    inline: "center",
   });
 
   // 等待滚动完成
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   // 高亮显示元素
-  highlightElement(element, 'drag');
+  highlightElement(element, "drag");
 
   // 获取元素的中心位置
   const rect = element.getBoundingClientRect();
@@ -1883,7 +2286,9 @@ async function executeDragStep(step, timeoutController = null) {
     clearElementHighlight(element);
   }, 2000);
 
-  console.log(`✅ 拖拽操作完成: 水平${horizontalDistance}px, 垂直${verticalDistance}px`);
+  console.log(
+    `✅ 拖拽操作完成: 水平${horizontalDistance}px, 垂直${verticalDistance}px`
+  );
 }
 
 // 执行具体的拖拽操作
@@ -1892,20 +2297,20 @@ async function performDragOperation(element, startX, startY, endX, endY, step) {
   const waitAfterDrag = step.waitAfterDrag || 1000;
 
   // 1. 触发 mousedown 事件
-  const mouseDownEvent = new MouseEvent('mousedown', {
+  const mouseDownEvent = new MouseEvent("mousedown", {
     view: window,
     bubbles: true,
     cancelable: true,
     clientX: startX,
     clientY: startY,
     button: 0,
-    buttons: 1
+    buttons: 1,
   });
   element.dispatchEvent(mouseDownEvent);
-  console.log('🖱️ 已触发 mousedown 事件');
+  console.log("🖱️ 已触发 mousedown 事件");
 
   // 等待一小段时间
-  await new Promise(resolve => setTimeout(resolve, dragSpeed));
+  await new Promise((resolve) => setTimeout(resolve, dragSpeed));
 
   // 2. 触发 mousemove 事件（分步移动以模拟真实拖拽）
   const distance = Math.max(Math.abs(endX - startX), Math.abs(endY - startY));
@@ -1913,43 +2318,43 @@ async function performDragOperation(element, startX, startY, endX, endY, step) {
 
   for (let i = 1; i <= steps; i++) {
     const progress = i / steps;
-    const currentX = startX + ((endX - startX) * progress);
-    const currentY = startY + ((endY - startY) * progress);
+    const currentX = startX + (endX - startX) * progress;
+    const currentY = startY + (endY - startY) * progress;
 
-    const mouseMoveEvent = new MouseEvent('mousemove', {
+    const mouseMoveEvent = new MouseEvent("mousemove", {
       view: window,
       bubbles: true,
       cancelable: true,
       clientX: currentX,
       clientY: currentY,
       button: 0,
-      buttons: 1
+      buttons: 1,
     });
 
     // 在document上触发mousemove事件
     document.dispatchEvent(mouseMoveEvent);
 
     // 短暂等待以模拟真实拖拽速度
-    await new Promise(resolve => setTimeout(resolve, dragSpeed / steps));
+    await new Promise((resolve) => setTimeout(resolve, dragSpeed / steps));
   }
 
-  console.log('🖱️ 已完成 mousemove 事件序列');
+  console.log("🖱️ 已完成 mousemove 事件序列");
 
   // 3. 触发 mouseup 事件
-  const mouseUpEvent = new MouseEvent('mouseup', {
+  const mouseUpEvent = new MouseEvent("mouseup", {
     view: window,
     bubbles: true,
     cancelable: true,
     clientX: endX,
     clientY: endY,
     button: 0,
-    buttons: 0
+    buttons: 0,
   });
   document.dispatchEvent(mouseUpEvent);
-  console.log('🖱️ 已触发 mouseup 事件');
+  console.log("🖱️ 已触发 mouseup 事件");
 
   // 等待拖拽完成
-  await new Promise(resolve => setTimeout(resolve, waitAfterDrag));
+  await new Promise((resolve) => setTimeout(resolve, waitAfterDrag));
 }
 
 // 执行条件判断步骤
@@ -1958,98 +2363,100 @@ async function executeConditionStep(step, timeoutController = null) {
 
   const locator = step.locator;
   if (!locator) {
-    throw new Error('条件判断步骤缺少定位器配置');
+    throw new Error("条件判断步骤缺少定位器配置");
   }
 
-  console.log('🔧 [DEBUG] 条件判断定位器:', locator);
+  console.log("🔧 [DEBUG] 条件判断定位器:", locator);
 
   // 检查定位器的完整性
   if (!locator.strategy) {
     // 尝试从旧格式转换
     if (locator.type) {
-      console.log('🔄 检测到旧格式条件定位器，进行转换');
+      console.log("🔄 检测到旧格式条件定位器，进行转换");
       locator.strategy = locator.type;
     } else {
-      throw new Error('条件判断定位器缺少策略(strategy)字段');
+      throw new Error("条件判断定位器缺少策略(strategy)字段");
     }
   }
 
   if (!locator.value) {
-    throw new Error('条件判断定位器缺少值(value)字段');
+    throw new Error("条件判断定位器缺少值(value)字段");
   }
 
   // 查找元素
   const element = findSingleElement(locator.strategy, locator.value);
   if (!element) {
-    throw new Error(`条件判断失败: 找不到元素 (${locator.strategy}: ${locator.value})`);
+    throw new Error(
+      `条件判断失败: 找不到元素 (${locator.strategy}: ${locator.value})`
+    );
   }
 
   // 高亮元素
-  highlightElement(element, 'processing');
+  highlightElement(element, "processing");
 
   // 执行条件判断
   let conditionResult = false;
-  let actualValue = '';
-  const expectedValue = step.expectedValue || '';
-  const attributeName = step.attributeName || '';
+  let actualValue = "";
+  const expectedValue = step.expectedValue || "";
+  const attributeName = step.attributeName || "";
 
   try {
     // 获取实际值
     switch (step.conditionType) {
-      case 'attribute':
-        actualValue = element.getAttribute(attributeName) || '';
+      case "attribute":
+        actualValue = element.getAttribute(attributeName) || "";
         break;
-      case 'text':
-        actualValue = element.textContent || '';
+      case "text":
+        actualValue = element.textContent || "";
         break;
-      case 'class':
-        actualValue = element.className || '';
+      case "class":
+        actualValue = element.className || "";
         break;
-      case 'style':
-        actualValue = getComputedStyle(element)[attributeName] || '';
+      case "style":
+        actualValue = getComputedStyle(element)[attributeName] || "";
         break;
-      case 'value':
-        actualValue = element.value || '';
+      case "value":
+        actualValue = element.value || "";
         break;
-      case 'exists':
+      case "exists":
         conditionResult = true; // 元素已找到
         break;
-      case 'visible':
+      case "visible":
         conditionResult = element.offsetParent !== null;
         break;
     }
 
     // 执行比较
-    if (step.conditionType !== 'exists' && step.conditionType !== 'visible') {
+    if (step.conditionType !== "exists" && step.conditionType !== "visible") {
       switch (step.comparisonType) {
-        case 'equals':
+        case "equals":
           conditionResult = actualValue === expectedValue;
           break;
-        case 'notEquals':
+        case "notEquals":
           conditionResult = actualValue !== expectedValue;
           break;
-        case 'contains':
+        case "contains":
           conditionResult = actualValue.includes(expectedValue);
           break;
-        case 'notContains':
+        case "notContains":
           conditionResult = !actualValue.includes(expectedValue);
           break;
-        case 'startsWith':
+        case "startsWith":
           conditionResult = actualValue.startsWith(expectedValue);
           break;
-        case 'endsWith':
+        case "endsWith":
           conditionResult = actualValue.endsWith(expectedValue);
           break;
-        case 'isEmpty':
-          conditionResult = actualValue === '';
+        case "isEmpty":
+          conditionResult = actualValue === "";
           break;
-        case 'isNotEmpty':
-          conditionResult = actualValue !== '';
+        case "isNotEmpty":
+          conditionResult = actualValue !== "";
           break;
-        case 'hasAttribute':
+        case "hasAttribute":
           conditionResult = element.hasAttribute(attributeName);
           break;
-        case 'notHasAttribute':
+        case "notHasAttribute":
           conditionResult = !element.hasAttribute(attributeName);
           break;
       }
@@ -2057,26 +2464,31 @@ async function executeConditionStep(step, timeoutController = null) {
 
     // 显示结果
     if (conditionResult) {
-      highlightElement(element, 'success');
-      console.log(`✅ 条件判断通过: ${step.conditionType} ${step.comparisonType} "${expectedValue}" (实际值: "${actualValue}")`);
+      highlightElement(element, "success");
+      console.log(
+        `✅ 条件判断通过: ${step.conditionType} ${step.comparisonType} "${expectedValue}" (实际值: "${actualValue}")`
+      );
     } else {
-      highlightElement(element, 'error');
-      console.log(`❌ 条件判断失败: ${step.conditionType} ${step.comparisonType} "${expectedValue}" (实际值: "${actualValue}")`);
-      throw new Error(`条件判断失败: 期望 ${step.conditionType} ${step.comparisonType} "${expectedValue}"，实际值为 "${actualValue}"`);
+      highlightElement(element, "error");
+      console.log(
+        `❌ 条件判断失败: ${step.conditionType} ${step.comparisonType} "${expectedValue}" (实际值: "${actualValue}")`
+      );
+      throw new Error(
+        `条件判断失败: 期望 ${step.conditionType} ${step.comparisonType} "${expectedValue}"，实际值为 "${actualValue}"`
+      );
     }
 
     // 等待一下让用户看到结果
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   } catch (error) {
-    highlightElement(element, 'error');
+    highlightElement(element, "error");
     throw error;
   }
 }
 
 async function executeLoopStep(step, timeoutController = null) {
   if (!step.locator) {
-    throw new Error('缺少循环定位器');
+    throw new Error("缺少循环定位器");
   }
 
   // 检查定位器的完整性
@@ -2085,12 +2497,12 @@ async function executeLoopStep(step, timeoutController = null) {
     if (step.locator.type) {
       step.locator.strategy = step.locator.type;
     } else {
-      throw new Error('循环定位器缺少策略(strategy)字段');
+      throw new Error("循环定位器缺少策略(strategy)字段");
     }
   }
 
   if (!step.locator.value) {
-    throw new Error('循环定位器缺少值(value)字段');
+    throw new Error("循环定位器缺少值(value)字段");
   }
 
   // 查找元素时启动超时（可能需要等待）
@@ -2098,9 +2510,14 @@ async function executeLoopStep(step, timeoutController = null) {
     timeoutController.start();
   }
 
-  const elements = await findElementsByStrategy(step.locator.strategy, step.locator.value);
+  const elements = await findElementsByStrategy(
+    step.locator.strategy,
+    step.locator.value
+  );
   if (elements.length === 0) {
-    throw new Error(`找不到循环元素: ${step.locator.strategy}=${step.locator.value}`);
+    throw new Error(
+      `找不到循环元素: ${step.locator.strategy}=${step.locator.value}`
+    );
   }
 
   // 找到元素后暂停超时（开始正常处理）
@@ -2109,7 +2526,10 @@ async function executeLoopStep(step, timeoutController = null) {
   }
 
   const startIndex = step.startIndex || 0;
-  const endIndex = step.endIndex === -1 ? elements.length - 1 : (step.endIndex || elements.length - 1);
+  const endIndex =
+    step.endIndex === -1
+      ? elements.length - 1
+      : step.endIndex || elements.length - 1;
   const actualEndIndex = Math.min(endIndex, elements.length - 1);
 
   // 检查是否为虚拟列表模式
@@ -2128,10 +2548,11 @@ async function executeLoopStep(step, timeoutController = null) {
     return;
   }
 
-  console.log(`🔄 开始执行${step.loopType}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`);
+  console.log(
+    `🔄 开始执行${step.loopType}循环: ${elements.length} 个元素，范围 ${startIndex}-${actualEndIndex}`
+  );
 
   for (let i = startIndex; i <= actualEndIndex; i++) {
-
     // 在每个循环迭代前检查暂停状态
     if (window.simplifiedExecutionControl) {
       await window.simplifiedExecutionControl.checkPause();
@@ -2143,15 +2564,15 @@ async function executeLoopStep(step, timeoutController = null) {
     // 记录当前页面滚动位置
     const scrollBefore = {
       x: window.pageXOffset || document.documentElement.scrollLeft,
-      y: window.pageYOffset || document.documentElement.scrollTop
+      y: window.pageYOffset || document.documentElement.scrollTop,
     };
-    console.log('🔧 [DEBUG] 操作前页面滚动位置:', scrollBefore);
+    console.log("🔧 [DEBUG] 操作前页面滚动位置:", scrollBefore);
 
     try {
-      if (step.loopType === 'simpleLoop') {
+      if (step.loopType === "simpleLoop") {
         // 简单循环：执行单一操作
         await executeSimpleLoopAction(element, step);
-      } else if (step.loopType === 'container') {
+      } else if (step.loopType === "container") {
         // 容器循环：直接在容器内执行子操作，不点击容器本身
         await executeContainerLoopAction(element, step);
       } else {
@@ -2162,14 +2583,17 @@ async function executeLoopStep(step, timeoutController = null) {
       // 记录操作后的滚动位置
       const scrollAfter = {
         x: window.pageXOffset || document.documentElement.scrollLeft,
-        y: window.pageYOffset || document.documentElement.scrollTop
+        y: window.pageYOffset || document.documentElement.scrollTop,
       };
-      console.log('🔧 [DEBUG] 操作后页面滚动位置:', scrollAfter);
+      console.log("🔧 [DEBUG] 操作后页面滚动位置:", scrollAfter);
 
-      if (scrollBefore.y !== scrollAfter.y || scrollBefore.x !== scrollAfter.x) {
-        console.log('✅ 页面滚动已发生，滚动距离:', {
+      if (
+        scrollBefore.y !== scrollAfter.y ||
+        scrollBefore.x !== scrollAfter.x
+      ) {
+        console.log("✅ 页面滚动已发生，滚动距离:", {
           deltaX: scrollAfter.x - scrollBefore.x,
-          deltaY: scrollAfter.y - scrollBefore.y
+          deltaY: scrollAfter.y - scrollBefore.y,
         });
       }
 
@@ -2182,14 +2606,18 @@ async function executeLoopStep(step, timeoutController = null) {
           if (window.simplifiedExecutionControl) {
             await window.simplifiedExecutionControl.checkPause();
           }
-          await new Promise(resolve => setTimeout(resolve, Math.min(100, step.loopDelay - (Date.now() - delayStartTime))));
+          await new Promise((resolve) =>
+            setTimeout(
+              resolve,
+              Math.min(100, step.loopDelay - (Date.now() - delayStartTime))
+            )
+          );
         }
         console.log(`🔧 [DEBUG] 循环延迟完成`);
       }
-
     } catch (error) {
       console.error(`❌ 第 ${i + 1} 个元素处理失败:`, error);
-      if (step.errorHandling === 'stop') {
+      if (step.errorHandling === "stop") {
         throw error;
       }
     }
@@ -2199,40 +2627,40 @@ async function executeLoopStep(step, timeoutController = null) {
 }
 
 async function executeSimpleLoopAction(element, step) {
-  console.log('🔧 [DEBUG] executeSimpleLoopAction 开始执行');
+  console.log("🔧 [DEBUG] executeSimpleLoopAction 开始执行");
 
   // 在执行具体操作前检查暂停状态
   if (window.simplifiedExecutionControl) {
     await window.simplifiedExecutionControl.checkPause();
   }
 
-  const actionType = step.actionType || 'click';
+  const actionType = step.actionType || "click";
   console.log(`🔧 执行简单操作: ${actionType}`);
 
   switch (actionType) {
-    case 'click':
+    case "click":
       console.log(`🔧 [DEBUG] 准备点击循环元素`);
-      console.log('🔧 [DEBUG] 循环元素信息:', {
+      console.log("🔧 [DEBUG] 循环元素信息:", {
         tagName: element.tagName,
         id: element.id,
         className: element.className,
-        textContent: element.textContent?.substring(0, 50) + '...'
+        textContent: element.textContent?.substring(0, 50) + "...",
       });
 
       // 滚动到元素位置
-      console.log('🔧 [DEBUG] 滚动到循环目标元素');
+      console.log("🔧 [DEBUG] 滚动到循环目标元素");
       smartScrollIntoView(element, {
-        behavior: 'smooth',
-        block: 'center',
-        inline: 'center'
+        behavior: "smooth",
+        block: "center",
+        inline: "center",
       });
 
       // 等待滚动完成
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       // 高亮显示元素
-      console.log('🔧 [DEBUG] 高亮显示循环目标元素');
-      highlightElement(element, 'loop');
+      console.log("🔧 [DEBUG] 高亮显示循环目标元素");
+      highlightElement(element, "loop");
 
       // 设置自动清除高亮
       setTimeout(() => {
@@ -2242,38 +2670,43 @@ async function executeSimpleLoopAction(element, step) {
       // 检查元素可见性
       const rect = element.getBoundingClientRect();
       const isVisible = rect.width > 0 && rect.height > 0;
-      console.log('🔧 [DEBUG] 循环元素可见性:', {
+      console.log("🔧 [DEBUG] 循环元素可见性:", {
         isVisible,
-        rect: { width: rect.width, height: rect.height, top: rect.top, left: rect.left }
+        rect: {
+          width: rect.width,
+          height: rect.height,
+          top: rect.top,
+          left: rect.left,
+        },
       });
 
       // 执行点击
-      console.log('🔧 [DEBUG] 执行循环元素点击');
+      console.log("🔧 [DEBUG] 执行循环元素点击");
       element.click();
 
       // 等待点击效果
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       console.log(`👆 循环点击元素完成`);
       break;
-    case 'input':
-      const inputText = step.inputText || '';
+    case "input":
+      const inputText = step.inputText || "";
       element.value = inputText;
-      element.dispatchEvent(new Event('input', { bubbles: true }));
-      element.dispatchEvent(new Event('change', { bubbles: true }));
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
       console.log(`⌨️ 输入文本: "${inputText}"`);
       break;
-    case 'check':
+    case "check":
       if (!element.checked) {
         element.checked = true;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
         console.log(`☑️ 勾选复选框`);
       }
       break;
-    case 'uncheck':
+    case "uncheck":
       if (element.checked) {
         element.checked = false;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
         console.log(`☐ 取消勾选复选框`);
       }
       break;
@@ -2291,14 +2724,19 @@ async function executeSimpleLoopAction(element, step) {
       if (window.simplifiedExecutionControl) {
         await window.simplifiedExecutionControl.checkPause();
       }
-      await new Promise(resolve => setTimeout(resolve, Math.min(100, delay - (Date.now() - delayStartTime))));
+      await new Promise((resolve) =>
+        setTimeout(
+          resolve,
+          Math.min(100, delay - (Date.now() - delayStartTime))
+        )
+      );
     }
     console.log(`🔧 [DEBUG] 简单循环延迟完成`);
   }
 }
 
 async function executeContainerLoopAction(element, step) {
-  console.log('🔧 [DEBUG] executeContainerLoopAction 开始执行 - 容器循环模式');
+  console.log("🔧 [DEBUG] executeContainerLoopAction 开始执行 - 容器循环模式");
 
   // 在执行具体操作前检查暂停状态
   if (window.simplifiedExecutionControl) {
@@ -2306,28 +2744,28 @@ async function executeContainerLoopAction(element, step) {
   }
 
   console.log(`📦 开始处理容器元素，不点击容器本身`);
-  console.log('🔧 [DEBUG] 容器元素信息:', {
+  console.log("🔧 [DEBUG] 容器元素信息:", {
     tagName: element.tagName,
     id: element.id,
     className: element.className,
-    textContent: element.textContent?.substring(0, 50) + '...'
+    textContent: element.textContent?.substring(0, 50) + "...",
   });
 
   // 高亮显示容器元素
-  highlightElement(element, 'loop');
+  highlightElement(element, "loop");
   setTimeout(() => {
     clearElementHighlight(element);
   }, 2000);
 
   // 滚动到容器元素位置，确保可见
   smartScrollIntoView(element, {
-    behavior: 'smooth',
-    block: 'center',
-    inline: 'center'
+    behavior: "smooth",
+    block: "center",
+    inline: "center",
   });
 
   // 等待滚动完成
-  await new Promise(resolve => setTimeout(resolve, 300));
+  await new Promise((resolve) => setTimeout(resolve, 300));
 
   // 直接执行子操作序列，不点击容器元素
   if (step.subOperations && step.subOperations.length > 0) {
@@ -2335,14 +2773,18 @@ async function executeContainerLoopAction(element, step) {
 
     for (let i = 0; i < step.subOperations.length; i++) {
       const subOp = step.subOperations[i];
-      console.log(`🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator}`);
+      console.log(
+        `🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${
+          subOp.locator?.value || subOp.locator
+        }`
+      );
 
       try {
         // 传递容器元素上下文给子操作
         await executeSubOperation(subOp, element);
       } catch (error) {
         console.error(`❌ 容器内子操作 ${i + 1} 失败:`, error);
-        if (step.errorHandling === 'stop') {
+        if (step.errorHandling === "stop") {
           throw error;
         }
       }
@@ -2351,7 +2793,7 @@ async function executeContainerLoopAction(element, step) {
       if (subOp.delay || subOp.waitAfterClick) {
         const waitTime = subOp.delay || subOp.waitAfterClick || 500;
         console.log(`⏳ 子操作间等待 ${waitTime}ms`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
     }
 
@@ -2369,14 +2811,19 @@ async function executeContainerLoopAction(element, step) {
       if (window.simplifiedExecutionControl) {
         await window.simplifiedExecutionControl.checkPause();
       }
-      await new Promise(resolve => setTimeout(resolve, Math.min(100, step.operationDelay - (Date.now() - delayStartTime))));
+      await new Promise((resolve) =>
+        setTimeout(
+          resolve,
+          Math.min(100, step.operationDelay - (Date.now() - delayStartTime))
+        )
+      );
     }
     console.log(`🔧 [DEBUG] 容器操作延迟完成`);
   }
 }
 
 async function executeParentLoopAction(element, step) {
-  console.log('🔧 [DEBUG] executeParentLoopAction 开始执行');
+  console.log("🔧 [DEBUG] executeParentLoopAction 开始执行");
 
   // 在执行具体操作前检查暂停状态
   if (window.simplifiedExecutionControl) {
@@ -2393,7 +2840,7 @@ async function executeParentLoopAction(element, step) {
   // 2. 等待页面响应
   if (step.waitAfterClick) {
     console.log(`⏳ 等待页面响应 ${step.waitAfterClick}ms`);
-    await new Promise(resolve => setTimeout(resolve, step.waitAfterClick));
+    await new Promise((resolve) => setTimeout(resolve, step.waitAfterClick));
   }
 
   // 3. 执行子操作序列
@@ -2402,21 +2849,25 @@ async function executeParentLoopAction(element, step) {
 
     for (let i = 0; i < step.subOperations.length; i++) {
       const subOp = step.subOperations[i];
-      console.log(`🎯 执行子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator}`);
+      console.log(
+        `🎯 执行子操作 ${i + 1}: ${subOp.type} - ${
+          subOp.locator?.value || subOp.locator
+        }`
+      );
 
       try {
         // 传递父级元素上下文给子操作
         await executeSubOperation(subOp, element);
       } catch (error) {
         console.error(`❌ 子操作 ${i + 1} 失败:`, error);
-        if (step.errorHandling === 'stop') {
+        if (step.errorHandling === "stop") {
           throw error;
         }
       }
 
       // 子操作间等待
       if (subOp.delay) {
-        await new Promise(resolve => setTimeout(resolve, subOp.delay));
+        await new Promise((resolve) => setTimeout(resolve, subOp.delay));
       }
     }
 
@@ -2427,7 +2878,7 @@ async function executeParentLoopAction(element, step) {
   const delay = step.operationDelay || step.loopDelay || step.actionDelay;
   if (delay) {
     console.log(`⏳ 父级循环延迟 ${delay}ms`);
-    await new Promise(resolve => setTimeout(resolve, delay));
+    await new Promise((resolve) => setTimeout(resolve, delay));
     console.log(`✅ 父级循环延迟完成`);
   }
 }
@@ -2436,22 +2887,28 @@ async function executeSubOperation(operation, parentElement = null) {
   console.log(`🔍 执行子操作: ${operation.type}`, operation.locator);
 
   switch (operation.type) {
-    case 'click':
+    case "click":
       let clickElement;
       if (parentElement) {
-        console.log(`🔧 [DEBUG] 尝试在父级元素内查找: ${operation.locator.strategy}=${operation.locator.value}`);
+        console.log(
+          `🔧 [DEBUG] 尝试在父级元素内查找: ${operation.locator.strategy}=${operation.locator.value}`
+        );
 
         // 尝试在父级元素内查找，支持多种选择器策略
         try {
           switch (operation.locator.strategy) {
-            case 'css':
-              clickElement = parentElement.querySelector(operation.locator.value);
+            case "css":
+              clickElement = parentElement.querySelector(
+                operation.locator.value
+              );
               break;
-            case 'id':
+            case "id":
               // 对于ID选择器，在父级元素内查找
-              clickElement = parentElement.querySelector(`#${operation.locator.value}`);
+              clickElement = parentElement.querySelector(
+                `#${operation.locator.value}`
+              );
               break;
-            case 'xpath':
+            case "xpath":
               // 对于XPath，需要在父级元素的上下文中执行
               const xpathResult = document.evaluate(
                 operation.locator.value,
@@ -2462,21 +2919,27 @@ async function executeSubOperation(operation, parentElement = null) {
               );
               clickElement = xpathResult.singleNodeValue;
               break;
-            case 'text':
+            case "text":
               // 在父级元素内查找包含特定文本的元素
-              const textElements = parentElement.querySelectorAll('*');
+              const textElements = parentElement.querySelectorAll("*");
               for (const el of textElements) {
-                if (el.textContent && el.textContent.trim() === operation.locator.value.trim()) {
+                if (
+                  el.textContent &&
+                  el.textContent.trim() === operation.locator.value.trim()
+                ) {
                   clickElement = el;
                   break;
                 }
               }
               break;
-            case 'contains':
+            case "contains":
               // 在父级元素内查找包含文本的元素
-              const containsElements = parentElement.querySelectorAll('*');
+              const containsElements = parentElement.querySelectorAll("*");
               for (const el of containsElements) {
-                if (el.textContent && el.textContent.includes(operation.locator.value)) {
+                if (
+                  el.textContent &&
+                  el.textContent.includes(operation.locator.value)
+                ) {
                   clickElement = el;
                   break;
                 }
@@ -2485,7 +2948,9 @@ async function executeSubOperation(operation, parentElement = null) {
           }
 
           if (clickElement) {
-            console.log(`🎯 在父级元素内找到目标: ${operation.locator.strategy}=${operation.locator.value}`);
+            console.log(
+              `🎯 在父级元素内找到目标: ${operation.locator.strategy}=${operation.locator.value}`
+            );
           } else {
             console.log(`🔍 在父级元素内未找到，尝试全局查找`);
           }
@@ -2496,20 +2961,30 @@ async function executeSubOperation(operation, parentElement = null) {
 
       // 如果在父级元素内没找到，或者没有父级元素，则进行全局查找
       if (!clickElement) {
-        console.log(`🌐 使用全局查找: ${operation.locator.strategy}=${operation.locator.value}`);
-        clickElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+        console.log(
+          `🌐 使用全局查找: ${operation.locator.strategy}=${operation.locator.value}`
+        );
+        clickElement = await findElementByStrategy(
+          operation.locator.strategy,
+          operation.locator.value
+        );
       }
 
       if (!clickElement) {
-        throw new Error(`找不到点击目标元素: ${operation.locator.strategy}=${operation.locator.value}`);
+        throw new Error(
+          `找不到点击目标元素: ${operation.locator.strategy}=${operation.locator.value}`
+        );
       }
 
       // 高亮显示找到的元素
-      highlightElement(clickElement, 'click');
+      highlightElement(clickElement, "click");
 
       // 使用智能滚动函数，在虚拟列表模式下禁用页面滚动
-      smartScrollIntoView(clickElement, { behavior: 'smooth', block: 'center' });
-      await new Promise(resolve => setTimeout(resolve, 300));
+      smartScrollIntoView(clickElement, {
+        behavior: "smooth",
+        block: "center",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       // 执行点击
       clickElement.click();
@@ -2522,36 +2997,46 @@ async function executeSubOperation(operation, parentElement = null) {
 
       break;
 
-    case 'input':
+    case "input":
       let inputElement;
-      if (parentElement && operation.locator?.strategy === 'css') {
+      if (parentElement && operation.locator?.strategy === "css") {
         // 只有CSS选择器才能在父级元素内查找
         inputElement = parentElement.querySelector(operation.locator.value);
         if (!inputElement) {
-          inputElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+          inputElement = await findElementByStrategy(
+            operation.locator.strategy,
+            operation.locator.value
+          );
         }
       } else {
-        inputElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+        inputElement = await findElementByStrategy(
+          operation.locator.strategy,
+          operation.locator.value
+        );
       }
-      inputElement.value = operation.text || '';
-      inputElement.dispatchEvent(new Event('input', { bubbles: true }));
-      inputElement.dispatchEvent(new Event('change', { bubbles: true }));
+      inputElement.value = operation.text || "";
+      inputElement.dispatchEvent(new Event("input", { bubbles: true }));
+      inputElement.dispatchEvent(new Event("change", { bubbles: true }));
       console.log(`⌨️ 子操作-输入: "${operation.text}"`);
       break;
 
-    case 'wait':
+    case "wait":
       const duration = operation.duration || 1000;
       console.log(`⏱️ 子操作-等待: ${duration}ms`);
-      await new Promise(resolve => setTimeout(resolve, duration));
+      await new Promise((resolve) => setTimeout(resolve, duration));
       break;
 
-    case 'waitForElement':
+    case "waitForElement":
       console.log(`🔍 子操作-等待元素: ${operation.locator.value}`);
       const timeout = operation.timeout || 30000;
       const startTime = Date.now();
       while (Date.now() - startTime < timeout) {
         try {
-          const waitElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value, 100);
+          const waitElement = await findElementByStrategy(
+            operation.locator.strategy,
+            operation.locator.value,
+            100
+          );
           if (waitElement) {
             console.log(`✅ 元素已出现: ${operation.locator.value}`);
             break;
@@ -2559,45 +3044,71 @@ async function executeSubOperation(operation, parentElement = null) {
         } catch (error) {
           // 继续等待
         }
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
       break;
 
-    case 'check':
+    case "check":
       let checkElement;
-      if (parentElement && operation.locator?.strategy === 'css') {
+      if (parentElement && operation.locator?.strategy === "css") {
         checkElement = parentElement.querySelector(operation.locator.value);
         if (!checkElement) {
-          checkElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+          checkElement = await findElementByStrategy(
+            operation.locator.strategy,
+            operation.locator.value
+          );
         }
       } else {
-        checkElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+        checkElement = await findElementByStrategy(
+          operation.locator.strategy,
+          operation.locator.value
+        );
       }
       if (!checkElement.checked) {
         checkElement.checked = true;
-        checkElement.dispatchEvent(new Event('change', { bubbles: true }));
+        checkElement.dispatchEvent(new Event("change", { bubbles: true }));
         console.log(`☑️ 子操作-勾选复选框`);
       }
       break;
 
-    case 'select':
+    case "select":
       let selectElement;
-      if (parentElement && operation.locator?.strategy === 'css') {
+      if (parentElement && operation.locator?.strategy === "css") {
         selectElement = parentElement.querySelector(operation.locator.value);
         if (!selectElement) {
-          selectElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+          selectElement = await findElementByStrategy(
+            operation.locator.strategy,
+            operation.locator.value
+          );
         }
       } else {
-        selectElement = await findElementByStrategy(operation.locator.strategy, operation.locator.value);
+        selectElement = await findElementByStrategy(
+          operation.locator.strategy,
+          operation.locator.value
+        );
       }
-      selectElement.value = operation.value || '';
-      selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+      selectElement.value = operation.value || "";
+      selectElement.dispatchEvent(new Event("change", { bubbles: true }));
       console.log(`📋 子操作-选择选项: ${operation.value}`);
       break;
 
-    case 'autoLoop':
+    case "autoLoop":
       console.log(`🔁 子操作-自循环开始: ${operation.locator.value}`);
       await executeSubOperationAutoLoop(operation, parentElement);
+      break;
+
+    case "loop":
+      console.log(`🔁 子操作-循环开始: ${operation.locator.value}`);
+      if (
+        operation.loopType === "self" ||
+        operation.loopType === "simpleLoop"
+      ) {
+        // 自循环，等同于autoLoop
+        await executeSubOperationAutoLoop(operation, parentElement);
+      } else {
+        // 其他循环类型，递归调用executeLoopStep
+        await executeLoopStep(operation);
+      }
       break;
 
     default:
@@ -2611,19 +3122,27 @@ async function executeSubOperationAutoLoop(operation, parentElement = null) {
 
   // 查找所有匹配的元素
   let elements;
-  if (parentElement && operation.locator?.strategy === 'css') {
+  if (parentElement && operation.locator?.strategy === "css") {
     // 只有CSS选择器才能在父级元素内查找
-    elements = Array.from(parentElement.querySelectorAll(operation.locator.value));
+    elements = Array.from(
+      parentElement.querySelectorAll(operation.locator.value)
+    );
     if (elements.length === 0) {
       // 如果在父级元素内找不到，尝试全局查找
-      elements = await findElementsByStrategy(operation.locator.strategy, operation.locator.value);
+      elements = await findElementsByStrategy(
+        operation.locator.strategy,
+        operation.locator.value
+      );
       console.log(`🔍 在父级元素内未找到，使用全局查找`);
     } else {
       console.log(`🔍 在父级元素内找到 ${elements.length} 个目标`);
     }
   } else {
     // 对于非CSS选择器或没有父级元素的情况，直接全局查找
-    elements = await findElementsByStrategy(operation.locator.strategy, operation.locator.value);
+    elements = await findElementsByStrategy(
+      operation.locator.strategy,
+      operation.locator.value
+    );
   }
 
   if (elements.length === 0) {
@@ -2632,15 +3151,20 @@ async function executeSubOperationAutoLoop(operation, parentElement = null) {
 
   // 计算处理范围
   const startIndex = operation.startIndex || 0;
-  const endIndex = operation.endIndex === -1 ? elements.length - 1 : (operation.endIndex || elements.length - 1);
+  const endIndex =
+    operation.endIndex === -1
+      ? elements.length - 1
+      : operation.endIndex || elements.length - 1;
   const actualEndIndex = Math.min(endIndex, elements.length - 1);
 
-  console.log(`📊 自循环找到 ${elements.length} 个元素，处理范围: ${startIndex} - ${actualEndIndex}`);
+  console.log(
+    `📊 自循环找到 ${elements.length} 个元素，处理范围: ${startIndex} - ${actualEndIndex}`
+  );
 
   // 获取操作类型和配置
-  const actionType = operation.actionType || 'click';
+  const actionType = operation.actionType || "click";
   const actionDelay = operation.actionDelay || 200;
-  const errorHandling = operation.errorHandling || 'continue';
+  const errorHandling = operation.errorHandling || "continue";
 
   // 依次处理每个元素
   let successCount = 0;
@@ -2662,12 +3186,11 @@ async function executeSubOperationAutoLoop(operation, parentElement = null) {
 
       // 操作间隔
       if (actionDelay > 0 && i < actualEndIndex) {
-        await new Promise(resolve => setTimeout(resolve, actionDelay));
+        await new Promise((resolve) => setTimeout(resolve, actionDelay));
       }
 
       // 清除执行进度高亮
       clearExecutionProgress(element);
-
     } catch (error) {
       errorCount++;
 
@@ -2677,49 +3200,67 @@ async function executeSubOperationAutoLoop(operation, parentElement = null) {
       // 清除执行进度高亮（即使失败也要清除）
       clearExecutionProgress(element);
 
-      if (errorHandling === 'stop') {
+      if (errorHandling === "stop") {
         throw new Error(`自循环在第 ${i + 1} 个元素处停止: ${error.message}`);
       }
       // 继续处理下一个元素
     }
   }
 
-  console.log(`🎉 自循环执行完成: 成功 ${successCount} 个，失败 ${errorCount} 个`);
+  console.log(
+    `🎉 自循环执行完成: 成功 ${successCount} 个，失败 ${errorCount} 个`
+  );
 }
 
 // 执行自循环中的单个元素操作
 async function executeAutoLoopAction(element, operation, actionType) {
   switch (actionType) {
-    case 'click':
+    case "click":
       element.click();
       break;
 
-    case 'input':
-      const inputText = operation.inputText || '';
+    case "input":
+      const inputText = operation.inputText || "";
       element.value = inputText;
-      element.dispatchEvent(new Event('input', { bubbles: true }));
-      element.dispatchEvent(new Event('change', { bubbles: true }));
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
       break;
 
-    case 'check':
-      if (element.type === 'checkbox' && !element.checked) {
+    case "check":
+      if (element.type === "checkbox" && !element.checked) {
         element.checked = true;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+        console.log(`☑️ 勾选复选框: ${element.id || element.name || "未命名"}`);
+      } else if (element.type === "checkbox") {
+        console.log(
+          `ℹ️ 复选框已勾选: ${element.id || element.name || "未命名"}`
+        );
+      } else {
+        throw new Error("check操作只能用于checkbox元素");
       }
       break;
 
-    case 'uncheck':
-      if (element.type === 'checkbox' && element.checked) {
+    case "uncheck":
+      if (element.type === "checkbox" && element.checked) {
         element.checked = false;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+        console.log(
+          `☐ 取消勾选复选框: ${element.id || element.name || "未命名"}`
+        );
+      } else if (element.type === "checkbox") {
+        console.log(
+          `ℹ️ 复选框已取消勾选: ${element.id || element.name || "未命名"}`
+        );
+      } else {
+        throw new Error("uncheck操作只能用于checkbox元素");
       }
       break;
 
-    case 'hover':
-      element.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    case "hover":
+      element.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
       break;
 
-    case 'focus':
+    case "focus":
       element.focus();
       break;
 
@@ -2730,7 +3271,7 @@ async function executeAutoLoopAction(element, operation, actionType) {
 
 // 测试条件判断
 function testCondition(condition) {
-  console.log('🧪 测试条件:', condition);
+  console.log("🧪 测试条件:", condition);
 
   try {
     // 清除之前的测试高亮
@@ -2741,7 +3282,7 @@ function testCondition(condition) {
     if (!locator || !locator.strategy || !locator.value) {
       return {
         success: false,
-        error: '缺少定位器配置'
+        error: "缺少定位器配置",
       };
     }
 
@@ -2750,8 +3291,8 @@ function testCondition(condition) {
     if (!element) {
       return {
         success: false,
-        error: '元素未找到',
-        conditionMet: false
+        error: "元素未找到",
+        conditionMet: false,
       };
     }
 
@@ -2760,66 +3301,69 @@ function testCondition(condition) {
 
     // 执行条件判断
     let conditionResult = false;
-    let actualValue = '';
-    let expectedValue = condition.expectedValue || '';
-    const attributeName = condition.attributeName || '';
+    let actualValue = "";
+    let expectedValue = condition.expectedValue || "";
+    const attributeName = condition.attributeName || "";
 
     // 获取实际值
     switch (condition.conditionType) {
-      case 'attribute':
-        actualValue = element.getAttribute(attributeName) || '';
+      case "attribute":
+        actualValue = element.getAttribute(attributeName) || "";
         break;
-      case 'text':
-        actualValue = element.textContent || '';
+      case "text":
+        actualValue = element.textContent || "";
         break;
-      case 'class':
-        actualValue = element.className || '';
+      case "class":
+        actualValue = element.className || "";
         break;
-      case 'style':
-        actualValue = getComputedStyle(element)[attributeName] || '';
+      case "style":
+        actualValue = getComputedStyle(element)[attributeName] || "";
         break;
-      case 'value':
-        actualValue = element.value || '';
+      case "value":
+        actualValue = element.value || "";
         break;
-      case 'exists':
+      case "exists":
         conditionResult = true; // 元素已找到
         break;
-      case 'visible':
+      case "visible":
         conditionResult = element.offsetParent !== null;
         break;
     }
 
     // 执行比较
-    if (condition.conditionType !== 'exists' && condition.conditionType !== 'visible') {
+    if (
+      condition.conditionType !== "exists" &&
+      condition.conditionType !== "visible"
+    ) {
       switch (condition.comparisonType) {
-        case 'equals':
+        case "equals":
           conditionResult = actualValue === expectedValue;
           break;
-        case 'notEquals':
+        case "notEquals":
           conditionResult = actualValue !== expectedValue;
           break;
-        case 'contains':
+        case "contains":
           conditionResult = actualValue.includes(expectedValue);
           break;
-        case 'notContains':
+        case "notContains":
           conditionResult = !actualValue.includes(expectedValue);
           break;
-        case 'startsWith':
+        case "startsWith":
           conditionResult = actualValue.startsWith(expectedValue);
           break;
-        case 'endsWith':
+        case "endsWith":
           conditionResult = actualValue.endsWith(expectedValue);
           break;
-        case 'isEmpty':
-          conditionResult = actualValue === '';
+        case "isEmpty":
+          conditionResult = actualValue === "";
           break;
-        case 'isNotEmpty':
-          conditionResult = actualValue !== '';
+        case "isNotEmpty":
+          conditionResult = actualValue !== "";
           break;
-        case 'hasAttribute':
+        case "hasAttribute":
           conditionResult = element.hasAttribute(attributeName);
           break;
-        case 'notHasAttribute':
+        case "notHasAttribute":
           conditionResult = !element.hasAttribute(attributeName);
           break;
       }
@@ -2829,15 +3373,15 @@ function testCondition(condition) {
     return {
       success: true,
       conditionMet: conditionResult,
-      message: `条件${conditionResult ? '满足' : '不满足'}`,
+      message: `条件${conditionResult ? "满足" : "不满足"}`,
       actualValue,
-      expectedValue
+      expectedValue,
     };
   } catch (error) {
-    console.error('❌ 测试条件失败:', error);
+    console.error("❌ 测试条件失败:", error);
     return {
       success: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -2846,9 +3390,9 @@ function testCondition(condition) {
 function findSingleElement(strategy, value) {
   try {
     switch (strategy) {
-      case 'css':
+      case "css":
         return document.querySelector(value);
-      case 'xpath':
+      case "xpath":
         const xpathResult = document.evaluate(
           value,
           document,
@@ -2857,20 +3401,20 @@ function findSingleElement(strategy, value) {
           null
         );
         return xpathResult.singleNodeValue;
-      case 'id':
+      case "id":
         return document.getElementById(value);
-      case 'className':
+      case "className":
         const elements = document.getElementsByClassName(value);
         return elements.length > 0 ? elements[0] : null;
-      case 'text':
-        return Array.from(document.querySelectorAll('*')).find(el =>
-          el.textContent && el.textContent.trim() === value.trim()
+      case "text":
+        return Array.from(document.querySelectorAll("*")).find(
+          (el) => el.textContent && el.textContent.trim() === value.trim()
         );
-      case 'contains':
-        return Array.from(document.querySelectorAll('*')).find(el =>
-          el.textContent && el.textContent.includes(value)
+      case "contains":
+        return Array.from(document.querySelectorAll("*")).find(
+          (el) => el.textContent && el.textContent.includes(value)
         );
-      case 'tagName':
+      case "tagName":
         const tagElements = document.getElementsByTagName(value);
         return tagElements.length > 0 ? tagElements[0] : null;
       default:
@@ -2884,7 +3428,7 @@ function findSingleElement(strategy, value) {
 
 // 测试定位器元素数量
 function testLocatorElements(locator) {
-  console.log('🔍 测试定位器:', locator);
+  console.log("🔍 测试定位器:", locator);
 
   try {
     // 清除之前的测试高亮
@@ -2893,10 +3437,10 @@ function testLocatorElements(locator) {
     let elements;
 
     switch (locator.strategy) {
-      case 'css':
+      case "css":
         elements = document.querySelectorAll(locator.value);
         break;
-      case 'xpath':
+      case "xpath":
         const xpathResult = document.evaluate(
           locator.value,
           document,
@@ -2909,26 +3453,27 @@ function testLocatorElements(locator) {
           elements.push(xpathResult.snapshotItem(i));
         }
         break;
-      case 'id':
+      case "id":
         const idElement = document.getElementById(locator.value);
         elements = idElement ? [idElement] : [];
         break;
-      case 'className':
+      case "className":
         elements = document.getElementsByClassName(locator.value);
         break;
-      case 'tagName':
+      case "tagName":
         elements = document.getElementsByTagName(locator.value);
         break;
-      case 'text':
+      case "text":
         // 精确文本匹配，使用遍历方式避免XPath转义问题
-        elements = Array.from(document.querySelectorAll('*')).filter(el =>
-          el.textContent && el.textContent.trim() === locator.value.trim()
+        elements = Array.from(document.querySelectorAll("*")).filter(
+          (el) =>
+            el.textContent && el.textContent.trim() === locator.value.trim()
         );
         break;
-      case 'contains':
+      case "contains":
         // 包含文本匹配，使用遍历方式避免XPath转义问题
-        elements = Array.from(document.querySelectorAll('*')).filter(el =>
-          el.textContent && el.textContent.includes(locator.value)
+        elements = Array.from(document.querySelectorAll("*")).filter(
+          (el) => el.textContent && el.textContent.includes(locator.value)
         );
         break;
       default:
@@ -2945,7 +3490,7 @@ function testLocatorElements(locator) {
 
     return { count };
   } catch (error) {
-    console.error('❌ 测试定位器失败:', error);
+    console.error("❌ 测试定位器失败:", error);
     // 发生错误时也清除高亮
     clearTestHighlights();
     throw error;
@@ -2953,50 +3498,50 @@ function testLocatorElements(locator) {
 }
 
 // 高亮元素
-function highlightElement(element, type = 'processing') {
+function highlightElement(element, type = "processing") {
   if (!element) return;
 
   // 保存原始样式
   if (!element._originalStyle) {
     element._originalStyle = {
-      outline: element.style.outline || '',
-      backgroundColor: element.style.backgroundColor || '',
-      transition: element.style.transition || ''
+      outline: element.style.outline || "",
+      backgroundColor: element.style.backgroundColor || "",
+      transition: element.style.transition || "",
     };
   }
 
   // 设置高亮样式
-  element.style.transition = 'all 0.3s ease';
+  element.style.transition = "all 0.3s ease";
 
   switch (type) {
-    case 'processing':
-      element.style.outline = '3px solid #3498db';
-      element.style.backgroundColor = 'rgba(52, 152, 219, 0.1)';
+    case "processing":
+      element.style.outline = "3px solid #3498db";
+      element.style.backgroundColor = "rgba(52, 152, 219, 0.1)";
       break;
-    case 'click':
-      element.style.outline = '3px solid #f39c12';
-      element.style.backgroundColor = 'rgba(243, 156, 18, 0.2)';
+    case "click":
+      element.style.outline = "3px solid #f39c12";
+      element.style.backgroundColor = "rgba(243, 156, 18, 0.2)";
       break;
-    case 'input':
-      element.style.outline = '3px solid #9b59b6';
-      element.style.backgroundColor = 'rgba(155, 89, 182, 0.1)';
+    case "input":
+      element.style.outline = "3px solid #9b59b6";
+      element.style.backgroundColor = "rgba(155, 89, 182, 0.1)";
       break;
-    case 'loop':
-      element.style.outline = '3px solid #e67e22';
-      element.style.backgroundColor = 'rgba(230, 126, 34, 0.15)';
+    case "loop":
+      element.style.outline = "3px solid #e67e22";
+      element.style.backgroundColor = "rgba(230, 126, 34, 0.15)";
       break;
-    case 'success':
-      element.style.outline = '3px solid #27ae60';
-      element.style.backgroundColor = 'rgba(39, 174, 96, 0.1)';
+    case "success":
+      element.style.outline = "3px solid #27ae60";
+      element.style.backgroundColor = "rgba(39, 174, 96, 0.1)";
       break;
-    case 'error':
-      element.style.outline = '3px solid #e74c3c';
-      element.style.backgroundColor = 'rgba(231, 76, 60, 0.1)';
+    case "error":
+      element.style.outline = "3px solid #e74c3c";
+      element.style.backgroundColor = "rgba(231, 76, 60, 0.1)";
       break;
   }
 
   // 使用智能滚动函数，在虚拟列表模式下禁用页面滚动
-  smartScrollIntoView(element, { behavior: 'smooth', block: 'center' });
+  smartScrollIntoView(element, { behavior: "smooth", block: "center" });
 }
 
 // 清除元素高亮
@@ -3028,18 +3573,18 @@ function highlightTestElements(elements) {
     // 保存原始样式
     if (!element._testOriginalStyle) {
       element._testOriginalStyle = {
-        outline: element.style.outline || '',
-        backgroundColor: element.style.backgroundColor || '',
-        transition: element.style.transition || '',
-        zIndex: element.style.zIndex || ''
+        outline: element.style.outline || "",
+        backgroundColor: element.style.backgroundColor || "",
+        transition: element.style.transition || "",
+        zIndex: element.style.zIndex || "",
       };
     }
 
     // 设置测试高亮样式（橙色）
-    element.style.transition = 'all 0.3s ease';
-    element.style.outline = '2px solid orange';
-    element.style.backgroundColor = 'rgba(255, 165, 0, 0.1)';
-    element.style.zIndex = '9999';
+    element.style.transition = "all 0.3s ease";
+    element.style.outline = "2px solid orange";
+    element.style.backgroundColor = "rgba(255, 165, 0, 0.1)";
+    element.style.zIndex = "9999";
 
     // 标记为测试高亮元素
     element._isTestHighlighted = true;
@@ -3051,11 +3596,11 @@ function highlightTestElements(elements) {
   // 滚动到第一个元素
   if (elements.length > 0 && elements[0]) {
     smartScrollIntoView(elements[0], {
-      behavior: 'smooth',
-      block: 'center',
-      inline: 'center'
+      behavior: "smooth",
+      block: "center",
+      inline: "center",
     });
-    console.log('📍 已滚动到第一个匹配元素');
+    console.log("📍 已滚动到第一个匹配元素");
   }
 }
 
@@ -3063,11 +3608,12 @@ function highlightTestElements(elements) {
 function clearTestHighlights() {
   console.log(`🧹 清除 ${testHighlightedElements.length} 个测试高亮元素`);
 
-  testHighlightedElements.forEach(element => {
+  testHighlightedElements.forEach((element) => {
     if (element && element._testOriginalStyle) {
       // 恢复原始样式
       element.style.outline = element._testOriginalStyle.outline;
-      element.style.backgroundColor = element._testOriginalStyle.backgroundColor;
+      element.style.backgroundColor =
+        element._testOriginalStyle.backgroundColor;
       element.style.transition = element._testOriginalStyle.transition;
       element.style.zIndex = element._testOriginalStyle.zIndex;
 
@@ -3079,39 +3625,39 @@ function clearTestHighlights() {
 
   // 清空数组
   testHighlightedElements = [];
-  console.log('✅ 所有测试高亮已清除');
+  console.log("✅ 所有测试高亮已清除");
 }
 
 // 高亮执行进度（绿色）
 function highlightExecutionProgress(element) {
   if (!element) return;
 
-  console.log('🟢 添加执行进度高亮');
+  console.log("🟢 添加执行进度高亮");
 
   // 保存原始样式（如果还没保存的话）
   if (!element._executionOriginalStyle) {
     element._executionOriginalStyle = {
-      outline: element.style.outline || '',
-      backgroundColor: element.style.backgroundColor || '',
-      transition: element.style.transition || '',
-      zIndex: element.style.zIndex || ''
+      outline: element.style.outline || "",
+      backgroundColor: element.style.backgroundColor || "",
+      transition: element.style.transition || "",
+      zIndex: element.style.zIndex || "",
     };
   }
 
   // 设置执行进度高亮样式（绿色）
-  element.style.transition = 'all 0.3s ease';
-  element.style.outline = '3px solid #27ae60';
-  element.style.backgroundColor = 'rgba(39, 174, 96, 0.1)';
-  element.style.zIndex = '10000'; // 比测试高亮更高的层级
+  element.style.transition = "all 0.3s ease";
+  element.style.outline = "3px solid #27ae60";
+  element.style.backgroundColor = "rgba(39, 174, 96, 0.1)";
+  element.style.zIndex = "10000"; // 比测试高亮更高的层级
 
   // 标记为执行进度高亮
   element._isExecutionHighlighted = true;
 
   // 滚动到当前元素
   smartScrollIntoView(element, {
-    behavior: 'smooth',
-    block: 'center',
-    inline: 'center'
+    behavior: "smooth",
+    block: "center",
+    inline: "center",
   });
 }
 
@@ -3119,11 +3665,12 @@ function highlightExecutionProgress(element) {
 function clearExecutionProgress(element) {
   if (!element || !element._executionOriginalStyle) return;
 
-  console.log('🧹 清除执行进度高亮');
+  console.log("🧹 清除执行进度高亮");
 
   // 恢复原始样式
   element.style.outline = element._executionOriginalStyle.outline;
-  element.style.backgroundColor = element._executionOriginalStyle.backgroundColor;
+  element.style.backgroundColor =
+    element._executionOriginalStyle.backgroundColor;
   element.style.transition = element._executionOriginalStyle.transition;
   element.style.zIndex = element._executionOriginalStyle.zIndex;
 
@@ -3152,10 +3699,10 @@ async function executeVirtualListLoop(step) {
 
   // 验证配置
   if (!step.virtualListContainer || !step.virtualListContainer.value) {
-    throw new Error('虚拟列表容器定位配置缺失');
+    throw new Error("虚拟列表容器定位配置缺失");
   }
   if (!step.virtualListTitleLocator || !step.virtualListTitleLocator.value) {
-    throw new Error('虚拟列表标题定位配置缺失');
+    throw new Error("虚拟列表标题定位配置缺失");
   }
 
   // 获取容器元素
@@ -3178,7 +3725,9 @@ async function executeVirtualListLoop(step) {
   let noNewItemsCount = 0;
   let totalProcessed = 0;
 
-  console.log(`⚙️ 配置: 滚动距离=${scrollDistance}px, 等待时间=${waitTime}ms, 最大重试=${maxRetries}`);
+  console.log(
+    `⚙️ 配置: 滚动距离=${scrollDistance}px, 等待时间=${waitTime}ms, 最大重试=${maxRetries}`
+  );
 
   while (retryCount < maxRetries && noNewItemsCount < 5) {
     // 检查暂停状态
@@ -3188,7 +3737,9 @@ async function executeVirtualListLoop(step) {
 
     try {
       // 收集当前可见的标题
-      const visibleTitles = await collectVisibleTitles(step.virtualListTitleLocator);
+      const visibleTitles = await collectVisibleTitles(
+        step.virtualListTitleLocator
+      );
       console.log(`👀 当前可见 ${visibleTitles.length} 个标题`);
 
       // 逐一检查每个可见标题，找到第一个未处理的
@@ -3208,31 +3759,45 @@ async function executeVirtualListLoop(step) {
 
         // 敏感词检测
         let shouldSkip = false;
-        if (step.sensitiveWordDetection && step.sensitiveWordDetection.enabled) {
-          console.log(`🔍 虚拟列表敏感词检测 - 标题: "${unprocessedTitle.text}"`);
+        if (
+          step.sensitiveWordDetection &&
+          step.sensitiveWordDetection.enabled
+        ) {
+          console.log(
+            `🔍 虚拟列表敏感词检测 - 标题: "${unprocessedTitle.text}"`
+          );
 
           try {
             // 创建敏感词检测器实例
             const detector = new window.SensitiveWordDetector();
 
             // 设置敏感词列表
-            detector.setSensitiveWords(step.sensitiveWordDetection.sensitiveWords);
+            detector.setSensitiveWords(
+              step.sensitiveWordDetection.sensitiveWords
+            );
 
             // 检测标题文本
-            const detection = detector.detectSensitiveWords(unprocessedTitle.text);
+            const detection = detector.detectSensitiveWords(
+              unprocessedTitle.text
+            );
 
             if (detection.hasSensitiveWord) {
               shouldSkip = true;
-              console.log(`🚫 虚拟列表跳过包含敏感词的标题: "${unprocessedTitle.text}" - 匹配词: ${detection.matchedWords.join(', ')}`);
+              console.log(
+                `🚫 虚拟列表跳过包含敏感词的标题: "${
+                  unprocessedTitle.text
+                }" - 匹配词: ${detection.matchedWords.join(", ")}`
+              );
 
               // 高亮显示被跳过的元素
               if (unprocessedTitle.element) {
-                unprocessedTitle.element.style.border = '2px solid orange';
-                unprocessedTitle.element.style.backgroundColor = 'rgba(255, 165, 0, 0.2)';
+                unprocessedTitle.element.style.border = "2px solid orange";
+                unprocessedTitle.element.style.backgroundColor =
+                  "rgba(255, 165, 0, 0.2)";
                 setTimeout(() => {
                   if (unprocessedTitle.element.style) {
-                    unprocessedTitle.element.style.border = '';
-                    unprocessedTitle.element.style.backgroundColor = '';
+                    unprocessedTitle.element.style.border = "";
+                    unprocessedTitle.element.style.backgroundColor = "";
                   }
                 }, 2000);
               }
@@ -3244,9 +3809,11 @@ async function executeVirtualListLoop(step) {
               // 跳过敏感词后也要滚动，继续处理下一个
               console.log(`📜 跳过敏感词后滚动容器 ${scrollDistance}px`);
               container.scrollTop += scrollDistance;
-              await new Promise(resolve => setTimeout(resolve, waitTime));
+              await new Promise((resolve) => setTimeout(resolve, waitTime));
             } else {
-              console.log(`✅ 虚拟列表标题通过敏感词检测: "${unprocessedTitle.text}"`);
+              console.log(
+                `✅ 虚拟列表标题通过敏感词检测: "${unprocessedTitle.text}"`
+              );
             }
           } catch (error) {
             console.error(`❌ 虚拟列表敏感词检测失败: ${error.message}`);
@@ -3264,74 +3831,83 @@ async function executeVirtualListLoop(step) {
             totalProcessed++;
             noNewItemsCount = 0;
 
-            console.log(`✅ 已处理: "${unprocessedTitle.text}" (总计: ${totalProcessed})`);
+            console.log(
+              `✅ 已处理: "${unprocessedTitle.text}" (总计: ${totalProcessed})`
+            );
 
             // 操作后等待
             if (step.operationDelay) {
               console.log(`⏳ 操作延迟 ${step.operationDelay}ms`);
-              await new Promise(resolve => setTimeout(resolve, step.operationDelay));
+              await new Promise((resolve) =>
+                setTimeout(resolve, step.operationDelay)
+              );
             }
 
             // 处理完一个项目后立即滚动
             const beforeScroll = container.scrollTop;
-            console.log(`📜 处理完项目后滚动容器 ${scrollDistance}px (当前位置: ${beforeScroll})`);
+            console.log(
+              `📜 处理完项目后滚动容器 ${scrollDistance}px (当前位置: ${beforeScroll})`
+            );
             container.scrollTop += scrollDistance;
             const afterScroll = container.scrollTop;
             console.log(`📜 滚动完成，位置: ${beforeScroll} → ${afterScroll}`);
 
             // 等待新内容渲染
             console.log(`⏳ 等待新内容渲染 ${waitTime}ms`);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
           } catch (clickError) {
-          console.log(`❌ 点击失败: "${unprocessedTitle.text}" - ${clickError.message}`);
+            console.log(
+              `❌ 点击失败: "${unprocessedTitle.text}" - ${clickError.message}`
+            );
 
-          // 标记红色边框
-          try {
-            unprocessedTitle.element.style.border = '2px solid red';
-            setTimeout(() => {
-              if (unprocessedTitle.element.style) {
-                unprocessedTitle.element.style.border = '';
-              }
-            }, 3000);
-          } catch (e) {
-            // 忽略样式设置错误
-          }
+            // 标记红色边框
+            try {
+              unprocessedTitle.element.style.border = "2px solid red";
+              setTimeout(() => {
+                if (unprocessedTitle.element.style) {
+                  unprocessedTitle.element.style.border = "";
+                }
+              }, 3000);
+            } catch (e) {
+              // 忽略样式设置错误
+            }
 
-          // 仍然标记为已处理，避免重复尝试
-          processedTitles.add(unprocessedTitle.text);
+            // 仍然标记为已处理，避免重复尝试
+            processedTitles.add(unprocessedTitle.text);
 
-          // 即使失败也要滚动，继续处理下一个
-          console.log(`📜 点击失败后滚动容器 ${scrollDistance}px`);
-          container.scrollTop += scrollDistance;
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+            // 即使失败也要滚动，继续处理下一个
+            console.log(`📜 点击失败后滚动容器 ${scrollDistance}px`);
+            container.scrollTop += scrollDistance;
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
           }
         }
-
       } else {
         noNewItemsCount++;
         console.log(`ℹ️ 当前可见项目都已处理 (连续 ${noNewItemsCount}/5 次)`);
 
         // 即使没有新项目也要滚动，尝试加载更多内容
-        console.log(`📜 尝试滚动加载更多内容 ${scrollDistance}px (总已处理: ${totalProcessed})`);
+        console.log(
+          `📜 尝试滚动加载更多内容 ${scrollDistance}px (总已处理: ${totalProcessed})`
+        );
         container.scrollTop += scrollDistance;
 
         // 等待新内容渲染
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
 
       // retryCount 不在这里增加，只在出错时增加
-
     } catch (error) {
       console.log(`❌ 虚拟列表处理出错: ${error.message}`);
       retryCount++;
 
       if (retryCount >= maxRetries) {
-        throw new Error(`虚拟列表处理失败，已达到最大重试次数: ${error.message}`);
+        throw new Error(
+          `虚拟列表处理失败，已达到最大重试次数: ${error.message}`
+        );
       }
 
       // 短暂等待后重试
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
 
@@ -3346,19 +3922,25 @@ async function executeVirtualListLoop(step) {
  * 收集当前可见的标题元素
  */
 async function collectVisibleTitles(titleLocator) {
-  const titleElements = await findElementsByStrategy(titleLocator.strategy, titleLocator.value);
+  const titleElements = await findElementsByStrategy(
+    titleLocator.strategy,
+    titleLocator.value
+  );
   const visibleTitles = [];
 
   for (const element of titleElements) {
     // 检查元素是否在视口中可见（放宽条件，只要部分可见即可）
     const rect = element.getBoundingClientRect();
-    const isVisible = rect.bottom > 0 && rect.top < window.innerHeight &&
-      rect.right > 0 && rect.left < window.innerWidth;
+    const isVisible =
+      rect.bottom > 0 &&
+      rect.top < window.innerHeight &&
+      rect.right > 0 &&
+      rect.left < window.innerWidth;
 
     if (isVisible && element.innerText && element.innerText.trim()) {
       visibleTitles.push({
         text: element.innerText.trim(),
-        element: element
+        element: element,
       });
     }
   }
@@ -3372,9 +3954,14 @@ async function collectVisibleTitles(titleLocator) {
 async function clickVirtualListItem(titleInfo, step) {
   // 从标题元素开始，查找对应的可点击按钮
   // 使用循环操作的定位器来找到按钮
-  const buttonElements = await findElementsByStrategy(step.locator.strategy, step.locator.value);
+  const buttonElements = await findElementsByStrategy(
+    step.locator.strategy,
+    step.locator.value
+  );
 
-  console.log(`🔍 找到 ${buttonElements.length} 个可点击按钮，正在匹配标题: "${titleInfo.text}"`);
+  console.log(
+    `🔍 找到 ${buttonElements.length} 个可点击按钮，正在匹配标题: "${titleInfo.text}"`
+  );
 
   // 尝试找到与当前标题相关的按钮
   // 策略1：查找同一个父容器内的按钮
@@ -3382,7 +3969,8 @@ async function clickVirtualListItem(titleInfo, step) {
 
   // 首先尝试在标题元素的父容器中查找按钮
   let currentElement = titleInfo.element;
-  for (let level = 0; level < 5; level++) { // 最多向上查找5层
+  for (let level = 0; level < 5; level++) {
+    // 最多向上查找5层
     if (!currentElement || !currentElement.parentElement) break;
     currentElement = currentElement.parentElement;
 
@@ -3418,7 +4006,7 @@ async function clickVirtualListItem(titleInfo, step) {
       // 计算距离
       const distance = Math.sqrt(
         Math.pow(titleCenterX - buttonCenterX, 2) +
-        Math.pow(titleCenterY - buttonCenterY, 2)
+          Math.pow(titleCenterY - buttonCenterY, 2)
       );
 
       if (distance < minDistance) {
@@ -3428,7 +4016,9 @@ async function clickVirtualListItem(titleInfo, step) {
     }
 
     if (targetButton) {
-      console.log(`✅ 通过距离匹配找到按钮，距离: ${Math.round(minDistance)}px`);
+      console.log(
+        `✅ 通过距离匹配找到按钮，距离: ${Math.round(minDistance)}px`
+      );
     }
   }
 
@@ -3451,18 +4041,18 @@ async function clickVirtualListItem(titleInfo, step) {
     const containerRect = listContainer.getBoundingClientRect();
 
     // 检查按钮是否在容器可视区域内
-    const isButtonVisible = (
+    const isButtonVisible =
       buttonRect.top >= containerRect.top &&
       buttonRect.bottom <= containerRect.bottom &&
       buttonRect.left >= containerRect.left &&
-      buttonRect.right <= containerRect.right
-    );
+      buttonRect.right <= containerRect.right;
 
     if (!isButtonVisible) {
       console.log(`📜 按钮不在容器可视区域内，调整容器滚动位置`);
 
       // 计算需要滚动的距离
-      const scrollOffset = buttonRect.top - containerRect.top - (containerRect.height / 2);
+      const scrollOffset =
+        buttonRect.top - containerRect.top - containerRect.height / 2;
       listContainer.scrollTop += scrollOffset;
 
       console.log(`📜 容器滚动调整: ${scrollOffset}px`);
@@ -3471,39 +4061,45 @@ async function clickVirtualListItem(titleInfo, step) {
     }
   }
 
-  await new Promise(resolve => setTimeout(resolve, 200)); // 等待滚动完成
+  await new Promise((resolve) => setTimeout(resolve, 200)); // 等待滚动完成
 
   // 根据循环类型决定如何处理
-  if (step.loopType === 'container') {
+  if (step.loopType === "container") {
     // 容器循环：先点击容器按钮，再执行子操作
     console.log(`📦 容器循环模式：先点击容器按钮，再执行子操作`);
 
     // 1. 先点击容器按钮
     console.log(`👆 点击虚拟列表容器按钮`);
-    highlightElement(targetButton, 'click');
+    highlightElement(targetButton, "click");
     targetButton.click();
 
     // 等待点击效果
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     // 清除点击高亮，改为容器高亮
     clearElementHighlight(targetButton);
-    highlightElement(targetButton, 'loop');
+    highlightElement(targetButton, "loop");
 
     // 2. 然后执行子操作序列
     if (step.subOperations && step.subOperations.length > 0) {
-      console.log(`🔧 容器点击后，开始执行 ${step.subOperations.length} 个子操作`);
+      console.log(
+        `🔧 容器点击后，开始执行 ${step.subOperations.length} 个子操作`
+      );
 
       for (let i = 0; i < step.subOperations.length; i++) {
         const subOp = step.subOperations[i];
-        console.log(`🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator}`);
+        console.log(
+          `🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${
+            subOp.locator?.value || subOp.locator
+          }`
+        );
 
         try {
           // 传递容器元素上下文给子操作
           await executeSubOperation(subOp, targetButton);
         } catch (error) {
           console.error(`❌ 容器内子操作 ${i + 1} 失败:`, error);
-          if (step.errorHandling === 'stop') {
+          if (step.errorHandling === "stop") {
             throw error;
           }
         }
@@ -3512,7 +4108,7 @@ async function clickVirtualListItem(titleInfo, step) {
         if (subOp.delay || subOp.waitAfterClick) {
           const waitTime = subOp.delay || subOp.waitAfterClick || 500;
           console.log(`⏳ 子操作间等待 ${waitTime}ms`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
         }
       }
 
@@ -3525,7 +4121,6 @@ async function clickVirtualListItem(titleInfo, step) {
     setTimeout(() => {
       clearElementHighlight(targetButton);
     }, 1000);
-
   } else {
     // 非容器循环：只点击按钮
     console.log(`👆 点击虚拟列表按钮`);
