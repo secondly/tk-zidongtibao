@@ -853,6 +853,24 @@ class UniversalAutomationEngine {
       this.log(`🎯 处理第 ${i + 1}/${totalElements} 个父级元素`, "info");
 
       try {
+        // 敏感词检测
+        if (
+          step.sensitiveWordDetection &&
+          step.sensitiveWordDetection.enabled
+        ) {
+          const shouldSkip = await this.checkSensitiveWords(
+            parentElements[i],
+            step.sensitiveWordDetection
+          );
+          if (shouldSkip.shouldSkip) {
+            this.log(
+              `🚫 跳过第 ${i + 1} 个父级元素: ${shouldSkip.reason}`,
+              "warning"
+            );
+            continue;
+          }
+        }
+
         // 点击父级元素（如产品卡片）
         await this.clickElement(parentElements[i]);
         this.log(`✅ 已点击第 ${i + 1} 个父级元素`, "info");
@@ -939,6 +957,24 @@ class UniversalAutomationEngine {
       this.log(`🎯 处理第 ${i + 1}/${totalElements} 个元素`, "info");
 
       try {
+        // 敏感词检测
+        if (
+          step.sensitiveWordDetection &&
+          step.sensitiveWordDetection.enabled
+        ) {
+          const shouldSkip = await this.checkSensitiveWords(
+            elements[i],
+            step.sensitiveWordDetection
+          );
+          if (shouldSkip.shouldSkip) {
+            this.log(
+              `🚫 跳过第 ${i + 1} 个元素: ${shouldSkip.reason}`,
+              "warning"
+            );
+            continue;
+          }
+        }
+
         // 执行指定的操作
         switch (actionType) {
           case "click":
@@ -2254,6 +2290,43 @@ class UniversalAutomationEngine {
 
     // 点击按钮
     await this.clickElement(targetButton);
+  }
+
+  /**
+   * 检查敏感词
+   * @param {Element} element - 要检查的元素
+   * @param {object} config - 敏感词检测配置
+   * @returns {Promise<object>} - {shouldSkip: boolean, reason: string, matchedWords: string[]}
+   */
+  async checkSensitiveWords(element, config) {
+    try {
+      // 检查敏感词检测模块是否加载
+      if (!window.SensitiveWordDetector) {
+        this.log(
+          "⚠️ SensitiveWordDetector 模块未加载，跳过敏感词检测",
+          "warning"
+        );
+        return { shouldSkip: false, reason: "", matchedWords: [] };
+      }
+
+      // 创建敏感词检测器实例
+      const detector = new window.SensitiveWordDetector();
+
+      // 检查是否应该跳过当前元素
+      const skipResult = await detector.checkShouldSkipElement(element, config);
+
+      if (skipResult.shouldSkip) {
+        this.log(`🚫 敏感词检测: ${skipResult.reason}`, "warning");
+      } else {
+        this.log("✅ 通过敏感词检测", "info");
+      }
+
+      return skipResult;
+    } catch (error) {
+      this.log(`❌ 敏感词检测失败: ${error.message}`, "error");
+      // 检测失败时不跳过，避免影响正常流程
+      return { shouldSkip: false, reason: "检测失败", matchedWords: [] };
+    }
   }
 } // 结束类定义
 

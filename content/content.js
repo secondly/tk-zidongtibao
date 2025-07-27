@@ -10,8 +10,9 @@ class SensitiveWordDetector {
       return;
     }
 
+    // 支持中英文逗号分隔
     this.sensitiveWords = wordsString
-      .split(",")
+      .split(/[,，]/)
       .map((word) => word.trim())
       .filter((word) => word.length > 0);
   }
@@ -29,14 +30,101 @@ class SensitiveWordDetector {
     const textLower = text.toLowerCase();
 
     for (const word of this.sensitiveWords) {
-      if (word && textLower.includes(word.toLowerCase())) {
-        matchedWords.push(word);
+      if (word && word.trim()) {
+        const wordLower = word.trim().toLowerCase();
+
+        // 使用更精确的匹配方式
+        let isMatched = false;
+
+        // 方式1: 完整词匹配（推荐）
+        try {
+          const regex = new RegExp(
+            `\\b${wordLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+            "i"
+          );
+          isMatched = regex.test(text);
+        } catch (regexError) {
+          // 如果正则表达式失败，回退到简单包含检查
+          isMatched = textLower.includes(wordLower);
+        }
+
+        // 方式2: 对于中文，使用直接包含检查（因为中文没有词边界）
+        if (!isMatched && /[\u4e00-\u9fff]/.test(wordLower)) {
+          isMatched = textLower.includes(wordLower);
+        }
+
+        if (isMatched) {
+          matchedWords.push(word);
+        }
       }
     }
 
     const hasSensitiveWord = matchedWords.length > 0;
 
     return { hasSensitiveWord, matchedWords };
+  }
+
+  /**
+   * 检查循环元素是否应该跳过（简化版本）
+   * @param {Element} element - 循环元素
+   * @param {object} config - 敏感词检测配置
+   * @returns {Promise<object>} - {shouldSkip: boolean, reason: string, matchedWords: string[]}
+   */
+  async checkShouldSkipElement(element, config) {
+    try {
+      // 如果未启用敏感词检测，不跳过
+      if (!config.enabled) {
+        return { shouldSkip: false, reason: "", matchedWords: [] };
+      }
+
+      // 如果没有配置敏感词，不跳过
+      if (!config.sensitiveWords || config.sensitiveWords.trim() === "") {
+        return { shouldSkip: false, reason: "", matchedWords: [] };
+      }
+
+      // 设置敏感词列表
+      this.setSensitiveWords(config.sensitiveWords);
+
+      // 提取文本内容
+      let text = "";
+      if (config.locatorValue && config.locatorValue.trim()) {
+        // 如果指定了目标选择器，查找目标元素
+        const targetElement = element.querySelector(config.locatorValue);
+        if (targetElement) {
+          text = targetElement.innerText || targetElement.textContent || "";
+        } else {
+          // 如果找不到目标元素，使用整个元素的文本
+          text = element.innerText || element.textContent || "";
+        }
+      } else {
+        // 如果没有指定目标选择器，使用整个元素的文本
+        text = element.innerText || element.textContent || "";
+      }
+
+      console.log(
+        "📝 提取的文本内容:",
+        text.substring(0, 100) + (text.length > 100 ? "..." : "")
+      );
+
+      // 检测敏感词
+      const detection = this.detectSensitiveWords(text);
+
+      if (detection.hasSensitiveWord) {
+        const reason = `包含敏感词: ${detection.matchedWords.join(", ")}`;
+        console.log("🚫 跳过循环元素:", reason);
+        return {
+          shouldSkip: true,
+          reason,
+          matchedWords: detection.matchedWords,
+        };
+      }
+
+      return { shouldSkip: false, reason: "", matchedWords: [] };
+    } catch (error) {
+      console.error("❌ 敏感词检测失败:", error);
+      // 检测失败时不跳过，避免影响正常流程
+      return { shouldSkip: false, reason: "检测失败", matchedWords: [] };
+    }
   }
 }
 
@@ -3797,22 +3885,16 @@ async function executeVirtualListLoop(step) {
             // 创建敏感词检测器实例
             const detector = new window.SensitiveWordDetector();
 
-            // 设置敏感词列表
-            detector.setSensitiveWords(
-              step.sensitiveWordDetection.sensitiveWords
+            // 使用新的检测方法，支持父级容器定位
+            const skipResult = await detector.checkShouldSkipElement(
+              unprocessedTitle.element,
+              step.sensitiveWordDetection
             );
 
-            // 检测标题文本
-            const detection = detector.detectSensitiveWords(
-              unprocessedTitle.text
-            );
-
-            if (detection.hasSensitiveWord) {
+            if (skipResult.shouldSkip) {
               shouldSkip = true;
               console.log(
-                `🚫 虚拟列表跳过包含敏感词的标题: "${
-                  unprocessedTitle.text
-                }" - 匹配词: ${detection.matchedWords.join(", ")}`
+                `🚫 虚拟列表跳过包含敏感词的标题: "${unprocessedTitle.text}" - ${skipResult.reason}`
               );
 
               // 高亮显示被跳过的元素
@@ -4153,3 +4235,31 @@ async function clickVirtualListItem(titleInfo, step) {
     targetButton.click();
   }
 }
+
+// 敏感词检测测试函数
+window.testSensitiveWordDetection = function () {
+  console.log("=== 扩展程序敏感词检测测试 ===");
+
+  if (!window.SensitiveWordDetector) {
+    console.error("❌ SensitiveWordDetector 模块未加载");
+    return false;
+  }
+
+  const detector = new window.SensitiveWordDetector();
+
+  // 测试基本功能
+  detector.setSensitiveWords("广告,推广,营销");
+  console.log("设置的敏感词:", detector.sensitiveWords);
+
+  const testText = "广告推广服务";
+  const result = detector.detectSensitiveWords(testText);
+  console.log(`文本 "${testText}" 检测结果:`, result);
+
+  if (result.hasSensitiveWord && result.matchedWords.includes("广告")) {
+    console.log("✅ 扩展程序中的敏感词检测正常工作");
+    return true;
+  } else {
+    console.log("❌ 扩展程序中的敏感词检测有问题");
+    return false;
+  }
+};

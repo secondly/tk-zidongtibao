@@ -53,6 +53,8 @@ class DesignerNodes {
           sensitiveWords: "",
           locatorStrategy: "css",
           locatorValue: "",
+          parentLocatorStrategy: "css",
+          parentLocatorValue: "",
         },
         // 虚拟列表相关配置
         isVirtualList: false,
@@ -1104,6 +1106,57 @@ class DesignerNodes {
               <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #e74c3c; color: white; border: none; border-radius: 3px;">🔍 测试检测</button>
               <div class="form-help">指定要检测敏感词的元素位置，留空则检测整个循环元素</div>
           </div>
+
+          <!-- 父级容器定位配置 -->
+          <div class="form-group">
+              <label class="form-label">父级容器定位策略</label>
+              <select class="form-select" id="sensitiveWordParentLocatorStrategy">
+                  <option value="" ${
+                    !config.sensitiveWordDetection?.parentLocatorStrategy ||
+                    config.sensitiveWordDetection?.parentLocatorStrategy === ""
+                      ? "selected"
+                      : ""
+                  }>不限制（默认）</option>
+                  <option value="css" ${
+                    config.sensitiveWordDetection?.parentLocatorStrategy ===
+                    "css"
+                      ? "selected"
+                      : ""
+                  }>CSS选择器 [示例: .container, .list-wrapper]</option>
+                  <option value="xpath" ${
+                    config.sensitiveWordDetection?.parentLocatorStrategy ===
+                    "xpath"
+                      ? "selected"
+                      : ""
+                  }>XPath [示例: //div[@class='container']]</option>
+                  <option value="id" ${
+                    config.sensitiveWordDetection?.parentLocatorStrategy ===
+                    "id"
+                      ? "selected"
+                      : ""
+                  }>ID [示例: main-container]</option>
+                  <option value="className" ${
+                    config.sensitiveWordDetection?.parentLocatorStrategy ===
+                    "className"
+                      ? "selected"
+                      : ""
+                  }>类名 [示例: list-container]</option>
+                  <option value="tagName" ${
+                    config.sensitiveWordDetection?.parentLocatorStrategy ===
+                    "tagName"
+                      ? "selected"
+                      : ""
+                  }>标签名 [示例: section, article]</option>
+              </select>
+              <div class="form-help">指定敏感词检测的父级容器范围，限制检测范围提高精确度</div>
+          </div>
+          <div class="form-group">
+              <label class="form-label">父级容器定位值</label>
+              <input type="text" class="form-input" id="sensitiveWordParentLocatorValue" value="${
+                config.sensitiveWordDetection?.parentLocatorValue || ""
+              }" placeholder="留空则不限制父级容器">
+              <div class="form-help">指定父级容器的具体定位值，留空则在整个页面范围内检测</div>
+          </div>
       </div>
 
       <!-- 虚拟列表配置 -->
@@ -1700,6 +1753,24 @@ class DesignerNodes {
         if (sensitiveWordLocatorValue) {
           config.sensitiveWordDetection.locatorValue =
             sensitiveWordLocatorValue.value.trim();
+        }
+
+        // 保存父级容器定位配置
+        const sensitiveWordParentLocatorStrategy = document.getElementById(
+          "sensitiveWordParentLocatorStrategy"
+        );
+        const sensitiveWordParentLocatorValue = document.getElementById(
+          "sensitiveWordParentLocatorValue"
+        );
+
+        if (sensitiveWordParentLocatorStrategy) {
+          config.sensitiveWordDetection.parentLocatorStrategy =
+            sensitiveWordParentLocatorStrategy.value;
+        }
+
+        if (sensitiveWordParentLocatorValue) {
+          config.sensitiveWordDetection.parentLocatorValue =
+            sensitiveWordParentLocatorValue.value.trim();
         }
       }
 
@@ -2618,6 +2689,12 @@ class DesignerNodes {
       const sensitiveWordLocatorValue = document.getElementById(
         "sensitiveWordLocatorValue"
       );
+      const sensitiveWordParentLocatorStrategy = document.getElementById(
+        "sensitiveWordParentLocatorStrategy"
+      );
+      const sensitiveWordParentLocatorValue = document.getElementById(
+        "sensitiveWordParentLocatorValue"
+      );
       const loopSelector = document.getElementById("loopSelector");
       const locatorType = document.getElementById("locatorType");
 
@@ -2641,30 +2718,84 @@ class DesignerNodes {
         sensitiveWordLocatorValue: sensitiveWordLocatorValue
           ? sensitiveWordLocatorValue.value.trim()
           : "",
+        // 将父级容器配置放到 sensitiveWordDetection 对象中
+        sensitiveWordDetection: {
+          enabled: true,
+          parentLocatorStrategy: sensitiveWordParentLocatorStrategy
+            ? sensitiveWordParentLocatorStrategy.value
+            : "",
+          parentLocatorValue: sensitiveWordParentLocatorValue
+            ? sensitiveWordParentLocatorValue.value.trim()
+            : "",
+        },
       };
 
       console.log("📋 测试配置:", testConfig);
 
-      // 执行简化的测试逻辑
-      const result = await this.performSimpleSensitiveWordTest(testConfig);
+      // 使用TabSelector选择目标页面（与其他测试功能保持一致）
+      let selectedTab;
+      try {
+        // 确保TabSelector已加载
+        if (typeof TabSelector === "undefined") {
+          throw new Error("TabSelector未加载");
+        }
 
-      console.log("🔍 测试结果:", result);
+        const tabSelector = new TabSelector();
+        selectedTab = await tabSelector.showTabSelector();
 
-      if (result.success) {
-        button.style.background = "#28a745";
-        button.textContent = `✅ 找到${result.totalElements}个元素，${result.skippedElements}个被跳过`;
+        if (!selectedTab) {
+          button.style.background = "#6c757d";
+          button.textContent = "已取消测试";
+          return;
+        }
+
         console.log(
-          `✅ 测试完成: 总共${result.totalElements}个元素，${result.skippedElements}个包含敏感词被跳过`
+          "🎯 用户选择的测试页面:",
+          selectedTab.title,
+          selectedTab.url
         );
+      } catch (error) {
+        console.error("❌ 页面选择失败:", error);
+        button.style.background = "#dc3545";
+        button.textContent = "❌ 页面选择失败";
+        alert("页面选择功能不可用，请确保在扩展环境中运行");
+        return;
+      }
+
+      // 在选定页面执行测试
+      button.style.background = "#17a2b8";
+      button.textContent = "🔍 正在测试...";
+
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: selectedTab.id },
+        func: executeSensitiveWordTestInPage,
+        args: [testConfig],
+      });
+
+      if (results && results.length > 0) {
+        const result = results[0].result;
+
+        if (result && result.success) {
+          button.style.background = "#28a745";
+          button.textContent = `✅ 找到${result.totalElements}个元素，${result.skippedElements}个被跳过`;
+
+          // 显示测试结果
+          this.showTestResultModal(result, testConfig);
+        } else {
+          button.style.background = "#dc3545";
+          button.textContent = "❌ 测试失败";
+          alert(`测试失败: ${result?.error || "未知错误"}`);
+        }
       } else {
         button.style.background = "#dc3545";
         button.textContent = "❌ 测试失败";
-        console.error("❌ 测试失败:", result.error);
+        alert("测试执行失败：未获取到结果");
       }
     } catch (error) {
       button.style.background = "#dc3545";
       button.textContent = "❌ 测试错误";
       console.error("❌ 测试错误:", error);
+      alert(`测试错误: ${error.message}`);
     } finally {
       // 恢复按钮状态
       button.disabled = false;
@@ -2677,119 +2808,550 @@ class DesignerNodes {
     }
   }
 
-  async performSimpleSensitiveWordTest(config) {
-    try {
-      console.log("🔍 执行简化的敏感词检测测试");
+  // 显示测试结果模态框
+  showTestResultModal(result, config) {
+    const modal = document.createElement("div");
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    `;
 
-      // 解析敏感词
-      const sensitiveWords = config.sensitiveWords
-        .split(",")
-        .map((word) => word.trim().toLowerCase())
-        .filter((word) => word.length > 0);
+    const modalContent = document.createElement("div");
+    modalContent.style.cssText = `
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 700px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    `;
 
-      console.log("解析的敏感词:", sensitiveWords);
+    if (result.success) {
+      modalContent.innerHTML = `
+        <h3>🎉 敏感词检测测试结果</h3>
+        <div style="background: #d4edda; padding: 15px; border-radius: 5px; margin: 15px 0;">
+          <p><strong>测试配置:</strong></p>
+          <ul>
+            <li>敏感词: ${config.sensitiveWords}</li>
+            <li>循环选择器: ${config.loopSelector}</li>
+            <li>目标选择器: ${
+              config.sensitiveWordLocatorValue || "(整个元素)"
+            }</li>
+          </ul>
 
-      // 尝试查找循环元素
-      let elements = [];
-      try {
-        if (config.locatorStrategy === "css" && config.loopSelector) {
-          elements = Array.from(document.querySelectorAll(config.loopSelector));
-          console.log(`在当前页面找到 ${elements.length} 个循环元素`);
-        }
-      } catch (error) {
-        console.warn("无法在当前页面查找元素:", error);
+          <p><strong>测试结果:</strong></p>
+          <ul>
+            <li>总元素数: ${result.totalElements}</li>
+            <li>包含敏感词被跳过: ${result.skippedElements}</li>
+            <li>通过检测: ${result.passedElements}</li>
+          </ul>
+
+          <p><strong>结论:</strong> ${result.message}</p>
+        </div>
+
+        <div style="text-align: right;">
+          <button id="closeBtn" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">关闭</button>
+        </div>
+      `;
+    } else {
+      modalContent.innerHTML = `
+        <h3>❌ 测试失败</h3>
+        <div style="background: #f8d7da; padding: 15px; border-radius: 5px; margin: 15px 0;">
+          <p><strong>错误信息:</strong> ${result.error}</p>
+        </div>
+
+        <div style="text-align: right;">
+          <button id="closeBtn" style="padding: 8px 16px; background: #dc3545; color: white; border: radius: 4px; cursor: pointer;">关闭</button>
+        </div>
+      `;
+    }
+
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+
+    // 关闭按钮
+    modalContent.querySelector("#closeBtn").addEventListener("click", () => {
+      modal.remove();
+    });
+
+    // 点击背景关闭
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) {
+        modal.remove();
       }
+    });
+  }
+}
 
-      let skippedCount = 0;
-      const totalElements = Math.max(elements.length, 8);
+// 导出节点管理类
+window.DesignerNodes = DesignerNodes;
 
-      if (elements.length > 0) {
-        // 检测真实元素
-        console.log(`开始检测 ${Math.min(elements.length, 10)} 个真实元素`);
+// 确保类定义可用
+if (typeof DesignerNodes === "undefined") {
+  console.error("DesignerNodes class is not properly defined");
+} else {
+  console.log("DesignerNodes class loaded successfully");
+}
 
-        for (let i = 0; i < Math.min(elements.length, 10); i++) {
-          const element = elements[i];
-          try {
-            // 获取要检测的文本
-            let textToCheck = "";
-            if (config.sensitiveWordLocatorValue) {
-              const targetElement = element.querySelector(
-                config.sensitiveWordLocatorValue
-              );
-              textToCheck = targetElement
-                ? targetElement.innerText || targetElement.textContent || ""
-                : "";
-            } else {
-              textToCheck = element.innerText || element.textContent || "";
-            }
+// 在目标页面执行的敏感词检测测试函数（独立函数，用于chrome.scripting.executeScript）
+function executeSensitiveWordTestInPage(config) {
+  // 确保函数总是返回一个结果
+  try {
+    console.log("🔍 在目标页面执行敏感词检测测试");
+    console.log("📍 当前页面信息:");
+    console.log(`  - URL: ${window.location.href}`);
+    console.log(`  - 标题: ${document.title}`);
+    console.log(`  - 域名: ${window.location.hostname}`);
+    console.log("测试配置:", config);
 
-            // 检测敏感词
-            const textLower = textToCheck.toLowerCase();
-            const matchedWords = sensitiveWords.filter((word) =>
-              textLower.includes(word)
-            );
-
-            if (matchedWords.length > 0) {
-              skippedCount++;
-              console.log(
-                `元素 ${i + 1} 被跳过: 包含敏感词 [${matchedWords.join(", ")}]`
-              );
-              console.log(
-                `  文本内容: "${textToCheck.substring(0, 100)}${
-                  textToCheck.length > 100 ? "..." : ""
-                }"`
-              );
-            } else {
-              console.log(`元素 ${i + 1} 通过检测`);
-            }
-          } catch (error) {
-            console.warn(`检测元素 ${i + 1} 时出错:`, error);
-          }
-        }
-      } else {
-        // 使用模拟数据
-        console.log("使用模拟数据进行测试");
-        const mockTexts = [
-          "这是一个正常的内容项目",
-          "这是一个广告内容，用于推广产品",
-          "提供高质量的学习资源",
-          "专业的营销策略和方案",
-          "分享最新的行业动态",
-          "This is spam content",
-          "详细的使用指南和最佳实践",
-          "技术实现细节和优化方案",
-        ];
-
-        mockTexts.forEach((text, index) => {
-          const textLower = text.toLowerCase();
-          const matchedWords = sensitiveWords.filter((word) =>
-            textLower.includes(word)
-          );
-          if (matchedWords.length > 0) {
-            skippedCount++;
-            console.log(
-              `模拟元素 ${index + 1} 被跳过: 包含敏感词 [${matchedWords.join(
-                ", "
-              )}]`
-            );
-          }
-        });
-      }
-
-      return {
-        success: true,
-        totalElements: totalElements,
-        skippedElements: skippedCount,
-        passedElements: totalElements - skippedCount,
-        message: `测试完成：共 ${totalElements} 个元素，${skippedCount} 个包含敏感词被跳过`,
-      };
-    } catch (error) {
-      console.error("❌ 敏感词检测测试失败:", error);
+    // 检查配置是否有效
+    if (!config) {
+      console.error("❌ 测试配置为空");
       return {
         success: false,
-        error: error.message,
+        error: "测试配置为空",
+        totalElements: 0,
+        skippedElements: 0,
+        passedElements: 0,
       };
     }
+
+    if (!config.sensitiveWords) {
+      console.error("❌ 未配置敏感词");
+      return {
+        success: false,
+        error: "未配置敏感词",
+        totalElements: 0,
+        skippedElements: 0,
+        passedElements: 0,
+      };
+    }
+
+    if (!config.loopSelector) {
+      console.error("❌ 未配置循环选择器");
+      return {
+        success: false,
+        error: "未配置循环选择器",
+        totalElements: 0,
+        skippedElements: 0,
+        passedElements: 0,
+      };
+    }
+
+    // 解析敏感词
+    let sensitiveWords;
+    try {
+      sensitiveWords = config.sensitiveWords
+        .split(/[,，]/)
+        .map((word) => word.trim())
+        .filter((word) => word.length > 0);
+    } catch (parseError) {
+      console.error("❌ 解析敏感词失败:", parseError);
+      return {
+        success: false,
+        error: "解析敏感词失败: " + parseError.message,
+        totalElements: 0,
+        skippedElements: 0,
+        passedElements: 0,
+      };
+    }
+
+    console.log("解析的敏感词:", sensitiveWords);
+
+    if (sensitiveWords.length === 0) {
+      console.error("❌ 没有有效的敏感词");
+      return {
+        success: false,
+        error: "没有有效的敏感词",
+        totalElements: 0,
+        skippedElements: 0,
+        passedElements: 0,
+      };
+    }
+
+    // 首先使用循环选择器找到所有循环项目
+    let loopElements = [];
+    try {
+      loopElements = Array.from(document.querySelectorAll(config.loopSelector));
+    } catch (selectorError) {
+      console.error("❌ 查找循环元素失败:", selectorError);
+      return {
+        success: false,
+        error: "查找循环元素失败: " + selectorError.message,
+        totalElements: 0,
+        skippedElements: 0,
+        passedElements: 0,
+      };
+    }
+
+    console.log(
+      `使用循环选择器 "${config.loopSelector}" 找到 ${loopElements.length} 个循环项目`
+    );
+
+    if (loopElements.length === 0) {
+      console.error(`❌ 在目标页面未找到循环元素 "${config.loopSelector}"`);
+      console.log("🔍 页面调试信息:");
+      console.log("  - 页面URL:", window.location.href);
+      console.log("  - 页面标题:", document.title);
+      console.log(
+        "  - 页面HTML长度:",
+        document.documentElement.outerHTML.length
+      );
+
+      // 提供一些常见选择器的建议
+      const commonSelectors = [
+        "div",
+        "span",
+        "p",
+        "a",
+        "h1",
+        "h2",
+        "h3",
+        ".title",
+        ".text",
+        ".content",
+      ];
+      console.log("🔍 常见元素统计:");
+      commonSelectors.forEach((selector) => {
+        try {
+          const count = document.querySelectorAll(selector).length;
+          if (count > 0) {
+            console.log(`  - ${selector}: ${count} 个`);
+          }
+        } catch (e) {
+          // 忽略无效选择器
+        }
+      });
+
+      return {
+        success: false,
+        error: `在目标页面未找到循环元素 "${config.loopSelector}"。请检查选择器是否正确，或查看控制台的调试信息。`,
+        totalElements: 0,
+        skippedElements: 0,
+        passedElements: 0,
+      };
+    }
+
+    let skippedCount = 0;
+    const maxTestElements = Math.min(loopElements.length, 20); // 最多测试20个循环项目
+
+    console.log(`开始检测 ${maxTestElements} 个循环项目`);
+
+    for (let i = 0; i < maxTestElements; i++) {
+      const loopElement = loopElements[i];
+
+      try {
+        // 确定检测范围：先处理父级容器定位，再处理敏感词检测定位
+        let contextElement = loopElement;
+        let textToCheck = "";
+
+        // 第一步：如果配置了父级容器定位，先在循环项目内找到父级容器
+        if (
+          config.sensitiveWordDetection?.parentLocatorStrategy &&
+          config.sensitiveWordDetection?.parentLocatorValue &&
+          config.sensitiveWordDetection.parentLocatorValue.trim()
+        ) {
+          try {
+            let parentContainer = null;
+            const strategy =
+              config.sensitiveWordDetection.parentLocatorStrategy;
+            const value =
+              config.sensitiveWordDetection.parentLocatorValue.trim();
+
+            // 父级容器定位：从当前循环元素向上查找匹配的父级容器
+            let currentElement = loopElement;
+            while (currentElement && currentElement !== document.body) {
+              currentElement = currentElement.parentElement;
+              if (!currentElement) break;
+
+              let isMatch = false;
+              switch (strategy) {
+                case "css":
+                  isMatch = currentElement.matches(
+                    value.replace(/^#\w+\s+/, "")
+                  );
+                  break;
+                case "id":
+                  isMatch = currentElement.id === value;
+                  break;
+                case "className":
+                  isMatch = currentElement.classList.contains(value);
+                  break;
+                case "tagName":
+                  isMatch =
+                    currentElement.tagName.toLowerCase() ===
+                    value.toLowerCase();
+                  break;
+                case "xpath":
+                  // 对于XPath，检查当前元素是否匹配
+                  try {
+                    const xpathResult = document.evaluate(
+                      value,
+                      document,
+                      null,
+                      XPathResult.FIRST_ORDERED_NODE_TYPE,
+                      null
+                    );
+                    isMatch = xpathResult.singleNodeValue === currentElement;
+                  } catch (e) {
+                    isMatch = false;
+                  }
+                  break;
+              }
+
+              if (isMatch) {
+                parentContainer = currentElement;
+                break;
+              }
+            }
+
+            // 如果向上查找失败，尝试特殊处理复合选择器（如 "#tableBody .core-table-tr"）
+            if (!parentContainer && strategy === "css" && value.includes(" ")) {
+              // 提取最后一个类选择器部分
+              const lastPart = value.split(" ").pop();
+              currentElement = loopElement;
+              while (currentElement && currentElement !== document.body) {
+                currentElement = currentElement.parentElement;
+                if (!currentElement) break;
+
+                if (currentElement.matches(lastPart)) {
+                  parentContainer = currentElement;
+                  break;
+                }
+              }
+            }
+
+            if (parentContainer) {
+              contextElement = parentContainer;
+              console.log(
+                `🔍 循环项目 ${i + 1} 找到父级容器 "${strategy}=${value}"`
+              );
+            } else {
+              console.warn(
+                `🔍 循环项目 ${
+                  i + 1
+                } 未找到父级容器 "${strategy}=${value}"，使用整个循环项目`
+              );
+            }
+          } catch (parentError) {
+            console.warn(`🔍 循环项目 ${i + 1} 查找父级容器失败:`, parentError);
+          }
+        }
+
+        // 第二步：在确定的上下文元素内查找要检测文本的具体元素
+        if (
+          config.sensitiveWordLocatorValue &&
+          config.sensitiveWordLocatorValue.trim()
+        ) {
+          // 如果配置了敏感词检测定位值，在上下文元素内查找该元素
+          try {
+            console.log(`🔧 [DEBUG] 循环项目 ${i + 1} 开始查找子元素:`);
+            console.log(
+              `  - 查找选择器: "${config.sensitiveWordLocatorValue}"`
+            );
+            console.log(
+              `  - 上下文元素HTML:`,
+              contextElement.outerHTML.substring(0, 300)
+            );
+
+            // 先检查上下文元素内所有匹配的元素
+            const allMatches = contextElement.querySelectorAll(
+              config.sensitiveWordLocatorValue
+            );
+            console.log(`  - 找到 ${allMatches.length} 个匹配的元素`);
+
+            const targetElement = contextElement.querySelector(
+              config.sensitiveWordLocatorValue
+            );
+
+            if (targetElement) {
+              textToCheck =
+                targetElement.innerText || targetElement.textContent || "";
+              console.log(`✅ 循环项目 ${i + 1} 找到目标元素:`);
+              console.log(`  - 元素HTML: ${targetElement.outerHTML}`);
+              console.log(`  - innerText: "${targetElement.innerText}"`);
+              console.log(`  - textContent: "${targetElement.textContent}"`);
+              console.log(`  - 最终文本: "${textToCheck}"`);
+            } else {
+              console.warn(
+                `❌ 循环项目 ${i + 1} 未找到子元素 "${
+                  config.sensitiveWordLocatorValue
+                }"`
+              );
+              console.log(`  - 上下文元素类名: ${contextElement.className}`);
+              console.log(`  - 上下文元素标签: ${contextElement.tagName}`);
+
+              // 列出上下文元素内所有的子元素，帮助调试
+              const allChildren = contextElement.querySelectorAll("*");
+              console.log(
+                `  - 上下文元素内共有 ${allChildren.length} 个子元素:`
+              );
+              for (let j = 0; j < Math.min(allChildren.length, 5); j++) {
+                const child = allChildren[j];
+                console.log(
+                  `    ${j + 1}. <${child.tagName.toLowerCase()}${
+                    child.className ? ` class="${child.className}"` : ""
+                  }>${child.textContent?.substring(0, 50) || ""}</>`
+                );
+              }
+
+              textToCheck =
+                contextElement.innerText || contextElement.textContent || "";
+              console.log(`  - 回退使用上下文元素文本: "${textToCheck}"`);
+            }
+          } catch (subError) {
+            console.error(`❌ 循环项目 ${i + 1} 查找子元素失败:`, subError);
+            textToCheck =
+              contextElement.innerText || contextElement.textContent || "";
+          }
+        } else {
+          // 如果没有配置敏感词检测定位值，直接使用上下文元素的文本
+          textToCheck =
+            contextElement.innerText || contextElement.textContent || "";
+          console.log(
+            `🔍 循环项目 ${i + 1} 使用上下文元素文本: "${textToCheck}"`
+          );
+        }
+
+        console.log(
+          `🔍 循环项目 ${i + 1} HTML:`,
+          loopElement.outerHTML.substring(0, 200)
+        );
+
+        // 添加详细的调试信息
+        console.log(`🔧 [DEBUG] 循环项目 ${i + 1} 检测配置:`);
+        console.log(
+          `  - 敏感词检测定位值: "${config.sensitiveWordLocatorValue}"`
+        );
+        console.log(
+          `  - 父级容器策略: "${
+            config.sensitiveWordDetection?.parentLocatorStrategy || "未配置"
+          }"`
+        );
+        console.log(
+          `  - 父级容器值: "${
+            config.sensitiveWordDetection?.parentLocatorValue || "未配置"
+          }"`
+        );
+        console.log(
+          `🔧 [DEBUG] 完整的敏感词检测配置:`,
+          config.sensitiveWordDetection
+        );
+        console.log(`  - 最终检测文本: "${textToCheck}"`);
+        console.log(`  - 文本长度: ${textToCheck.length}`);
+
+        // 使用精确匹配检测敏感词
+        const textLower = textToCheck.toLowerCase();
+        const matchedWords = [];
+
+        console.log(`🔍 检测循环项目 ${i + 1} 文本: "${textToCheck}"`);
+        console.log(`🔍 敏感词列表:`, sensitiveWords);
+
+        for (const word of sensitiveWords) {
+          if (word && word.trim()) {
+            const wordLower = word.trim().toLowerCase();
+            let isMatched = false;
+
+            console.log(`🔍 检测敏感词: "${word}" -> "${wordLower}"`);
+
+            // 检查是否包含中文字符
+            const hasChinese = /[\u4e00-\u9fff]/.test(wordLower);
+
+            if (hasChinese) {
+              // 对于包含中文的词汇，使用直接包含检查
+              isMatched = textLower.includes(wordLower);
+              console.log(`🔍 中文匹配结果: ${isMatched}`);
+            } else {
+              // 对于纯英文词汇，使用完整词匹配
+              try {
+                const regexPattern = `\\b${wordLower.replace(
+                  /[.*+?^${}()|[\]\\]/g,
+                  "\\$&"
+                )}\\b`;
+                const regex = new RegExp(regexPattern, "i");
+                console.log(`🔧 [DEBUG] 正则表达式模式: ${regexPattern}`);
+                console.log(`🔧 [DEBUG] 测试文本: "${textToCheck}"`);
+                isMatched = regex.test(textToCheck);
+                console.log(`🔍 英文正则匹配结果: ${isMatched}`);
+
+                // 如果正则匹配失败，尝试简单包含检查作为备选
+                if (!isMatched) {
+                  const simpleMatch = textLower.includes(wordLower);
+                  console.log(`🔧 [DEBUG] 简单包含检查结果: ${simpleMatch}`);
+                  if (simpleMatch) {
+                    console.log(
+                      `⚠️ 正则匹配失败但简单包含成功，可能是词边界问题`
+                    );
+                    // 对于英文+中文混合的情况，使用简单包含检查
+                    isMatched = simpleMatch;
+                  }
+                }
+              } catch (regexError) {
+                // 如果正则表达式失败，回退到简单包含检查
+                console.warn(`正则表达式失败，回退到简单匹配:`, regexError);
+                isMatched = textLower.includes(wordLower);
+                console.log(`🔍 简单匹配结果: ${isMatched}`);
+              }
+            }
+
+            if (isMatched) {
+              matchedWords.push(word);
+              console.log(`✅ 找到匹配的敏感词: "${word}"`);
+            }
+          }
+        }
+
+        console.log(`🔍 循环项目 ${i + 1} 匹配的敏感词:`, matchedWords);
+
+        if (matchedWords.length > 0) {
+          skippedCount++;
+          console.log(
+            `循环项目 ${i + 1} 被跳过: 包含敏感词 [${matchedWords.join(", ")}]`
+          );
+          console.log(
+            `  文本内容: "${textToCheck.substring(0, 100)}${
+              textToCheck.length > 100 ? "..." : ""
+            }"`
+          );
+        } else {
+          console.log(`循环项目 ${i + 1} 通过检测`);
+        }
+      } catch (elementError) {
+        console.warn(`检测循环项目 ${i + 1} 时出错:`, elementError);
+        // 继续处理下一个循环项目，不中断整个测试
+      }
+    }
+
+    const result = {
+      success: true,
+      totalElements: maxTestElements,
+      skippedElements: skippedCount,
+      passedElements: maxTestElements - skippedCount,
+      message: `测试完成：共 ${maxTestElements} 个循环项目，${skippedCount} 个包含敏感词被跳过`,
+    };
+
+    console.log("🎉 测试完成，返回结果:", result);
+    return result;
+  } catch (error) {
+    console.error("❌ 目标页面敏感词检测测试失败:", error);
+    const errorResult = {
+      success: false,
+      error: error.message || "未知错误",
+      totalElements: 0,
+      skippedElements: 0,
+      passedElements: 0,
+    };
+    console.log("❌ 返回错误结果:", errorResult);
+    return errorResult;
   }
 }
 
