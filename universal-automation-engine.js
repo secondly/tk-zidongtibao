@@ -1395,10 +1395,24 @@ class UniversalAutomationEngine {
     try {
       // 检查是否为容器循环
       if (step.loopType === "container") {
-        this.log(`📦 容器循环模式：不点击容器，直接执行内部操作`, "info");
+        this.log(`📦 容器循环模式：根据操作类型决定是否点击`, "info");
 
         // 高亮容器元素
         this.highlightExecutionProgress(element);
+
+        // 检查操作类型，如果是点击操作，先点击元素
+        if (step.operationType === "click") {
+          this.log(`👆 容器循环：执行点击操作`, "info");
+          await this.clickElement(element);
+
+          // 等待页面响应
+          if (step.waitAfterClick) {
+            this.log(`⏳ 等待页面响应 ${step.waitAfterClick}ms`, "info");
+            await this.sleep(step.waitAfterClick);
+          }
+        } else {
+          this.log(`📦 容器循环：跳过点击，直接执行子操作`, "info");
+        }
 
         // 如果有子操作，执行子操作
         if (step.subOperations && step.subOperations.length > 0) {
@@ -1708,6 +1722,45 @@ class UniversalAutomationEngine {
         }
         break;
 
+      case "drag":
+        this.log(`🖱️ 子操作-拖拽开始: ${operation.locator.value}`, "info");
+        let dragElement;
+        if (parentElement && operation.locator.strategy === "css") {
+          // 只有CSS选择器才能在父级元素内查找
+          dragElement = parentElement.querySelector(operation.locator.value);
+          if (!dragElement) {
+            dragElement = await this.findElement(operation.locator);
+            this.log(`🔍 在父级元素内未找到拖拽目标，使用全局查找`, "warning");
+          } else {
+            this.log(`🔍 在父级元素内找到拖拽目标`, "info");
+          }
+        } else {
+          dragElement = await this.findElement(operation.locator);
+        }
+
+        // 执行拖拽操作
+        await this.performBasicDrag({
+          ...operation,
+          locator: operation.locator,
+          horizontalDistance: operation.horizontalDistance || 0,
+          verticalDistance: operation.verticalDistance || 0,
+          dragSpeed: operation.dragSpeed || 100,
+          waitAfterDrag: operation.waitAfterDrag || 1000,
+        });
+        this.log(
+          `🖱️ 子操作-拖拽完成: 水平${
+            operation.horizontalDistance || 0
+          }px, 垂直${operation.verticalDistance || 0}px`,
+          "success"
+        );
+        break;
+
+      case "smartWait":
+        this.log(`⏳ 子操作-智能等待开始: ${operation.locator.value}`, "info");
+        await this.executeSmartWaitStep(operation);
+        this.log(`⏳ 子操作-智能等待完成`, "success");
+        break;
+
       default:
         throw new Error(`不支持的子操作类型: ${operation.type}`);
     }
@@ -1924,6 +1977,36 @@ class UniversalAutomationEngine {
 
     // 清除保存的样式
     delete element._originalStyle;
+  }
+
+  /**
+   * 安全地获取元素的className，处理SVG元素的特殊情况
+   * @param {Element} element - DOM元素
+   * @returns {string} className字符串
+   */
+  getElementClassName(element) {
+    if (!element || !element.className) return "";
+
+    try {
+      // 对于普通HTML元素，className是字符串
+      if (typeof element.className === "string") {
+        return element.className;
+      }
+
+      // 对于SVG元素，className是SVGAnimatedString对象
+      if (element.className.baseVal !== undefined) {
+        return element.className.baseVal;
+      }
+
+      if (element.className.animVal !== undefined) {
+        return element.className.animVal;
+      }
+
+      return "";
+    } catch (error) {
+      console.debug("获取元素className失败:", error);
+      return "";
+    }
   }
 
   /**

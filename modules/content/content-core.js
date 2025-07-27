@@ -4,7 +4,10 @@
  */
 
 // 全局变量存储测试高亮的元素
-let testHighlightedElements = [];
+if (!window.testHighlightedElements) {
+  window.testHighlightedElements = [];
+}
+let testHighlightedElements = window.testHighlightedElements;
 
 /**
  * 监听来自后台脚本的消息
@@ -28,6 +31,22 @@ if (
         success: true,
         status: "ready",
         message: "Content script已加载",
+      });
+      return true;
+    }
+
+    // 处理模块检查请求
+    if (request.action === "checkModules") {
+      console.log("收到模块检查请求");
+      const hasModules = !!(window.ContentCore && window.ContentAutomation);
+      sendResponse({
+        success: true,
+        hasModules: hasModules,
+        modules: {
+          contentCore: !!window.ContentCore,
+          contentAutomation: !!window.ContentAutomation,
+          sensitiveWordDetector: !!window.SensitiveWordDetector,
+        },
       });
       return true;
     }
@@ -56,6 +75,32 @@ if (
         sendResponse({ success: true, message: "引擎已重置" });
       } catch (error) {
         console.error("❌ 重置引擎失败:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+      return true;
+    }
+
+    // 处理诊断请求
+    if (request.action === "diagnose") {
+      console.log("🔍 收到诊断请求");
+      try {
+        const diagnosis = diagnoseAutomationSupport();
+        sendResponse({ success: true, diagnosis });
+      } catch (error) {
+        console.error("诊断失败:", error);
+        sendResponse({ success: false, error: error.message });
+      }
+      return true;
+    }
+
+    // 处理修复请求
+    if (request.action === "fixAutomation") {
+      console.log("🔧 收到修复请求");
+      try {
+        fixAutomationSupport();
+        sendResponse({ success: true, message: "修复操作已启动" });
+      } catch (error) {
+        console.error("修复失败:", error);
         sendResponse({ success: false, error: error.message });
       }
       return true;
@@ -397,6 +442,27 @@ function clearElementHighlight(element) {
   delete element._originalStyle;
 }
 
+// 全局标志：是否在虚拟列表模式中（禁用页面滚动）
+window.isVirtualListMode = false;
+
+/**
+ * 智能滚动函数 - 在虚拟列表模式下禁用页面滚动
+ * @param {HTMLElement} element - 要滚动到的元素
+ * @param {object} options - 滚动选项
+ */
+function smartScrollIntoView(
+  element,
+  options = { behavior: "smooth", block: "center" }
+) {
+  if (window.isVirtualListMode) {
+    console.log(`🚫 虚拟列表模式：跳过页面滚动`);
+    return;
+  }
+
+  console.log(`📍 正常模式：滚动到元素`);
+  element.scrollIntoView(options);
+}
+
 /**
  * 移除所有高亮
  */
@@ -567,7 +633,27 @@ function elementToString(element) {
 
   let str = element.tagName.toLowerCase();
   if (element.id) str += `#${element.id}`;
-  if (element.className) str += `.${element.className.replace(/\s+/g, ".")}`;
+
+  // 安全地获取className，处理SVG元素的特殊情况
+  try {
+    let className = "";
+    if (element.className) {
+      // 对于SVG元素，className是SVGAnimatedString对象
+      if (typeof element.className === "string") {
+        className = element.className;
+      } else if (element.className.baseVal !== undefined) {
+        className = element.className.baseVal;
+      } else if (element.className.animVal !== undefined) {
+        className = element.className.animVal;
+      }
+    }
+    if (className) {
+      str += `.${className.replace(/\s+/g, ".")}`;
+    }
+  } catch (error) {
+    // 如果获取className失败，忽略错误继续
+    console.debug("获取元素className失败:", error);
+  }
 
   return str;
 }
@@ -1138,7 +1224,21 @@ function testCondition(condition) {
         actualValue = element.textContent || "";
         break;
       case "class":
-        actualValue = element.className || "";
+        // 安全地获取className，处理SVG元素
+        try {
+          if (typeof element.className === "string") {
+            actualValue = element.className;
+          } else if (
+            element.className &&
+            element.className.baseVal !== undefined
+          ) {
+            actualValue = element.className.baseVal;
+          } else {
+            actualValue = "";
+          }
+        } catch (error) {
+          actualValue = "";
+        }
         break;
       case "style":
         actualValue = getComputedStyle(element)[attributeName] || "";
@@ -1579,3 +1679,155 @@ async function testSensitiveWordDetection(data) {
     throw error;
   }
 }
+
+// 添加诊断功能
+function diagnoseAutomationSupport() {
+  const diagnosis = {
+    timestamp: new Date().toISOString(),
+    url: window.location.href,
+    modules: {},
+    functions: {},
+    issues: [],
+  };
+
+  // 检查模块加载状态
+  diagnosis.modules.contentCore = !!window.ContentCore;
+  diagnosis.modules.contentAutomation = !!window.ContentAutomation;
+  diagnosis.modules.sensitiveWordDetector = !!window.SensitiveWordDetector;
+
+  // 检查关键函数
+  diagnosis.functions.executeUniversalWorkflow =
+    !!window.ContentAutomation?.executeUniversalWorkflow;
+  diagnosis.functions.performEnhancedDragOperation =
+    !!window.ContentAutomation?.performEnhancedDragOperation;
+  diagnosis.functions.updateStatus = !!window.updateStatus;
+
+  // 检查Chrome扩展环境
+  diagnosis.chromeExtension = !!(
+    typeof chrome !== "undefined" && chrome.runtime
+  );
+
+  // 识别问题
+  if (!diagnosis.modules.contentCore) {
+    diagnosis.issues.push("ContentCore模块未加载");
+  }
+  if (!diagnosis.modules.contentAutomation) {
+    diagnosis.issues.push("ContentAutomation模块未加载");
+  }
+  if (!diagnosis.functions.executeUniversalWorkflow) {
+    diagnosis.issues.push("executeUniversalWorkflow函数不可用");
+  }
+  if (!diagnosis.chromeExtension) {
+    diagnosis.issues.push("Chrome扩展环境不可用");
+  }
+
+  console.log("🔍 自动化支持诊断结果:", diagnosis);
+  return diagnosis;
+}
+
+// 修复自动化支持
+async function fixAutomationSupport() {
+  console.log("🔧 开始修复自动化支持...");
+
+  try {
+    // 如果模块化加载失败，尝试加载原始文件
+    if (!window.ContentAutomation) {
+      console.log("🔄 模块化加载失败，尝试加载原始内容脚本...");
+
+      const script = document.createElement("script");
+      script.src = chrome.runtime.getURL("content/content.js");
+      script.onload = () => {
+        console.log("✅ 原始内容脚本加载成功");
+        // 重新诊断
+        setTimeout(() => {
+          diagnoseAutomationSupport();
+        }, 1000);
+      };
+      script.onerror = (error) => {
+        console.error("❌ 原始内容脚本加载失败:", error);
+      };
+      document.documentElement.appendChild(script);
+    }
+
+    // 如果没有updateStatus函数，创建一个简单的版本
+    if (!window.updateStatus) {
+      window.updateStatus = function (message, type = "info") {
+        const prefix =
+          {
+            info: "ℹ️",
+            success: "✅",
+            warning: "⚠️",
+            error: "❌",
+          }[type] || "ℹ️";
+
+        console.log(`${prefix} ${message}`);
+
+        // 尝试在页面上显示状态（如果有状态区域）
+        const statusArea = document.querySelector(
+          "#status-area, .status-area, [data-status]"
+        );
+        if (statusArea) {
+          statusArea.textContent = message;
+          statusArea.className = `status ${type}`;
+        }
+      };
+      console.log("✅ 创建了临时updateStatus函数");
+    }
+  } catch (error) {
+    console.error("❌ 修复自动化支持失败:", error);
+  }
+}
+
+// 导出核心功能到全局作用域
+window.ContentCore = {
+  findElementByStrategy,
+  findElementsByStrategy,
+  smartScrollIntoView,
+  highlightElement,
+  clearElementHighlight,
+  waitForElement,
+  waitForElementToDisappear,
+  waitForCondition,
+  sleep,
+  getElementText,
+  isElementVisible,
+  isElementClickable,
+  getElementPosition,
+  getElementSize,
+  getElementAttributes,
+  getElementStyles,
+  simulateKeyPress,
+  simulateMouseEvent,
+  getPageInfo,
+  getFormData,
+  setFormData,
+  scrollToPosition,
+  scrollToElement,
+  takeScreenshot,
+  getElementScreenshot,
+  waitForPageLoad,
+  waitForAjax,
+  injectCSS,
+  removeCSS,
+  createFloatingPanel,
+  removeFloatingPanel,
+  showNotification,
+  hideNotification,
+  logDebug,
+  logInfo,
+  logWarn,
+  logError,
+  diagnoseAutomationSupport,
+  fixAutomationSupport,
+};
+
+// 自动诊断和修复
+setTimeout(() => {
+  const diagnosis = diagnoseAutomationSupport();
+  if (diagnosis.issues.length > 0) {
+    console.log("🔧 检测到问题，尝试自动修复...");
+    fixAutomationSupport();
+  }
+}, 2000);
+
+console.log("✅ ContentCore模块已加载");

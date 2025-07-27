@@ -3197,9 +3197,23 @@ function executeSensitiveWordTestInPage(config) {
               );
               for (let j = 0; j < Math.min(allChildren.length, 5); j++) {
                 const child = allChildren[j];
+                // 安全地获取className
+                let childClassName = "";
+                try {
+                  if (child.className) {
+                    if (typeof child.className === "string") {
+                      childClassName = child.className;
+                    } else if (child.className.baseVal !== undefined) {
+                      childClassName = child.className.baseVal;
+                    }
+                  }
+                } catch (error) {
+                  childClassName = "";
+                }
+
                 console.log(
                   `    ${j + 1}. <${child.tagName.toLowerCase()}${
-                    child.className ? ` class="${child.className}"` : ""
+                    childClassName ? ` class="${childClassName}"` : ""
                   }>${child.textContent?.substring(0, 50) || ""}</>`
                 );
               }

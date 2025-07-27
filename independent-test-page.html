@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>独立循环容器测试页面</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background-color: #f5f5f5;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .test-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+      }
+
+      .test-row {
+        border: 1px solid #ddd;
+        background: #fff;
+        transition: background-color 0.3s;
+      }
+
+      .test-row:hover {
+        background-color: #f9f9f9;
+      }
+
+      .test-row td {
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+        vertical-align: middle;
+      }
+
+      .drag-handle {
+        display: inline-block;
+        padding: 8px 15px;
+        background: #e74c3c;
+        color: white;
+        border-radius: 20px;
+        cursor: move;
+        font-size: 12px;
+        margin-right: 10px;
+        user-select: none;
+        transition: all 0.3s;
+      }
+
+      .drag-handle:hover {
+        background: #c0392b;
+        transform: scale(1.05);
+      }
+
+      .action-button {
+        padding: 8px 16px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+      }
+
+      .action-button:hover {
+        background: #2980b9;
+        transform: translateY(-1px);
+      }
+
+      .action-button.success {
+        background: #27ae60;
+      }
+
+      .action-button.success:hover {
+        background: #229954;
+      }
+
+      .status-display {
+        margin: 20px 0;
+        padding: 15px;
+        background: #ecf0f1;
+        border-radius: 4px;
+        border-left: 4px solid #3498db;
+      }
+
+      .log-area {
+        margin: 20px 0;
+        padding: 15px;
+        background: #2c3e50;
+        color: #ecf0f1;
+        border-radius: 4px;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .controls {
+        margin: 20px 0;
+        text-align: center;
+      }
+
+      .controls button {
+        margin: 0 10px;
+        padding: 10px 20px;
+        font-size: 16px;
+      }
+
+      .item-info {
+        font-weight: bold;
+        color: #2c3e50;
+      }
+
+      .item-description {
+        color: #7f8c8d;
+        font-size: 14px;
+        margin-top: 5px;
+      }
+
+      .wait-element {
+        display: inline-block;
+        padding: 5px 10px;
+        background: #f39c12;
+        color: white;
+        border-radius: 12px;
+        font-size: 11px;
+        margin-left: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🧪 独立循环容器测试页面</h1>
+
+      <div class="status-display" id="statusDisplay">
+        <strong>状态：</strong><span id="statusText">准备就绪</span>
+      </div>
+
+      <div class="controls">
+        <button class="action-button" onclick="clearLogs()">清除日志</button>
+        <button class="action-button success" onclick="simulateAutomation()">
+          模拟自动化执行
+        </button>
+        <button
+          class="action-button"
+          onclick="debugElementSelection()"
+          style="background: #9b59b6"
+        >
+          调试元素选择
+        </button>
+        <button
+          class="action-button"
+          onclick="testSubOperations()"
+          style="background: #e67e22"
+        >
+          测试子操作
+        </button>
+      </div>
+
+      <table class="test-table">
+        <thead>
+          <tr style="background: #34495e; color: white">
+            <th style="padding: 15px">操作区域</th>
+            <th style="padding: 15px">项目信息</th>
+            <th style="padding: 15px">等待元素</th>
+            <th style="padding: 15px">操作按钮</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="test-row" data-row="1">
+            <td>
+              <div class="drag-handle" draggable="true" id="drag-item-1">
+                🎯 拖拽1
+              </div>
+            </td>
+            <td>
+              <div class="item-info">测试项目 Alpha</div>
+              <div class="item-description">
+                这是第一个测试项目，包含拖拽和点击操作
+              </div>
+            </td>
+            <td>
+              <span class="wait-element" id="wait-1">⏳ 等待中</span>
+            </td>
+            <td>
+              <button class="action-button" onclick="handleRowAction(1)">
+                执行操作
+              </button>
+            </td>
+          </tr>
+          <tr class="test-row" data-row="2">
+            <td>
+              <div class="drag-handle" draggable="true" id="drag-item-2">
+                🎯 拖拽2
+              </div>
+            </td>
+            <td>
+              <div class="item-info">测试项目 Beta</div>
+              <div class="item-description">
+                这是第二个测试项目，测试循环容器功能
+              </div>
+            </td>
+            <td>
+              <span class="wait-element" id="wait-2">⏳ 等待中</span>
+            </td>
+            <td>
+              <button class="action-button" onclick="handleRowAction(2)">
+                执行操作
+              </button>
+            </td>
+          </tr>
+          <tr class="test-row" data-row="3">
+            <td>
+              <div class="drag-handle" draggable="true" id="drag-item-3">
+                🎯 拖拽3
+              </div>
+            </td>
+            <td>
+              <div class="item-info">测试项目 Gamma</div>
+              <div class="item-description">
+                这是第三个测试项目，验证自动化流程
+              </div>
+            </td>
+            <td>
+              <span class="wait-element" id="wait-3">⏳ 等待中</span>
+            </td>
+            <td>
+              <button class="action-button" onclick="handleRowAction(3)">
+                执行操作
+              </button>
+            </td>
+          </tr>
+          <tr class="test-row" data-row="4">
+            <td>
+              <div class="drag-handle" draggable="true" id="drag-item-4">
+                🎯 拖拽4
+              </div>
+            </td>
+            <td>
+              <div class="item-info">测试项目 Delta</div>
+              <div class="item-description">
+                这是第四个测试项目，测试复杂操作序列
+              </div>
+            </td>
+            <td>
+              <span class="wait-element" id="wait-4">⏳ 等待中</span>
+            </td>
+            <td>
+              <button class="action-button" onclick="handleRowAction(4)">
+                执行操作
+              </button>
+            </td>
+          </tr>
+          <tr class="test-row" data-row="5">
+            <td>
+              <div class="drag-handle" draggable="true" id="drag-item-5">
+                🎯 拖拽5
+              </div>
+            </td>
+            <td>
+              <div class="item-info">测试项目 Epsilon</div>
+              <div class="item-description">
+                这是第五个测试项目，最终验证测试
+              </div>
+            </td>
+            <td>
+              <span class="wait-element" id="wait-5">⏳ 等待中</span>
+            </td>
+            <td>
+              <button class="action-button" onclick="handleRowAction(5)">
+                执行操作
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="log-area" id="logArea">
+        <div>📋 操作日志：</div>
+      </div>
+    </div>
+
+    <script>
+      // 日志功能
+      function addLog(message, type = "info") {
+        const logArea = document.getElementById("logArea");
+        const timestamp = new Date().toLocaleTimeString();
+        const prefix =
+          {
+            info: "ℹ️",
+            success: "✅",
+            warning: "⚠️",
+            error: "❌",
+            drag: "🖱️",
+            click: "👆",
+          }[type] || "ℹ️";
+
+        const logEntry = document.createElement("div");
+        logEntry.innerHTML = `[${timestamp}] ${prefix} ${message}`;
+        logArea.appendChild(logEntry);
+        logArea.scrollTop = logArea.scrollHeight;
+      }
+
+      function clearLogs() {
+        const logArea = document.getElementById("logArea");
+        logArea.innerHTML = "<div>📋 操作日志：</div>";
+      }
+
+      function updateStatus(message, type = "info") {
+        const statusText = document.getElementById("statusText");
+        statusText.textContent = message;
+        addLog(message, type);
+      }
+
+      // 行操作处理
+      function handleRowAction(rowNumber) {
+        updateStatus(`执行第 ${rowNumber} 行操作`, "click");
+
+        // 模拟操作延迟
+        setTimeout(() => {
+          updateStatus(`第 ${rowNumber} 行操作完成`, "success");
+        }, 500);
+      }
+
+      // 拖拽功能
+      document.querySelectorAll(".drag-handle").forEach((handle) => {
+        handle.addEventListener("dragstart", function (e) {
+          const id = this.id;
+          addLog(`开始拖拽: ${id}`, "drag");
+          e.dataTransfer.setData("text/plain", id);
+          this.style.opacity = "0.5";
+        });
+
+        handle.addEventListener("dragend", function (e) {
+          const id = this.id;
+          addLog(`拖拽结束: ${id}`, "drag");
+          this.style.opacity = "1";
+        });
+      });
+
+      // 模拟自动化执行
+      async function simulateAutomation() {
+        updateStatus("开始模拟自动化执行...", "info");
+
+        const rows = document.querySelectorAll(".test-row");
+
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const rowNumber = i + 1;
+
+          updateStatus(`处理第 ${rowNumber} 行容器`, "info");
+
+          // 高亮当前行
+          row.style.background = "#e8f4fd";
+          row.style.border = "2px solid #3498db";
+
+          // 1. 模拟拖拽操作
+          const dragHandle = row.querySelector(".drag-handle");
+          if (dragHandle) {
+            addLog(`执行拖拽操作: ${dragHandle.id}`, "drag");
+
+            // 视觉效果
+            dragHandle.style.transform = "translate(50px, 20px)";
+            dragHandle.style.background = "#e74c3c";
+
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+
+            // 恢复位置
+            dragHandle.style.transform = "";
+            dragHandle.style.background = "#e74c3c";
+
+            addLog(`拖拽完成: ${dragHandle.id}`, "success");
+          }
+
+          // 2. 模拟等待操作
+          const waitElement = row.querySelector(".wait-element");
+          if (waitElement) {
+            addLog(`智能等待: wait-${rowNumber}`, "warning");
+            waitElement.style.background = "#f39c12";
+            waitElement.textContent = "⏳ 等待中...";
+
+            await new Promise((resolve) => setTimeout(resolve, 800));
+
+            waitElement.style.background = "#27ae60";
+            waitElement.textContent = "✅ 完成";
+            addLog(`等待完成: wait-${rowNumber}`, "success");
+          }
+
+          // 3. 模拟点击操作
+          const button = row.querySelector(".action-button");
+          if (button) {
+            addLog(`执行点击操作: 第${rowNumber}行按钮`, "click");
+
+            // 视觉效果
+            button.style.background = "#27ae60";
+            button.style.transform = "scale(0.95)";
+
+            await new Promise((resolve) => setTimeout(resolve, 500));
+
+            button.style.background = "#3498db";
+            button.style.transform = "";
+
+            addLog(`点击完成: 第${rowNumber}行按钮`, "success");
+          }
+
+          // 恢复行样式
+          row.style.background = "";
+          row.style.border = "1px solid #ddd";
+
+          updateStatus(`第 ${rowNumber} 行处理完成`, "success");
+
+          // 等待一下再处理下一行
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+
+        updateStatus("所有循环容器操作完成！", "success");
+      }
+
+      // 调试元素选择
+      function debugElementSelection() {
+        addLog("开始调试元素选择...", "info");
+
+        // 测试循环容器选择器
+        const containers = document.querySelectorAll(".test-row");
+        addLog(`找到 ${containers.length} 个循环容器 (.test-row)`, "info");
+
+        containers.forEach((container, index) => {
+          addLog(
+            `容器 ${index + 1}: ${container.tagName}.${container.className}`,
+            "info"
+          );
+
+          // 测试子元素选择
+          const dragHandle = container.querySelector(".drag-handle");
+          const waitElement = container.querySelector(".wait-element");
+          const button = container.querySelector(".action-button");
+
+          addLog(
+            `  - 拖拽元素: ${dragHandle ? dragHandle.id : "未找到"}`,
+            dragHandle ? "success" : "error"
+          );
+          addLog(
+            `  - 等待元素: ${waitElement ? waitElement.id : "未找到"}`,
+            waitElement ? "success" : "error"
+          );
+          addLog(
+            `  - 按钮元素: ${button ? "找到" : "未找到"}`,
+            button ? "success" : "error"
+          );
+        });
+      }
+
+      // 测试子操作序列
+      async function testSubOperations() {
+        addLog("开始测试子操作序列...", "info");
+
+        const containers = document.querySelectorAll(".test-row");
+
+        for (let i = 0; i < Math.min(2, containers.length); i++) {
+          const container = containers[i];
+          const rowNumber = i + 1;
+
+          addLog(`测试容器 ${rowNumber} 的子操作`, "info");
+
+          // 高亮容器
+          container.style.background = "#fff3cd";
+          container.style.border = "2px solid #ffc107";
+
+          try {
+            // 1. 测试拖拽子操作
+            const dragHandle = container.querySelector(".drag-handle");
+            if (dragHandle) {
+              addLog(`执行拖拽子操作: ${dragHandle.id}`, "drag");
+
+              // 模拟拖拽
+              dragHandle.style.border = "3px solid #ff6b6b";
+              dragHandle.style.transform = "translate(80px, 25px)";
+
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+
+              dragHandle.style.transform = "";
+              dragHandle.style.border = "";
+
+              addLog(`拖拽子操作完成: ${dragHandle.id}`, "success");
+            } else {
+              addLog(`拖拽元素未找到`, "error");
+            }
+
+            // 2. 测试等待子操作
+            const waitElement = container.querySelector(".wait-element");
+            if (waitElement) {
+              addLog(`执行等待子操作: ${waitElement.id}`, "warning");
+
+              waitElement.style.background = "#f39c12";
+              waitElement.textContent = "⏳ 等待中...";
+
+              await new Promise((resolve) => setTimeout(resolve, 800));
+
+              waitElement.style.background = "#27ae60";
+              waitElement.textContent = "✅ 等待完成";
+
+              addLog(`等待子操作完成: ${waitElement.id}`, "success");
+            } else {
+              addLog(`等待元素未找到`, "error");
+            }
+
+            // 3. 测试点击子操作
+            const button = container.querySelector(".action-button");
+            if (button) {
+              addLog(`执行点击子操作: 按钮`, "click");
+
+              button.style.background = "#27ae60";
+              button.style.border = "2px solid #229954";
+
+              await new Promise((resolve) => setTimeout(resolve, 500));
+
+              button.style.background = "#3498db";
+              button.style.border = "";
+
+              addLog(`点击子操作完成: 按钮`, "success");
+            } else {
+              addLog(`按钮元素未找到`, "error");
+            }
+
+            addLog(`容器 ${rowNumber} 所有子操作完成`, "success");
+          } catch (error) {
+            addLog(`容器 ${rowNumber} 子操作失败: ${error.message}`, "error");
+          }
+
+          // 恢复容器样式
+          container.style.background = "";
+          container.style.border = "1px solid #ddd";
+
+          // 等待一下再处理下一个
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+
+        addLog("子操作序列测试完成", "success");
+      }
+
+      // 页面加载完成
+      document.addEventListener("DOMContentLoaded", function () {
+        addLog("独立测试页面加载完成", "success");
+        updateStatus("页面已准备就绪，可以开始测试", "info");
+
+        // 显示测试配置信息
+        addLog("测试配置信息:", "info");
+        addLog("- 循环容器选择器: .test-row", "info");
+        addLog("- 拖拽元素选择器: .drag-handle", "info");
+        addLog("- 等待元素选择器: .wait-element", "info");
+        addLog("- 按钮元素选择器: .action-button", "info");
+      });
+    </script>
+  </body>
+</html>

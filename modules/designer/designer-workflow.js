@@ -7,11 +7,11 @@ class DesignerWorkflow {
   constructor(core) {
     this.core = core;
     // 使用属性访问器，确保总是获取最新的图形实例
-    Object.defineProperty(this, 'graph', {
-      get: () => this.core.graph
+    Object.defineProperty(this, "graph", {
+      get: () => this.core.graph,
     });
-    Object.defineProperty(this, 'nodeConfigs', {
-      get: () => this.core.nodeConfigs
+    Object.defineProperty(this, "nodeConfigs", {
+      get: () => this.core.nodeConfigs,
     });
   }
 
@@ -21,7 +21,7 @@ class DesignerWorkflow {
       if (!this.graph) {
         throw new Error("图形实例未初始化");
       }
-      
+
       const parent = this.graph.getDefaultParent();
       const vertices = this.graph.getChildVertices(parent);
       const edges = this.graph.getChildEdges(parent);
@@ -46,8 +46,11 @@ class DesignerWorkflow {
         });
 
         // 特别检查敏感词检测配置
-        if (config.type === 'loop' && config.sensitiveWordDetection) {
-          console.log(`🔍 [DEBUG] 循环节点敏感词检测配置:`, config.sensitiveWordDetection);
+        if (config.type === "loop" && config.sensitiveWordDetection) {
+          console.log(
+            `🔍 [DEBUG] 循环节点敏感词检测配置:`,
+            config.sensitiveWordDetection
+          );
         }
 
         const step = {
@@ -62,9 +65,12 @@ class DesignerWorkflow {
         };
 
         // 再次确认敏感词检测配置是否被包含
-        if (config.type === 'loop' && step.sensitiveWordDetection) {
-          console.log(`✅ [DEBUG] 步骤中包含敏感词检测配置:`, step.sensitiveWordDetection);
-        } else if (config.type === 'loop') {
+        if (config.type === "loop" && step.sensitiveWordDetection) {
+          console.log(
+            `✅ [DEBUG] 步骤中包含敏感词检测配置:`,
+            step.sensitiveWordDetection
+          );
+        } else if (config.type === "loop") {
           console.log(`❌ [DEBUG] 步骤中缺少敏感词检测配置`);
         }
 
@@ -75,16 +81,26 @@ class DesignerWorkflow {
 
           // 获取容器内的子节点
           const children = this.graph.getChildVertices(vertex);
-          console.log(`🔍 循环容器 ${vertex.id} 当前包含 ${children.length} 个子节点`);
+          console.log(
+            `🔍 循环容器 ${vertex.id} 当前包含 ${children.length} 个子节点`
+          );
 
           if (children.length > 0) {
             step.subOperations = [];
             children.forEach((child, childIndex) => {
-              const childConfig = this.nodeConfigs.get(child.id) || child.nodeData || {};
+              const childConfig =
+                this.nodeConfigs.get(child.id) || child.nodeData || {};
               const childGeometry = child.getGeometry();
 
-              console.log(`🔍 处理子节点 ${childIndex + 1}: ${child.id} (${childConfig.type || 'unknown'})`);
-              console.log(`  - nodeConfigs中的配置:`, this.nodeConfigs.get(child.id));
+              console.log(
+                `🔍 处理子节点 ${childIndex + 1}: ${child.id} (${
+                  childConfig.type || "unknown"
+                })`
+              );
+              console.log(
+                `  - nodeConfigs中的配置:`,
+                this.nodeConfigs.get(child.id)
+              );
               console.log(`  - nodeData中的配置:`, child.nodeData);
 
               // 只有当子节点有有效配置时才添加到subOperations
@@ -106,7 +122,18 @@ class DesignerWorkflow {
               }
             });
 
-            console.log(`🔄 循环容器最终包含 ${step.subOperations.length} 个有效子操作`);
+            // 根据连线关系对子操作进行排序
+            if (step.subOperations.length > 1) {
+              step.subOperations = this.sortSubOperationsByConnections(
+                vertex,
+                step.subOperations
+              );
+              console.log(`🔄 已根据连线关系重新排序子操作`);
+            }
+
+            console.log(
+              `🔄 循环容器最终包含 ${step.subOperations.length} 个有效子操作`
+            );
           } else {
             step.subOperations = [];
             console.log(`🔄 循环容器为空，没有子操作`);
@@ -123,7 +150,7 @@ class DesignerWorkflow {
       // 递归收集所有连接（包括容器内的连接）
       const collectConnections = (container, parentId = null) => {
         const containerEdges = this.graph.getChildEdges(container);
-        containerEdges.forEach(edge => {
+        containerEdges.forEach((edge) => {
           const source = edge.getTerminal(true);
           const target = edge.getTerminal(false);
 
@@ -136,21 +163,28 @@ class DesignerWorkflow {
                 id: edge.id,
                 source: sourceId,
                 target: targetId,
-                label: edge.getValue() || '',
+                label: edge.getValue() || "",
                 style: edge.getStyle() || null,
-                parentId: parentId
+                parentId: parentId,
               };
 
               connections.push(connection);
-              console.log(`🔗 连线: ${sourceId} -> ${targetId}，父容器: ${parentId || 'root'}`);
+              console.log(
+                `🔗 连线: ${sourceId} -> ${targetId}，父容器: ${
+                  parentId || "root"
+                }`
+              );
             }
           }
         });
 
         // 递归处理子容器
         const childVertices = this.graph.getChildVertices(container);
-        childVertices.forEach(child => {
-          if (child.nodeData?.type === 'loop' && child.nodeData?.loopType === 'container') {
+        childVertices.forEach((child) => {
+          if (
+            child.nodeData?.type === "loop" &&
+            child.nodeData?.loopType === "container"
+          ) {
             collectConnections(child, child.nodeData?.id || child.id);
           }
         });
@@ -198,7 +232,9 @@ class DesignerWorkflow {
       }
 
       // 清空当前画布
-      const vertices = this.graph.getChildVertices(this.graph.getDefaultParent());
+      const vertices = this.graph.getChildVertices(
+        this.graph.getDefaultParent()
+      );
       if (vertices && vertices.length > 0) {
         this.graph.removeCells(vertices);
       }
@@ -301,7 +337,7 @@ class DesignerWorkflow {
         // 创建连线
         console.log(`🔗 开始创建 ${connections.length} 个连线`);
         console.log("📋 可用的节点映射:", Array.from(cellMap.keys()));
-        
+
         connections.forEach((conn, index) => {
           console.log(`🔗 创建连线 ${index + 1}:`, conn);
 
@@ -314,13 +350,16 @@ class DesignerWorkflow {
             targetCell = cellMap.get(conn.toId);
             console.log(`📍 通过ID查找: ${conn.fromId} -> ${conn.toId}`);
             console.log(`📍 找到的节点: ${!!sourceCell} -> ${!!targetCell}`);
-          } else if (typeof conn.from === "number" && typeof conn.to === "number") {
+          } else if (
+            typeof conn.from === "number" &&
+            typeof conn.to === "number"
+          ) {
             // 方式2: 基于索引的连线
             const sourceStep = steps[conn.from];
             const targetStep = steps[conn.to];
             console.log(`📍 通过索引查找: ${conn.from} -> ${conn.to}`);
             console.log(`📍 对应步骤: ${sourceStep?.id} -> ${targetStep?.id}`);
-            
+
             if (sourceStep && targetStep) {
               sourceCell = cellMap.get(sourceStep.id);
               targetCell = cellMap.get(targetStep.id);
@@ -330,13 +369,17 @@ class DesignerWorkflow {
             // 方式3: 兼容旧格式 (source/target)
             sourceCell = cellMap.get(conn.source);
             targetCell = cellMap.get(conn.target);
-            console.log(`📍 通过source/target查找: ${conn.source} -> ${conn.target}`);
+            console.log(
+              `📍 通过source/target查找: ${conn.source} -> ${conn.target}`
+            );
             console.log(`📍 找到的节点: ${!!sourceCell} -> ${!!targetCell}`);
           } else if (conn.sourceId && conn.targetId) {
             // 方式4: 兼容其他格式 (sourceId/targetId)
             sourceCell = cellMap.get(conn.sourceId);
             targetCell = cellMap.get(conn.targetId);
-            console.log(`📍 通过sourceId/targetId查找: ${conn.sourceId} -> ${conn.targetId}`);
+            console.log(
+              `📍 通过sourceId/targetId查找: ${conn.sourceId} -> ${conn.targetId}`
+            );
             console.log(`📍 找到的节点: ${!!sourceCell} -> ${!!targetCell}`);
           } else {
             console.warn(`⚠️ 不支持的连线格式:`, conn);
@@ -375,7 +418,11 @@ class DesignerWorkflow {
               );
 
               if (edge) {
-                console.log(`✅ 连线创建完成: ${sourceCell.id} -> ${targetCell.id}，父容器: ${conn.parentId || 'root'}`);
+                console.log(
+                  `✅ 连线创建完成: ${sourceCell.id} -> ${
+                    targetCell.id
+                  }，父容器: ${conn.parentId || "root"}`
+                );
               } else {
                 console.error(`❌ 连线创建失败，insertEdge返回null`);
               }
@@ -422,7 +469,10 @@ class DesignerWorkflow {
 
       // 检查是否为编辑模式
       if (this.core.editMode && this.core.originalWorkflow) {
-        console.log("🎨 编辑模式保存，原工作流:", this.core.originalWorkflow.name);
+        console.log(
+          "🎨 编辑模式保存，原工作流:",
+          this.core.originalWorkflow.name
+        );
 
         // 编辑模式下，默认使用原工作流名称
         const currentName = this.core.originalWorkflow.name;
@@ -460,25 +510,40 @@ class DesignerWorkflow {
         // 立即更新主存储中的工作流列表
         try {
           console.log("🔄 立即更新主存储中的工作流数据...");
-          const savedWorkflows = JSON.parse(localStorage.getItem("automationWorkflows") || "[]");
+          const savedWorkflows = JSON.parse(
+            localStorage.getItem("automationWorkflows") || "[]"
+          );
 
           // 查找并更新对应的工作流
-          const workflowIndex = savedWorkflows.findIndex(w => w.name === this.core.originalWorkflow.name);
+          const workflowIndex = savedWorkflows.findIndex(
+            (w) => w.name === this.core.originalWorkflow.name
+          );
           if (workflowIndex >= 0) {
             savedWorkflows[workflowIndex] = workflowData;
-            localStorage.setItem("automationWorkflows", JSON.stringify(savedWorkflows));
-            localStorage.setItem("mxgraph_workflows", JSON.stringify(savedWorkflows));
+            localStorage.setItem(
+              "automationWorkflows",
+              JSON.stringify(savedWorkflows)
+            );
+            localStorage.setItem(
+              "mxgraph_workflows",
+              JSON.stringify(savedWorkflows)
+            );
             console.log("✅ 主存储已更新，工作流索引:", workflowIndex);
 
             // 触发storage事件，通知插件面板立即更新
-            window.dispatchEvent(new StorageEvent("storage", {
-              key: "automationWorkflows",
-              newValue: JSON.stringify(savedWorkflows),
-              url: window.location.href,
-            }));
+            window.dispatchEvent(
+              new StorageEvent("storage", {
+                key: "automationWorkflows",
+                newValue: JSON.stringify(savedWorkflows),
+                url: window.location.href,
+              })
+            );
             console.log("✅ 已触发storage事件通知插件面板");
           } else {
-            console.warn("⚠️ 在主存储中未找到对应的工作流:", this.core.originalWorkflow.name);
+            console.warn(
+              "⚠️ 在主存储中未找到对应的工作流:",
+              this.core.originalWorkflow.name
+            );
           }
         } catch (error) {
           console.error("❌ 更新主存储失败:", error);
@@ -548,8 +613,11 @@ class DesignerWorkflow {
       }
 
       // 保存到插件面板可以读取的存储位置
-      localStorage.setItem("automationWorkflows", JSON.stringify(savedWorkflows));
-      
+      localStorage.setItem(
+        "automationWorkflows",
+        JSON.stringify(savedWorkflows)
+      );
+
       // 同时保存到设计器专用存储（用于设计器内部的加载功能）
       localStorage.setItem("mxgraph_workflow", JSON.stringify(workflowData));
       localStorage.setItem("mxgraph_workflows", JSON.stringify(savedWorkflows));
@@ -739,7 +807,7 @@ class DesignerWorkflow {
       console.warn("图形实例未初始化，跳过工作流加载");
       return;
     }
-    
+
     try {
       // 首先检查是否有编辑模式的临时数据
       const tempEditData = localStorage.getItem("temp_edit_workflow");
@@ -912,10 +980,10 @@ class DesignerWorkflow {
    * 在浏览器控制台中调用 window.designerWorkflow.debugLoopContainers() 来使用
    */
   debugLoopContainers() {
-    console.log('=== 循环容器调试信息 ===');
+    console.log("=== 循环容器调试信息 ===");
 
     if (!this.graph) {
-      console.log('❌ 图形实例未初始化');
+      console.log("❌ 图形实例未初始化");
       return;
     }
 
@@ -925,32 +993,36 @@ class DesignerWorkflow {
     vertices.forEach((vertex, index) => {
       const config = this.nodeConfigs.get(vertex.id) || vertex.nodeData || {};
 
-      if (this.graph.isSwimlane(vertex) || config.type === 'loop') {
+      if (this.graph.isSwimlane(vertex) || config.type === "loop") {
         console.log(`\n🔄 循环容器 ${index + 1}: ${vertex.id}`);
-        console.log('  - 配置:', config);
-        console.log('  - 是否为Swimlane:', this.graph.isSwimlane(vertex));
+        console.log("  - 配置:", config);
+        console.log("  - 是否为Swimlane:", this.graph.isSwimlane(vertex));
 
         const children = this.graph.getChildVertices(vertex);
         console.log(`  - 图形中的子节点数量: ${children.length}`);
 
         children.forEach((child, childIndex) => {
-          const childConfig = this.nodeConfigs.get(child.id) || child.nodeData || {};
+          const childConfig =
+            this.nodeConfigs.get(child.id) || child.nodeData || {};
           console.log(`    子节点 ${childIndex + 1}: ${child.id}`);
-          console.log(`      - 类型: ${childConfig.type || 'unknown'}`);
-          console.log(`      - 名称: ${childConfig.name || 'unnamed'}`);
-          console.log(`      - nodeConfigs中存在: ${this.nodeConfigs.has(child.id)}`);
+          console.log(`      - 类型: ${childConfig.type || "unknown"}`);
+          console.log(`      - 名称: ${childConfig.name || "unnamed"}`);
+          console.log(
+            `      - nodeConfigs中存在: ${this.nodeConfigs.has(child.id)}`
+          );
           console.log(`      - nodeData存在: ${!!child.nodeData}`);
         });
 
         // 模拟导出时的处理
         const exportedSubOps = [];
-        children.forEach(child => {
-          const childConfig = this.nodeConfigs.get(child.id) || child.nodeData || {};
+        children.forEach((child) => {
+          const childConfig =
+            this.nodeConfigs.get(child.id) || child.nodeData || {};
           if (childConfig.type) {
             exportedSubOps.push({
               id: child.id,
               type: childConfig.type,
-              name: childConfig.name || "子操作"
+              name: childConfig.name || "子操作",
             });
           }
         });
@@ -959,7 +1031,128 @@ class DesignerWorkflow {
       }
     });
 
-    console.log('=== 调试信息结束 ===');
+    console.log("=== 调试信息结束 ===");
+  }
+
+  /**
+   * 根据连线关系对子操作进行排序
+   * @param {Object} containerVertex - 容器节点
+   * @param {Array} subOperations - 子操作数组
+   * @returns {Array} 排序后的子操作数组
+   */
+  sortSubOperationsByConnections(containerVertex, subOperations) {
+    try {
+      console.log(`🔄 开始对容器 ${containerVertex.id} 的子操作进行连线排序`);
+
+      // 获取容器内的所有子节点
+      const children = this.graph.getChildVertices(containerVertex);
+      if (children.length <= 1) {
+        console.log(`🔄 子节点数量 <= 1，无需排序`);
+        return subOperations;
+      }
+
+      // 获取容器内的连线
+      const containerEdges = this.graph.getChildEdges(containerVertex);
+      console.log(`🔄 容器内连线数量: ${containerEdges.length}`);
+
+      if (containerEdges.length === 0) {
+        console.log(`🔄 容器内无连线，保持原顺序`);
+        return subOperations;
+      }
+
+      // 创建子操作ID到子操作对象的映射
+      const subOpMap = new Map();
+      subOperations.forEach((subOp) => {
+        subOpMap.set(subOp.id, subOp);
+      });
+
+      // 构建邻接表和入度表
+      const graph = new Map();
+      const inDegree = new Map();
+
+      // 初始化所有子操作节点
+      subOperations.forEach((subOp) => {
+        graph.set(subOp.id, []);
+        inDegree.set(subOp.id, 0);
+      });
+
+      // 构建图结构
+      containerEdges.forEach((edge) => {
+        const sourceId = edge.source?.id;
+        const targetId = edge.target?.id;
+
+        if (
+          sourceId &&
+          targetId &&
+          subOpMap.has(sourceId) &&
+          subOpMap.has(targetId)
+        ) {
+          graph.get(sourceId).push(targetId);
+          inDegree.set(targetId, inDegree.get(targetId) + 1);
+          console.log(`🔗 连线: ${sourceId} -> ${targetId}`);
+        }
+      });
+
+      // 拓扑排序
+      const result = [];
+      const queue = [];
+
+      // 找到所有入度为0的节点（起始节点）
+      for (const [nodeId, degree] of inDegree) {
+        if (degree === 0) {
+          queue.push(nodeId);
+          console.log(`🎯 起始节点: ${nodeId}`);
+        }
+      }
+
+      // 如果没有起始节点，说明有循环依赖，保持原顺序
+      if (queue.length === 0) {
+        console.warn(`⚠️ 检测到循环依赖，保持原顺序`);
+        return subOperations;
+      }
+
+      // 执行拓扑排序
+      while (queue.length > 0) {
+        const currentId = queue.shift();
+        const currentSubOp = subOpMap.get(currentId);
+
+        if (currentSubOp) {
+          result.push(currentSubOp);
+          console.log(
+            `📋 添加到排序结果: ${
+              currentSubOp.name || currentSubOp.type
+            } (${currentId})`
+          );
+
+          // 处理当前节点的所有邻居
+          const neighbors = graph.get(currentId) || [];
+          neighbors.forEach((neighborId) => {
+            inDegree.set(neighborId, inDegree.get(neighborId) - 1);
+            if (inDegree.get(neighborId) === 0) {
+              queue.push(neighborId);
+            }
+          });
+        }
+      }
+
+      // 检查是否所有节点都被处理了
+      if (result.length !== subOperations.length) {
+        console.warn(
+          `⚠️ 排序结果不完整 (${result.length}/${subOperations.length})，保持原顺序`
+        );
+        return subOperations;
+      }
+
+      console.log(
+        `✅ 子操作排序完成，新顺序: ${result
+          .map((op) => op.name || op.type)
+          .join(" -> ")}`
+      );
+      return result;
+    } catch (error) {
+      console.error(`❌ 子操作排序失败:`, error);
+      return subOperations; // 出错时保持原顺序
+    }
   }
 }
 

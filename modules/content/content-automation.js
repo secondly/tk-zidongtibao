@@ -925,6 +925,87 @@ async function executeDragStep(step) {
   );
 }
 
+// 执行增强的拖拽操作（支持HTML5拖拽元素）
+async function performEnhancedDragOperation(
+  element,
+  startX,
+  startY,
+  endX,
+  endY,
+  step
+) {
+  const dragSpeed = step.dragSpeed || 100;
+  const waitAfterDrag = step.waitAfterDrag || 1000;
+
+  console.log("🖱️ 开始增强拖拽操作");
+
+  // 方法1: 尝试直接移动元素位置
+  const originalPosition = element.style.position;
+  const originalLeft = element.style.left;
+  const originalTop = element.style.top;
+  const originalTransform = element.style.transform;
+
+  try {
+    // 设置元素为相对定位以便移动
+    if (!originalPosition || originalPosition === "static") {
+      element.style.position = "relative";
+    }
+
+    // 计算移动距离
+    const deltaX = endX - startX;
+    const deltaY = endY - startY;
+
+    console.log(`🖱️ 移动元素: deltaX=${deltaX}px, deltaY=${deltaY}px`);
+
+    // 添加移动动画
+    element.style.transition = `transform ${dragSpeed}ms ease-out`;
+    element.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+    // 等待动画完成
+    await new Promise((resolve) => setTimeout(resolve, dragSpeed));
+
+    // 触发拖拽事件以确保兼容性
+    const dragStartEvent = new DragEvent("dragstart", {
+      bubbles: true,
+      cancelable: true,
+      clientX: startX,
+      clientY: startY,
+    });
+    element.dispatchEvent(dragStartEvent);
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const dragEndEvent = new DragEvent("dragend", {
+      bubbles: true,
+      cancelable: true,
+      clientX: endX,
+      clientY: endY,
+    });
+    element.dispatchEvent(dragEndEvent);
+
+    console.log("🖱️ 增强拖拽操作完成");
+
+    // 等待指定时间后恢复原始状态
+    await new Promise((resolve) => setTimeout(resolve, waitAfterDrag));
+
+    // 恢复原始样式
+    element.style.transition = "";
+    element.style.transform = originalTransform;
+    element.style.position = originalPosition;
+    element.style.left = originalLeft;
+    element.style.top = originalTop;
+  } catch (error) {
+    console.error("🖱️ 增强拖拽操作失败:", error);
+    // 恢复原始样式
+    element.style.transition = "";
+    element.style.transform = originalTransform;
+    element.style.position = originalPosition;
+    element.style.left = originalLeft;
+    element.style.top = originalTop;
+    throw error;
+  }
+}
+
 // 执行具体的拖拽操作
 async function performDragOperation(element, startX, startY, endX, endY, step) {
   const dragSpeed = step.dragSpeed || 100;
@@ -1590,14 +1671,33 @@ async function executeSubOperation(operation, parentElement = null) {
         console.log(
           `🔧 [DEBUG] 尝试在父级元素内查找: ${operation.locator.strategy}=${operation.locator.value}`
         );
+        console.log(
+          `🔧 [DEBUG] 父级容器信息: ${parentElement.tagName}.${parentElement.className}`
+        );
 
-        // 尝试在父级元素内查找，支持多种选择器策略
+        // 对于容器循环，需要找到正确的表格行容器
+        let containerElement = parentElement;
+        if (parentElement.tagName === "BUTTON") {
+          // 如果父级元素是按钮，需要向上查找到表格行
+          containerElement =
+            parentElement.closest("tr") ||
+            parentElement.closest(".core-table-tr");
+          console.log(
+            `🔧 [DEBUG] 按钮父级，向上查找表格行容器: ${
+              containerElement
+                ? containerElement.tagName + "." + containerElement.className
+                : "未找到"
+            }`
+          );
+        }
+
+        // 尝试在容器元素内查找，支持多种选择器策略
         try {
           switch (operation.locator.strategy) {
             case "css":
-              clickElement = parentElement.querySelector(
-                operation.locator.value
-              );
+              clickElement = containerElement
+                ? containerElement.querySelector(operation.locator.value)
+                : parentElement.querySelector(operation.locator.value);
               break;
             case "id":
               // 对于ID选择器，在父级元素内查找
@@ -1803,6 +1903,128 @@ async function executeSubOperation(operation, parentElement = null) {
         // 其他循环类型，递归调用executeLoopStep
         await executeLoopStep(operation);
       }
+      break;
+
+    case "drag":
+      console.log(`🖱️ 子操作-拖拽开始: ${operation.locator.value}`);
+      let dragElement;
+      if (parentElement && operation.locator?.strategy === "css") {
+        // 首先尝试在父级元素内查找
+        console.log(`🔍 在父级容器内查找拖拽元素: ${operation.locator.value}`);
+        console.log(
+          `🔍 父级容器信息: ${parentElement.tagName}.${parentElement.className}`
+        );
+
+        // 对于容器循环，需要找到正确的表格行容器
+        let containerElement = parentElement;
+        if (parentElement.tagName === "BUTTON") {
+          // 如果父级元素是按钮，需要向上查找到表格行
+          containerElement =
+            parentElement.closest("tr") ||
+            parentElement.closest(".core-table-tr");
+          console.log(
+            `🔍 按钮父级，向上查找表格行容器: ${
+              containerElement
+                ? containerElement.tagName + "." + containerElement.className
+                : "未找到"
+            }`
+          );
+        }
+
+        if (containerElement) {
+          dragElement = containerElement.querySelector(operation.locator.value);
+          if (dragElement) {
+            console.log(
+              `🔍 在容器内找到拖拽目标: ${
+                dragElement.id || dragElement.className
+              }`
+            );
+          } else {
+            console.log(`🔍 在容器内未找到拖拽目标，使用全局查找`);
+            dragElement = await window.ContentCore.findElementByStrategy(
+              operation.locator.strategy,
+              operation.locator.value
+            );
+          }
+        } else {
+          console.log(`🔍 未找到有效容器，使用全局查找`);
+          dragElement = await window.ContentCore.findElementByStrategy(
+            operation.locator.strategy,
+            operation.locator.value
+          );
+        }
+      } else {
+        dragElement = await window.ContentCore.findElementByStrategy(
+          operation.locator.strategy,
+          operation.locator.value
+        );
+      }
+
+      if (!dragElement) {
+        throw new Error(`未找到拖拽目标元素: ${operation.locator.value}`);
+      }
+
+      // 执行拖拽操作
+      const rect = dragElement.getBoundingClientRect();
+      const startX = rect.left + rect.width / 2;
+      const startY = rect.top + rect.height / 2;
+      const endX = startX + (operation.horizontalDistance || 0);
+      const endY = startY + (operation.verticalDistance || 0);
+
+      console.log(
+        `🖱️ 拖拽详情: 从(${startX}, ${startY}) 到 (${endX}, ${endY}), 距离: ${
+          operation.horizontalDistance || 0
+        }px, ${operation.verticalDistance || 0}px`
+      );
+
+      // 更新状态反馈 - 拖拽开始
+      if (window.updateStatus) {
+        window.updateStatus(
+          `🖱️ 开始拖拽: ${dragElement.id || "拖拽元素"} (${
+            operation.horizontalDistance || 0
+          }px, ${operation.verticalDistance || 0}px)`,
+          "info"
+        );
+      }
+
+      // 添加拖拽前的视觉高亮
+      const originalStyle = dragElement.style.cssText;
+      dragElement.style.border = "3px solid #ff6b6b";
+      dragElement.style.boxShadow = "0 0 10px rgba(255, 107, 107, 0.5)";
+
+      // 检查是否是HTML5拖拽元素
+      if (dragElement.draggable) {
+        console.log("🖱️ 检测到HTML5拖拽元素，使用增强拖拽方法");
+        await performEnhancedDragOperation(
+          dragElement,
+          startX,
+          startY,
+          endX,
+          endY,
+          {
+            dragSpeed: operation.dragSpeed || 100,
+            waitAfterDrag: operation.waitAfterDrag || 1000,
+          }
+        );
+      } else {
+        console.log("🖱️ 使用标准鼠标事件拖拽");
+        await performDragOperation(dragElement, startX, startY, endX, endY, {
+          dragSpeed: operation.dragSpeed || 100,
+          waitAfterDrag: operation.waitAfterDrag || 1000,
+        });
+      }
+
+      // 恢复原始样式
+      dragElement.style.cssText = originalStyle;
+
+      // 更新状态反馈 - 拖拽完成
+      if (window.updateStatus) {
+        window.updateStatus(
+          `✅ 拖拽完成: ${dragElement.id || "拖拽元素"}`,
+          "success"
+        );
+      }
+      console.log(`✅ 子操作-拖拽完成`);
       break;
 
     default:
