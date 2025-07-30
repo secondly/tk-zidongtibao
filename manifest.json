@@ -1,8 +1,8 @@
 ﻿{
   "manifest_version": 3,
-  "name": "Universal Automation Assistant",
+  "name": "自动助手",
   "version": "2.0.0",
-  "description": "Universal web automation system",
+  "description": "自动助手",
   "permissions": ["activeTab", "tabs", "scripting", "storage"],
   "host_permissions": ["<all_urls>"],
   "action": {
@@ -19,7 +19,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/content-modular.js"]
+      "js": ["content/content.js"]
     }
   ],
   "icons": {
@@ -43,6 +43,7 @@
         "modules/content/content-core.js",
         "modules/content/sensitive-word-detector.js",
         "modules/content/content-automation.js",
+        "modules/content/floating-control-panel.js",
         "modules/designer/designer-core.js",
         "modules/designer/designer-nodes.js",
         "modules/designer/designer-workflow.js"

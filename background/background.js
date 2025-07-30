@@ -1,21 +1,50 @@
 // 添加停止执行功能
 let isExecutionStopped = false;
+let isExecutionPaused = false;
+let currentExecutionTabId = null;
 
 // 监听来自弹出界面的消息
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+  // 处理浮层控制面板的转发请求
+  if (request.action === "forwardToContentScript") {
+    console.log(`📡 Background收到转发请求: ${request.targetAction}`, request.targetData);
+
+    // 获取当前活动标签页
+    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+      if (tabs[0]) {
+        // 转发消息到 content script
+        chrome.tabs.sendMessage(tabs[0].id, {
+          action: request.targetAction,
+          data: request.targetData
+        }).then(response => {
+          console.log(`✅ 消息已转发到content script:`, response);
+          sendResponse({ success: true, response: response });
+        }).catch(error => {
+          console.error(`❌ 转发到content script失败:`, error);
+          sendResponse({ success: false, error: error.message });
+        });
+      } else {
+        sendResponse({ success: false, error: '没有找到活动标签页' });
+      }
+    });
+
+    return true; // 保持消息通道开放
+  }
+
   if (request.action === "executeSteps") {
-    // 重置停止标志
+    // 重置停止和暂停标志
     isExecutionStopped = false;
+    isExecutionPaused = false;
 
     // 立即返回初始响应，确保通信通道保持开放
     sendResponse({ received: true, initializing: true });
 
-    // 通知UI操作已开始
-    chrome.runtime
-      .sendMessage({
-        action: "executionStarted",
-      })
-      .catch((err) => console.error("发送开始消息时出错:", err));
+    // 通知所有标签页执行已开始
+    notifyExecutionStatusChange({
+      isRunning: true,
+      isPaused: false,
+      message: "执行已开始"
+    });
 
     // 然后异步处理执行步骤
     handleStepsExecution(request.steps);
@@ -26,7 +55,45 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
   if (request.action === "stopExecution") {
     isExecutionStopped = true;
+    isExecutionPaused = false;
+    currentExecutionTabId = null;
+
+    // 通知所有标签页执行已停止
+    notifyExecutionStatusChange({
+      isRunning: false,
+      isPaused: false,
+      message: "执行已停止"
+    });
+
     sendResponse({ stopped: true });
+    return true;
+  }
+
+  if (request.action === "pauseExecution") {
+    isExecutionPaused = true;
+
+    // 通知所有标签页执行已暂停
+    notifyExecutionStatusChange({
+      isRunning: true,
+      isPaused: true,
+      message: "执行已暂停"
+    });
+
+    sendResponse({ paused: true });
+    return true;
+  }
+
+  if (request.action === "resumeExecution") {
+    isExecutionPaused = false;
+
+    // 通知所有标签页执行已恢复
+    notifyExecutionStatusChange({
+      isRunning: true,
+      isPaused: false,
+      message: "执行已恢复"
+    });
+
+    sendResponse({ resumed: true });
     return true;
   }
 
@@ -34,6 +101,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.action === "getExecutionStatus") {
     sendResponse({
       isExecuting: !isExecutionStopped, // 如果停止标志为false，则表示正在执行
+      isPaused: isExecutionPaused,
       timestamp: Date.now(),
     });
     return true;
@@ -98,6 +166,17 @@ async function handleStepsExecution(steps) {
         throw new Error("操作已被用户手动停止");
       }
 
+      // 检查是否暂停，如果暂停则等待恢复
+      while (isExecutionPaused && !isExecutionStopped) {
+        console.log("执行已暂停，等待恢复...");
+        await sleep(500); // 每500ms检查一次
+      }
+
+      // 再次检查是否已停止（可能在暂停期间被停止）
+      if (isExecutionStopped) {
+        throw new Error("操作已被用户手动停止");
+      }
+
       const step = steps[i];
       console.log(`执行步骤 ${i + 1}/${steps.length}:`, step);
 
@@ -134,6 +213,19 @@ async function handleStepsExecution(steps) {
 
     // 所有步骤执行完成
     console.log("所有步骤已成功执行");
+
+    // 重置执行状态
+    isExecutionStopped = false;
+    isExecutionPaused = false;
+    currentExecutionTabId = null;
+
+    // 通知执行完成
+    notifyExecutionStatusChange({
+      isRunning: false,
+      isPaused: false,
+      message: "执行完成"
+    });
+
     chrome.runtime
       .sendMessage({
         action: "executionResult",
@@ -246,6 +338,17 @@ async function handleLoopOperation(tabId, loopStep, stepIndex) {
     elementIndex++
   ) {
     // 检查是否已停止执行
+    if (isExecutionStopped) {
+      throw new Error("操作已被用户手动停止");
+    }
+
+    // 检查是否暂停，如果暂停则等待恢复
+    while (isExecutionPaused && !isExecutionStopped) {
+      console.log("循环执行已暂停，等待恢复...");
+      await sleep(500);
+    }
+
+    // 再次检查是否已停止
     if (isExecutionStopped) {
       throw new Error("操作已被用户手动停止");
     }
@@ -481,7 +584,7 @@ function injectContentScript(tabId) {
     chrome.scripting.executeScript(
       {
         target: { tabId: tabId },
-        files: ["/content/content.js"],
+        files: ["/content/content-modular.js"],
       },
       (results) => {
         if (chrome.runtime.lastError) {
@@ -506,4 +609,40 @@ function injectContentScript(tabId) {
  */
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'sendToWebpageStorage') {
+        // 获取当前活动标签页并转发消息
+        chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+            if (tabs[0]) {
+                chrome.tabs.sendMessage(tabs[0].id, {
+                    type: 'sendToLocalStorage',
+                    data: message.data
+                });
+            }
+        });
+        sendResponse({success: true});
+    }
+});
+
+/**
+ * 通知所有标签页执行状态变化
+ * @param {Object} statusData - 状态数据
+ */
+function notifyExecutionStatusChange(statusData) {
+    // 获取所有标签页
+    chrome.tabs.query({}, (tabs) => {
+        tabs.forEach(tab => {
+            // 向每个标签页发送状态更新消息
+            chrome.tabs.sendMessage(tab.id, {
+                action: 'executionStatusUpdate',
+                data: statusData
+            }).catch(err => {
+                // 忽略无法发送消息的标签页（可能没有content script）
+                console.log(`无法向标签页 ${tab.id} 发送状态更新:`, err.message);
+            });
+        });
+    });
 }

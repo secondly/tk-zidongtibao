@@ -528,6 +528,14 @@ class DesignerWorkflow {
               "mxgraph_workflows",
               JSON.stringify(savedWorkflows)
             );
+            const value = localStorage.getItem('automationWorkflows'); // 从扩展的 localStorage 获取数据
+            chrome.runtime.sendMessage({
+              action: 'sendToWebpageStorage',
+              data: {
+                  key: 'automationWorkflows',
+                  value: value
+              }
+            });
             console.log("✅ 主存储已更新，工作流索引:", workflowIndex);
 
             // 触发storage事件，通知插件面板立即更新
@@ -617,7 +625,14 @@ class DesignerWorkflow {
         "automationWorkflows",
         JSON.stringify(savedWorkflows)
       );
-
+      const value = localStorage.getItem('automationWorkflows'); // 从扩展的 localStorage 获取数据
+      chrome.runtime.sendMessage({
+        action: 'sendToWebpageStorage',
+        data: {
+            key: 'automationWorkflows',
+            value: value
+        }
+      });
       // 同时保存到设计器专用存储（用于设计器内部的加载功能）
       localStorage.setItem("mxgraph_workflow", JSON.stringify(workflowData));
       localStorage.setItem("mxgraph_workflows", JSON.stringify(savedWorkflows));
@@ -910,6 +925,14 @@ class DesignerWorkflow {
           "automationWorkflows",
           JSON.stringify(savedWorkflows)
         );
+        const value = localStorage.getItem('automationWorkflows'); // 从扩展的 localStorage 获取数据
+        chrome.runtime.sendMessage({
+            action: 'sendToWebpageStorage',
+            data: {
+                key: 'automationWorkflows',
+                value: value
+            }
+        });
         console.log("✅ 工作流数据已保存到localStorage供插件面板同步");
         this.core.updateStatus("工作流已同步到插件面板");
       } else {

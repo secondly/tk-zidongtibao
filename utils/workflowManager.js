@@ -302,6 +302,14 @@ class WorkflowManager {
             };
 
             localStorage.setItem('automationWorkflows', JSON.stringify(data));
+            const value = localStorage.getItem('automationWorkflows'); // 从扩展的 localStorage 获取数据
+            chrome.runtime.sendMessage({
+                action: 'sendToWebpageStorage',
+                data: {
+                    key: 'automationWorkflows',
+                    value: value
+                }
+            });
             console.log('✅ 工作流已保存到本地存储');
             return true;
         } catch (error) {

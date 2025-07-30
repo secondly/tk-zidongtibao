@@ -52,6 +52,20 @@ export function saveWorkflowsToStorage(workflows) {
         const jsonData = safeJsonStringify(workflows);
         localStorage.setItem(STORAGE_KEY, jsonData);
 
+        // 同步到网页的 localStorage
+        const value = localStorage.getItem(STORAGE_KEY); // 从扩展的 localStorage 获取数据
+        chrome.runtime.sendMessage({
+            action: 'sendToWebpageStorage',
+            data: {
+                key: STORAGE_KEY,
+                value: value
+            }
+        }).then(() => {
+            console.log('✅ 数据已同步到网页localStorage');
+        }).catch(error => {
+            console.error('❌ 同步到网页localStorage失败:', error);
+        });
+
         debugLog(`已保存 ${workflows.length} 个工作流到localStorage`);
         return true;
     } catch (error) {

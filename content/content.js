@@ -277,6 +277,26 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     return true;
   }
 
+  // 处理来自插件的localStorage更新请求
+  if (request.type === 'sendToLocalStorage') {
+    const { key, value } = request.data;
+    localStorage.setItem(key, value);
+    console.log(`✅ 已更新localStorage: ${key}`);
+
+    // 通知浮层控制面板数据已更新
+    if (key === 'automationWorkflows') {
+      const message = {
+        type: 'WORKFLOW_DATA_UPDATED',
+        timestamp: Date.now()
+      };
+      window.postMessage(message, '*');
+      console.log('📡 已通知浮层控制面板数据更新');
+    }
+
+    sendResponse({success: true});
+    return true;
+  }
+
   if (request.action === "performAction") {
     performAction(request.config)
       .then((result) => {
@@ -4557,3 +4577,72 @@ window.testSensitiveWordDetection = function () {
     return false;
   }
 };
+
+// ==================== 浮层控制面板支持 ====================
+
+// 监听来自浮层控制面板的 postMessage
+window.addEventListener('message', (event) => {
+  // 确保消息来源是当前窗口
+  if (event.source !== window) return;
+
+  // 检查消息类型
+  if (event.data.type === 'TO_BACKGROUND_SCRIPT') {
+    const { payload } = event.data;
+    console.log(`📡 Content script收到浮层消息，转发到background:`, payload);
+
+    // 转发到 background script
+    chrome.runtime.sendMessage({
+      action: 'forwardToContentScript',
+      targetAction: payload.action,
+      targetData: payload.data
+    }).then(response => {
+      console.log(`✅ 消息转发成功:`, response);
+    }).catch(error => {
+      console.error(`❌ 消息转发失败:`, error);
+    });
+  }
+});
+
+// 发送状态更新到浮层
+function sendStatusToFloatingPanel(statusData) {
+  const message = {
+    type: 'FROM_CONTENT_SCRIPT',
+    action: 'executionStatusUpdate',
+    data: statusData,
+    timestamp: Date.now()
+  };
+
+  window.postMessage(message, '*');
+  console.log('📤 发送状态更新到浮层:', statusData);
+}
+
+// 加载浮层控制面板模块
+function loadFloatingControlPanel() {
+  if (window.FloatingControlPanel) {
+    console.log('🎛️ 浮层控制面板已存在，跳过加载');
+    return;
+  }
+
+  try {
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('modules/content/floating-control-panel.js');
+    script.onload = () => {
+      console.log('✅ 浮层控制面板模块加载成功');
+    };
+    script.onerror = (error) => {
+      console.error('❌ 浮层控制面板模块加载失败:', error);
+    };
+    document.documentElement.appendChild(script);
+  } catch (error) {
+    console.error('❌ 加载浮层控制面板失败:', error);
+  }
+}
+
+// 页面加载完成后加载浮层控制面板
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadFloatingControlPanel);
+} else {
+  loadFloatingControlPanel();
+}
+
+console.log('✅ Content script 浮层支持已加载');

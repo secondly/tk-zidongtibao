@@ -332,6 +332,67 @@ if (
   console.warn("Chrome runtime API not available");
 }
 
+// 监听来自content-modular的内部消息事件
+document.addEventListener('contentMessage', (event) => {
+  const { action, data } = event.detail;
+  console.log(`📨 Content-core收到内部消息: ${action}`, data);
+
+  if (action === 'executeWorkflow') {
+    console.log("🔧 [DEBUG] 收到内部工作流执行请求，工作流数据:", JSON.stringify(data, null, 2));
+
+    // 验证工作流数据结构
+    if (data && data.steps) {
+      data.steps.forEach((step, index) => {
+        console.log(`🔧 [DEBUG] 步骤 ${index + 1}:`, {
+          type: step.type,
+          name: step.name,
+          locator: step.locator,
+          hasLocator: !!step.locator,
+          locatorStrategy: step.locator?.strategy || step.locator?.type,
+          locatorValue: step.locator?.value,
+        });
+      });
+    }
+
+    // 调用自动化执行模块
+    if (window.ContentAutomation && window.ContentAutomation.executeUniversalWorkflow) {
+      window.ContentAutomation.executeUniversalWorkflow(data)
+        .then((result) => {
+          console.log("✅ 内部工作流执行成功:", result);
+          // 发送成功事件到浮层
+          const successEvent = new CustomEvent('automationStatusUpdate', {
+            detail: {
+              action: 'executionStatusUpdate',
+              data: { isRunning: false, isPaused: false, message: '执行完成' }
+            }
+          });
+          document.dispatchEvent(successEvent);
+        })
+        .catch((error) => {
+          console.error("❌ 执行内部工作流失败:", error);
+          // 发送错误事件到浮层
+          const errorEvent = new CustomEvent('automationStatusUpdate', {
+            detail: {
+              action: 'executionStatusUpdate',
+              data: { isRunning: false, isPaused: false, message: '执行失败: ' + error.message }
+            }
+          });
+          document.dispatchEvent(errorEvent);
+        });
+    } else {
+      console.error("❌ 自动化执行模块未加载");
+      // 发送错误事件到浮层
+      const errorEvent = new CustomEvent('automationStatusUpdate', {
+        detail: {
+          action: 'executionStatusUpdate',
+          data: { isRunning: false, isPaused: false, message: '自动化执行模块未加载' }
+        }
+      });
+      document.dispatchEvent(errorEvent);
+    }
+  }
+});
+
 /**
  * 测试元素定位并高亮显示
  * @param {object} locator - 元素定位配置
@@ -1778,8 +1839,81 @@ async function fixAutomationSupport() {
   }
 }
 
+// 提取消息处理逻辑为独立函数
+function handleMessage(request, sender, sendResponse) {
+  console.log("Content script收到消息:", request);
+
+  // 处理通用自动化工作流执行
+  if (request.action === "executeWorkflow") {
+    console.log(
+      "🔧 [DEBUG] 收到工作流执行请求，工作流数据:",
+      JSON.stringify(request.data, null, 2)
+    );
+
+    // 调用自动化执行模块
+    if (
+      window.ContentAutomation &&
+      window.ContentAutomation.executeUniversalWorkflow
+    ) {
+      window.ContentAutomation.executeUniversalWorkflow(request.data)
+        .then((result) => {
+          sendResponse({ success: true, result });
+        })
+        .catch((error) => {
+          console.error("执行通用工作流失败:", error);
+          sendResponse({ success: false, error: error.message });
+        });
+    } else {
+      console.error("❌ 自动化执行模块未加载");
+      sendResponse({ success: false, error: "自动化执行模块未加载" });
+    }
+    return true;
+  }
+
+  // 处理暂停执行
+  if (request.action === "pauseExecution") {
+    console.log("🔧 收到暂停执行请求");
+    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.pause) {
+      window.simplifiedExecutionControl.pause();
+      sendResponse({ success: true, message: "执行已暂停" });
+    } else {
+      sendResponse({ success: false, error: "暂停功能不可用，可能没有正在执行的工作流" });
+    }
+    return true;
+  }
+
+  // 处理恢复执行
+  if (request.action === "resumeExecution") {
+    console.log("🔧 收到恢复执行请求");
+    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.resume) {
+      window.simplifiedExecutionControl.resume();
+      sendResponse({ success: true, message: "执行已恢复" });
+    } else {
+      sendResponse({ success: false, error: "恢复功能不可用，可能没有正在执行的工作流" });
+    }
+    return true;
+  }
+
+  // 处理停止执行
+  if (request.action === "stopExecution") {
+    console.log("🔧 收到停止执行请求");
+    // 简化模式没有专门的stop方法，通过设置全局停止标志
+    if (window.simplifiedExecutionControl) {
+      window.simplifiedExecutionControl.isStopped = true;
+      window.simplifiedExecutionControl.isPaused = false;
+      sendResponse({ success: true, message: "执行已停止" });
+    } else {
+      sendResponse({ success: false, error: "停止功能不可用，可能没有正在执行的工作流" });
+    }
+    return true;
+  }
+
+  return false;
+}
+
 // 导出核心功能到全局作用域
 window.ContentCore = {
+  handleMessage,
   findElementByStrategy,
   findElementsByStrategy,
   smartScrollIntoView,
