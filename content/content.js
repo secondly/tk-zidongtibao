@@ -268,10 +268,27 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     }
     executeUniversalWorkflow(request.data)
       .then((result) => {
+        console.log("✅ 工作流执行成功，发送状态更新到浮层");
+
+        // 发送成功状态到浮层
+        sendStatusToFloatingPanel({
+          isRunning: false,
+          isPaused: false,
+          message: '执行完成'
+        });
+
         sendResponse({ success: true, result });
       })
       .catch((error) => {
         console.error("执行通用工作流失败:", error);
+
+        // 发送失败状态到浮层
+        sendStatusToFloatingPanel({
+          isRunning: false,
+          isPaused: false,
+          message: '执行失败: ' + error.message
+        });
+
         sendResponse({ success: false, error: error.message });
       });
     return true;

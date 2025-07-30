@@ -8,13 +8,13 @@ class FloatingControlPanel {
         this.panel = null;
         this.isDragging = false;
         this.dragOffset = { x: 0, y: 0 };
-        this.isMinimized = false;
+        this.isMinimized = true; // 默认为收起状态
         this.executionState = {
             isRunning: false,
             isPaused: false,
             currentWorkflow: null
         };
-        
+
         this.init();
     }
 
@@ -34,8 +34,7 @@ class FloatingControlPanel {
             <div class="panel-header">
                 <span class="panel-title">🤖 自动助手</span>
                 <div class="panel-controls">
-                    <button class="btn-minimize" title="最小化">−</button>
-                    <button class="btn-close" title="关闭">×</button>
+                    <button class="btn-minimize" title="展开面板">+</button>
                 </div>
             </div>
             <div class="panel-content">
@@ -65,9 +64,12 @@ class FloatingControlPanel {
         
         // 插入到页面
         document.body.appendChild(this.panel);
-        
+
         // 设置初始位置
         this.setInitialPosition();
+
+        // 应用默认的最小化状态
+        this.applyInitialMinimizedState();
     }
 
     addStyles() {
@@ -76,7 +78,7 @@ class FloatingControlPanel {
         style.textContent = `
             #automation-floating-panel {
                 position: fixed;
-                top: 20px;
+                bottom: 20px;
                 right: 20px;
                 width: 280px;
                 background: #ffffff;
@@ -91,8 +93,25 @@ class FloatingControlPanel {
             }
 
             #automation-floating-panel.minimized {
-                height: 40px;
+                width: 128px;
+                height: 36px;
                 overflow: hidden;
+                transition: all 0.3s ease;
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+            }
+
+            #automation-floating-panel.minimized .panel-title {
+                font-size: 11px;
+            }
+
+            #automation-floating-panel.minimized .panel-content {
+                display: none;
+            }
+
+            #automation-floating-panel.minimized .panel-header {
+                padding: 8px 10px;
             }
 
             .panel-header {
@@ -116,7 +135,7 @@ class FloatingControlPanel {
                 gap: 4px;
             }
 
-            .btn-minimize, .btn-close {
+            .btn-minimize {
                 background: rgba(255, 255, 255, 0.2);
                 border: none;
                 color: white;
@@ -131,7 +150,7 @@ class FloatingControlPanel {
                 transition: background 0.2s;
             }
 
-            .btn-minimize:hover, .btn-close:hover {
+            .btn-minimize:hover {
                 background: rgba(255, 255, 255, 0.3);
             }
 
@@ -285,9 +304,35 @@ class FloatingControlPanel {
         // 从localStorage读取上次的位置
         const savedPosition = localStorage.getItem('automation-panel-position');
         if (savedPosition) {
-            const { top, right } = JSON.parse(savedPosition);
-            this.panel.style.top = top + 'px';
-            this.panel.style.right = right + 'px';
+            const position = JSON.parse(savedPosition);
+
+            // 如果保存的是 bottom/right 定位
+            if (position.bottom !== undefined && position.right !== undefined) {
+                this.panel.style.bottom = position.bottom + 'px';
+                this.panel.style.right = position.right + 'px';
+                this.panel.style.top = 'auto';
+                this.panel.style.left = 'auto';
+            } else if (position.top !== undefined && position.right !== undefined) {
+                // 兼容旧的 top/right 定位
+                this.panel.style.top = position.top + 'px';
+                this.panel.style.right = position.right + 'px';
+                this.panel.style.bottom = 'auto';
+                this.panel.style.left = 'auto';
+            }
+        } else {
+            // 默认位置：右下角
+            this.panel.style.bottom = '20px';
+            this.panel.style.right = '20px';
+            this.panel.style.top = 'auto';
+            this.panel.style.left = 'auto';
+        }
+    }
+
+    applyInitialMinimizedState() {
+        // 应用默认的最小化状态
+        if (this.isMinimized) {
+            this.panel.classList.add('minimized');
+            console.log('📦 面板初始化为最小化状态');
         }
     }
 
@@ -295,12 +340,17 @@ class FloatingControlPanel {
         // 拖拽功能
         const header = this.panel.querySelector('.panel-header');
         header.addEventListener('mousedown', this.startDrag.bind(this));
-        document.addEventListener('mousemove', this.drag.bind(this));
+
+        // 绑定到 document 确保即使鼠标离开面板也能继续拖拽
+        document.addEventListener('mousemove', this.drag.bind(this), { passive: false });
         document.addEventListener('mouseup', this.endDrag.bind(this));
 
-        // 最小化/关闭按钮
+        // 添加额外的事件监听器来处理边缘情况
+        document.addEventListener('mouseleave', this.endDrag.bind(this));
+        document.addEventListener('blur', this.endDrag.bind(this));
+
+        // 最小化按钮
         this.panel.querySelector('.btn-minimize').addEventListener('click', this.toggleMinimize.bind(this));
-        this.panel.querySelector('.btn-close').addEventListener('click', this.hide.bind(this));
 
         // 刷新工作流按钮
         this.panel.querySelector('#refresh-workflows').addEventListener('click', this.loadWorkflows.bind(this));
@@ -335,6 +385,9 @@ class FloatingControlPanel {
 
     // 拖拽相关方法
     startDrag(e) {
+        // 只响应左键点击
+        if (e.button !== 0) return;
+
         this.isDragging = true;
         this.panel.classList.add('dragging');
 
@@ -342,11 +395,28 @@ class FloatingControlPanel {
         this.dragOffset.x = e.clientX - rect.left;
         this.dragOffset.y = e.clientY - rect.top;
 
+        // 阻止默认行为和事件冒泡
         e.preventDefault();
+        e.stopPropagation();
+
+        // 禁用页面选择，提高拖拽体验
+        document.body.style.userSelect = 'none';
+
+        console.log('🖱️ 开始拖拽，偏移量:', this.dragOffset);
     }
 
     drag(e) {
         if (!this.isDragging) return;
+
+        // 阻止默认行为，防止页面滚动等
+        e.preventDefault();
+        e.stopPropagation();
+
+        // 确保鼠标坐标有效
+        if (typeof e.clientX !== 'number' || typeof e.clientY !== 'number') {
+            console.warn('🖱️ 无效的鼠标坐标:', e.clientX, e.clientY);
+            return;
+        }
 
         const x = e.clientX - this.dragOffset.x;
         const y = e.clientY - this.dragOffset.y;
@@ -358,10 +428,26 @@ class FloatingControlPanel {
         const constrainedX = Math.max(0, Math.min(x, maxX));
         const constrainedY = Math.max(0, Math.min(y, maxY));
 
-        this.panel.style.left = constrainedX + 'px';
-        this.panel.style.top = constrainedY + 'px';
-        this.panel.style.right = 'auto';
-        this.panel.style.bottom = 'auto';
+        // 直接更新位置，确保实时响应
+        this.updatePanelPosition(constrainedX, constrainedY);
+
+        // 调试信息（可选，正式版本可以移除）
+        // console.log('🖱️ 拖拽位置:', { x: constrainedX, y: constrainedY, clientX: e.clientX, clientY: e.clientY });
+    }
+
+    updatePanelPosition(x, y) {
+        try {
+            // 直接使用 left/top 定位，在拖拽过程中保持简单
+            this.panel.style.left = x + 'px';
+            this.panel.style.top = y + 'px';
+            this.panel.style.right = 'auto';
+            this.panel.style.bottom = 'auto';
+
+            // 强制重绘以确保位置更新
+            this.panel.offsetHeight;
+        } catch (error) {
+            console.error('🖱️ 更新面板位置失败:', error);
+        }
     }
 
     endDrag() {
@@ -370,13 +456,69 @@ class FloatingControlPanel {
         this.isDragging = false;
         this.panel.classList.remove('dragging');
 
-        // 保存位置
+        // 恢复页面选择
+        document.body.style.userSelect = '';
+
+        // 获取当前位置
         const rect = this.panel.getBoundingClientRect();
-        const position = {
-            top: rect.top,
-            right: window.innerWidth - rect.right
-        };
+        const x = rect.left;
+        const y = rect.top;
+
+        // 应用智能定位（拖拽结束后）
+        this.applySmartPositioning(x, y);
+
+        // 保存位置
+        this.savePosition();
+
+        console.log('💾 拖拽结束，位置已保存');
+    }
+
+    applySmartPositioning(x, y) {
+        // 判断更接近哪个边缘，使用相应的定位方式
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+
+        if (x + this.panel.offsetWidth / 2 > centerX) {
+            // 更接近右边，使用 right 定位
+            this.panel.style.right = (window.innerWidth - x - this.panel.offsetWidth) + 'px';
+            this.panel.style.left = 'auto';
+        } else {
+            // 更接近左边，使用 left 定位
+            this.panel.style.left = x + 'px';
+            this.panel.style.right = 'auto';
+        }
+
+        if (y + this.panel.offsetHeight / 2 > centerY) {
+            // 更接近底部，使用 bottom 定位
+            this.panel.style.bottom = (window.innerHeight - y - this.panel.offsetHeight) + 'px';
+            this.panel.style.top = 'auto';
+        } else {
+            // 更接近顶部，使用 top 定位
+            this.panel.style.top = y + 'px';
+            this.panel.style.bottom = 'auto';
+        }
+    }
+
+    savePosition() {
+        const rect = this.panel.getBoundingClientRect();
+        const position = {};
+
+        // 保存当前使用的定位方式
+        if (this.panel.style.left !== 'auto' && this.panel.style.left !== '') {
+            position.left = rect.left;
+        }
+        if (this.panel.style.right !== 'auto' && this.panel.style.right !== '') {
+            position.right = window.innerWidth - rect.right;
+        }
+        if (this.panel.style.top !== 'auto' && this.panel.style.top !== '') {
+            position.top = rect.top;
+        }
+        if (this.panel.style.bottom !== 'auto' && this.panel.style.bottom !== '') {
+            position.bottom = window.innerHeight - rect.bottom;
+        }
+
         localStorage.setItem('automation-panel-position', JSON.stringify(position));
+        console.log('💾 保存面板位置:', position);
     }
 
     // 面板控制方法
@@ -386,6 +528,9 @@ class FloatingControlPanel {
 
         const btn = this.panel.querySelector('.btn-minimize');
         btn.textContent = this.isMinimized ? '+' : '−';
+        btn.title = this.isMinimized ? '展开面板' : '最小化面板';
+
+        console.log(`📦 面板已${this.isMinimized ? '最小化' : '展开'}，位置保持不变，可继续拖拽`);
     }
 
     hide() {
