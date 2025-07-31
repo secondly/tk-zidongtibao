@@ -297,6 +297,13 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   // 处理来自插件的localStorage更新请求
   if (request.type === 'sendToLocalStorage') {
     const { key, value } = request.data;
+
+    console.log(`📥 Content Script收到localStorage更新请求:`, {
+      key: key,
+      valueLength: value ? value.length : 0,
+      currentValue: localStorage.getItem(key) ? localStorage.getItem(key).length : 0
+    });
+
     localStorage.setItem(key, value);
     console.log(`✅ 已更新localStorage: ${key}`);
 
@@ -308,6 +315,17 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
       };
       window.postMessage(message, '*');
       console.log('📡 已通知浮层控制面板数据更新');
+
+      // 验证数据是否正确保存
+      const savedData = localStorage.getItem(key);
+      if (savedData) {
+        try {
+          const workflows = JSON.parse(savedData);
+          console.log(`✅ 验证：localStorage中现有 ${workflows.length} 个工作流`);
+        } catch (error) {
+          console.error('❌ 验证localStorage数据失败:', error);
+        }
+      }
     }
 
     sendResponse({success: true});

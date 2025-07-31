@@ -507,17 +507,17 @@ export function initializeConfigActionListeners() {
     importBtn.addEventListener("click", handleImportConfig);
   }
 
-  // 清除缓存按钮
-  const clearCacheBtn = getElement("#clearCacheBtn");
-  if (clearCacheBtn) {
-    clearCacheBtn.addEventListener("click", handleClearCache);
-  }
+  // 清除缓存按钮 - 由 popup-persistence.js 模块处理
+  // const clearCacheBtn = getElement("#clearCacheBtn");
+  // if (clearCacheBtn) {
+  //   clearCacheBtn.addEventListener("click", handleClearCache);
+  // }
 
-  // 诊断按钮
-  const diagnoseBtn = getElement("#diagnoseBtn");
-  if (diagnoseBtn) {
-    diagnoseBtn.addEventListener("click", handleDiagnose);
-  }
+  // // 诊断按钮
+  // const diagnoseBtn = getElement("#diagnoseBtn");
+  // if (diagnoseBtn) {
+  //   diagnoseBtn.addEventListener("click", handleDiagnose);
+  // }
 
   // 配置选择框变化事件
   const configSelect = getElement("#configSelect");
@@ -906,38 +906,7 @@ function importWorkflowFromFile(file) {
   reader.readAsText(file);
 }
 
-/**
- * 处理清除缓存按钮点击
- */
-function handleClearCache() {
-  debugLog("用户点击清除缓存按钮");
-
-  const confirmMessage =
-    "确定要清除所有缓存数据吗？这将清除保存的执行状态和工作流缓存。";
-  if (!confirm(confirmMessage)) {
-    return;
-  }
-
-  try {
-    // 清除状态缓存
-    localStorage.removeItem("automation_state_cache");
-    localStorage.removeItem("automation_workflow_cache");
-    localStorage.removeItem("automation_deletion_timestamp");
-
-    updateExecutionStatus(EXECUTION_STATUS.IDLE, "缓存已清除");
-    debugLog("缓存清除成功");
-
-    // 询问是否重新加载页面
-    const reloadConfirm = "缓存已清除。是否重新加载页面以完全重置状态？";
-    if (confirm(reloadConfirm)) {
-      window.location.reload();
-    }
-  } catch (error) {
-    console.error("清除缓存失败:", error);
-    updateExecutionStatus(EXECUTION_STATUS.ERROR, "清除缓存失败");
-    alert("清除缓存失败，请检查浏览器控制台获取详细信息。");
-  }
-}
+// handleClearCache 函数已移至 popup-persistence.js 模块中统一管理
 
 /**
  * 安全发送消息到内容脚本，自动处理连接问题
@@ -1000,160 +969,160 @@ async function sendMessageToContentScript(tabId, message, retryCount = 1) {
 /**
  * 处理诊断按钮点击
  */
-async function handleDiagnose() {
-  debugLog("用户点击诊断按钮");
+// async function handleDiagnose() {
+//   debugLog("用户点击诊断按钮");
 
-  try {
-    // 获取当前活动标签页
-    const [tab] = await chrome.tabs.query({
-      active: true,
-      currentWindow: true,
-    });
-    if (!tab) {
-      alert("无法获取当前标签页");
-      return;
-    }
+//   try {
+//     // 获取当前活动标签页
+//     const [tab] = await chrome.tabs.query({
+//       active: true,
+//       currentWindow: true,
+//     });
+//     if (!tab) {
+//       alert("无法获取当前标签页");
+//       return;
+//     }
 
-    // 检查页面URL是否支持内容脚本
-    if (
-      tab.url.startsWith("chrome://") ||
-      tab.url.startsWith("chrome-extension://") ||
-      tab.url.startsWith("edge://") ||
-      tab.url.startsWith("about:")
-    ) {
-      alert(
-        "当前页面不支持自动化功能\n\n不支持的页面类型：\n- chrome:// 页面\n- 扩展页面\n- edge:// 页面\n- about: 页面\n\n请在普通网页上使用自动化功能。"
-      );
-      return;
-    }
+//     // 检查页面URL是否支持内容脚本
+//     if (
+//       tab.url.startsWith("chrome://") ||
+//       tab.url.startsWith("chrome-extension://") ||
+//       tab.url.startsWith("edge://") ||
+//       tab.url.startsWith("about:")
+//     ) {
+//       alert(
+//         "当前页面不支持自动化功能\n\n不支持的页面类型：\n- chrome:// 页面\n- 扩展页面\n- edge:// 页面\n- about: 页面\n\n请在普通网页上使用自动化功能。"
+//       );
+//       return;
+//     }
 
-    updateExecutionStatus(EXECUTION_STATUS.RUNNING, "正在诊断自动化支持...");
+//     updateExecutionStatus(EXECUTION_STATUS.RUNNING, "正在诊断自动化支持...");
 
-    // 尝试连接内容脚本，如果失败则注入
-    let response;
-    try {
-      // 先尝试ping内容脚本
-      response = await chrome.tabs.sendMessage(tab.id, { action: "ping" });
-      if (!response || !response.success) {
-        throw new Error("内容脚本未响应");
-      }
-    } catch (error) {
-      console.log("内容脚本未加载，正在注入...");
-      updateExecutionStatus(EXECUTION_STATUS.RUNNING, "正在加载自动化模块...");
+//     // 尝试连接内容脚本，如果失败则注入
+//     let response;
+//     try {
+//       // 先尝试ping内容脚本
+//       response = await chrome.tabs.sendMessage(tab.id, { action: "ping" });
+//       if (!response || !response.success) {
+//         throw new Error("内容脚本未响应");
+//       }
+//     } catch (error) {
+//       console.log("内容脚本未加载，正在注入...");
+//       updateExecutionStatus(EXECUTION_STATUS.RUNNING, "正在加载自动化模块...");
 
-      try {
-        // 注入内容脚本
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ["content/content-modular.js"],
-        });
+//       try {
+//         // 注入内容脚本
+//         await chrome.scripting.executeScript({
+//           target: { tabId: tab.id },
+//           files: ["content/content-modular.js"],
+//         });
 
-        // 等待脚本加载
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+//         // 等待脚本加载
+//         await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        // 再次尝试ping
-        response = await chrome.tabs.sendMessage(tab.id, { action: "ping" });
-        if (!response || !response.success) {
-          throw new Error("内容脚本注入后仍无法连接");
-        }
-      } catch (injectError) {
-        console.error("注入内容脚本失败:", injectError);
-        updateExecutionStatus(EXECUTION_STATUS.ERROR, "模块加载失败");
-        alert(
-          "自动化模块加载失败\n\n可能的原因：\n1. 页面限制了脚本执行\n2. 扩展权限不足\n3. 页面正在加载中\n\n建议：\n1. 刷新页面后重试\n2. 检查扩展权限设置\n3. 在其他网页上测试"
-        );
-        return;
-      }
-    }
+//         // 再次尝试ping
+//         response = await chrome.tabs.sendMessage(tab.id, { action: "ping" });
+//         if (!response || !response.success) {
+//           throw new Error("内容脚本注入后仍无法连接");
+//         }
+//       } catch (injectError) {
+//         console.error("注入内容脚本失败:", injectError);
+//         updateExecutionStatus(EXECUTION_STATUS.ERROR, "模块加载失败");
+//         alert(
+//           "自动化模块加载失败\n\n可能的原因：\n1. 页面限制了脚本执行\n2. 扩展权限不足\n3. 页面正在加载中\n\n建议：\n1. 刷新页面后重试\n2. 检查扩展权限设置\n3. 在其他网页上测试"
+//         );
+//         return;
+//       }
+//     }
 
-    // 发送诊断请求
-    response = await sendMessageToContentScript(
-      tab.id,
-      {
-        action: "diagnose",
-      },
-      0
-    ); // 不重试，因为前面已经确保连接成功
+//     // 发送诊断请求
+//     response = await sendMessageToContentScript(
+//       tab.id,
+//       {
+//         action: "diagnose",
+//       },
+//       0
+//     ); // 不重试，因为前面已经确保连接成功
 
-    if (response && response.success) {
-      const diagnosis = response.diagnosis;
+//     if (response && response.success) {
+//       const diagnosis = response.diagnosis;
 
-      // 创建诊断报告
-      let report = `🔍 自动化支持诊断报告\n`;
-      report += `📅 时间: ${diagnosis.timestamp}\n`;
-      report += `🌐 页面: ${diagnosis.url}\n\n`;
+//       // 创建诊断报告
+//       let report = `🔍 自动化支持诊断报告\n`;
+//       report += `📅 时间: ${diagnosis.timestamp}\n`;
+//       report += `🌐 页面: ${diagnosis.url}\n\n`;
 
-      report += `📦 模块状态:\n`;
-      report += `  - ContentCore: ${
-        diagnosis.modules.contentCore ? "✅" : "❌"
-      }\n`;
-      report += `  - ContentAutomation: ${
-        diagnosis.modules.contentAutomation ? "✅" : "❌"
-      }\n`;
-      report += `  - SensitiveWordDetector: ${
-        diagnosis.modules.sensitiveWordDetector ? "✅" : "❌"
-      }\n\n`;
+//       report += `📦 模块状态:\n`;
+//       report += `  - ContentCore: ${
+//         diagnosis.modules.contentCore ? "✅" : "❌"
+//       }\n`;
+//       report += `  - ContentAutomation: ${
+//         diagnosis.modules.contentAutomation ? "✅" : "❌"
+//       }\n`;
+//       report += `  - SensitiveWordDetector: ${
+//         diagnosis.modules.sensitiveWordDetector ? "✅" : "❌"
+//       }\n\n`;
 
-      report += `🔧 关键函数:\n`;
-      report += `  - executeUniversalWorkflow: ${
-        diagnosis.functions.executeUniversalWorkflow ? "✅" : "❌"
-      }\n`;
-      report += `  - performEnhancedDragOperation: ${
-        diagnosis.functions.performEnhancedDragOperation ? "✅" : "❌"
-      }\n`;
-      report += `  - updateStatus: ${
-        diagnosis.functions.updateStatus ? "✅" : "❌"
-      }\n\n`;
+//       report += `🔧 关键函数:\n`;
+//       report += `  - executeUniversalWorkflow: ${
+//         diagnosis.functions.executeUniversalWorkflow ? "✅" : "❌"
+//       }\n`;
+//       report += `  - performEnhancedDragOperation: ${
+//         diagnosis.functions.performEnhancedDragOperation ? "✅" : "❌"
+//       }\n`;
+//       report += `  - updateStatus: ${
+//         diagnosis.functions.updateStatus ? "✅" : "❌"
+//       }\n\n`;
 
-      report += `🌍 环境:\n`;
-      report += `  - Chrome扩展: ${
-        diagnosis.chromeExtension ? "✅" : "❌"
-      }\n\n`;
+//       report += `🌍 环境:\n`;
+//       report += `  - Chrome扩展: ${
+//         diagnosis.chromeExtension ? "✅" : "❌"
+//       }\n\n`;
 
-      if (diagnosis.issues.length > 0) {
-        report += `⚠️ 发现问题:\n`;
-        diagnosis.issues.forEach((issue) => {
-          report += `  - ${issue}\n`;
-        });
-        report += `\n🔧 建议: 点击"修复"按钮尝试自动修复这些问题。`;
-      } else {
-        report += `✅ 所有检查通过，自动化功能应该正常工作！`;
-      }
+//       if (diagnosis.issues.length > 0) {
+//         report += `⚠️ 发现问题:\n`;
+//         diagnosis.issues.forEach((issue) => {
+//           report += `  - ${issue}\n`;
+//         });
+//         report += `\n🔧 建议: 点击"修复"按钮尝试自动修复这些问题。`;
+//       } else {
+//         report += `✅ 所有检查通过，自动化功能应该正常工作！`;
+//       }
 
-      // 显示诊断结果
-      const showFix = diagnosis.issues.length > 0;
-      const userChoice = showFix
-        ? confirm(report + "\n\n是否尝试自动修复发现的问题？")
-        : alert(report);
+//       // 显示诊断结果
+//       const showFix = diagnosis.issues.length > 0;
+//       const userChoice = showFix
+//         ? confirm(report + "\n\n是否尝试自动修复发现的问题？")
+//         : alert(report);
 
-      if (showFix && userChoice) {
-        // 尝试修复
-        updateExecutionStatus(EXECUTION_STATUS.RUNNING, "正在尝试修复问题...");
+//       if (showFix && userChoice) {
+//         // 尝试修复
+//         updateExecutionStatus(EXECUTION_STATUS.RUNNING, "正在尝试修复问题...");
 
-        const fixResponse = await chrome.tabs.sendMessage(tab.id, {
-          action: "fixAutomation",
-        });
+//         const fixResponse = await chrome.tabs.sendMessage(tab.id, {
+//           action: "fixAutomation",
+//         });
 
-        if (fixResponse && fixResponse.success) {
-          updateExecutionStatus(EXECUTION_STATUS.IDLE, "修复完成，请重新测试");
-          alert("修复完成！请重新测试自动化功能。");
-        } else {
-          updateExecutionStatus(EXECUTION_STATUS.ERROR, "修复失败");
-          alert("自动修复失败，请手动检查问题。");
-        }
-      } else {
-        updateExecutionStatus(EXECUTION_STATUS.IDLE, "诊断完成");
-      }
-    } else {
-      updateExecutionStatus(EXECUTION_STATUS.ERROR, "诊断失败");
-      alert("诊断失败：" + (response?.error || "无法连接到内容脚本"));
-    }
-  } catch (error) {
-    console.error("诊断过程出错:", error);
-    updateExecutionStatus(EXECUTION_STATUS.ERROR, "诊断出错");
-    alert("诊断过程出错：" + error.message);
-  }
-}
+//         if (fixResponse && fixResponse.success) {
+//           updateExecutionStatus(EXECUTION_STATUS.IDLE, "修复完成，请重新测试");
+//           alert("修复完成！请重新测试自动化功能。");
+//         } else {
+//           updateExecutionStatus(EXECUTION_STATUS.ERROR, "修复失败");
+//           alert("自动修复失败，请手动检查问题。");
+//         }
+//       } else {
+//         updateExecutionStatus(EXECUTION_STATUS.IDLE, "诊断完成");
+//       }
+//     } else {
+//       updateExecutionStatus(EXECUTION_STATUS.ERROR, "诊断失败");
+//       alert("诊断失败：" + (response?.error || "无法连接到内容脚本"));
+//     }
+//   } catch (error) {
+//     console.error("诊断过程出错:", error);
+//     updateExecutionStatus(EXECUTION_STATUS.ERROR, "诊断出错");
+//     alert("诊断过程出错：" + error.message);
+//   }
+// }
 
 /**
  * 调试配置加载问题的专用函数

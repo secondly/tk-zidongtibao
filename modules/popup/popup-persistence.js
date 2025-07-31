@@ -314,6 +314,7 @@ export function clearStateCache() {
     try {
         localStorage.removeItem(STATE_CACHE_KEY);
         localStorage.removeItem(WORKFLOW_CACHE_KEY);
+        localStorage.removeItem("automation_deletion_timestamp"); // 同时清除删除时间戳
 
         debugLog('状态缓存已清除');
 

@@ -54,6 +54,12 @@ export function saveWorkflowsToStorage(workflows) {
 
         // 同步到网页的 localStorage
         const value = localStorage.getItem(STORAGE_KEY); // 从扩展的 localStorage 获取数据
+        console.log('🔄 准备同步数据到网页localStorage:', {
+            key: STORAGE_KEY,
+            dataLength: value ? value.length : 0,
+            workflowCount: workflows.length
+        });
+
         chrome.runtime.sendMessage({
             action: 'sendToWebpageStorage',
             data: {

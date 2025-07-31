@@ -594,8 +594,16 @@ class FloatingControlPanel {
             if (event.source !== window) return;
 
             if (event.data.type === 'WORKFLOW_DATA_UPDATED') {
-                console.log('📡 收到工作流数据更新通知，刷新列表');
-                this.loadWorkflows();
+                console.log('📡 浮层控制面板收到工作流数据更新通知，刷新列表');
+                console.log('📊 更新前localStorage状态:', {
+                    hasData: !!localStorage.getItem('automationWorkflows'),
+                    dataLength: localStorage.getItem('automationWorkflows')?.length || 0
+                });
+
+                // 延迟一点时间确保数据已经写入
+                setTimeout(() => {
+                    this.loadWorkflows();
+                }, 100);
             }
         });
 

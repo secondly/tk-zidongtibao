@@ -80,31 +80,31 @@ if (
       return true;
     }
 
-    // 处理诊断请求
-    if (request.action === "diagnose") {
-      console.log("🔍 收到诊断请求");
-      try {
-        const diagnosis = diagnoseAutomationSupport();
-        sendResponse({ success: true, diagnosis });
-      } catch (error) {
-        console.error("诊断失败:", error);
-        sendResponse({ success: false, error: error.message });
-      }
-      return true;
-    }
+    // // 处理诊断请求
+    // if (request.action === "diagnose") {
+    //   console.log("🔍 收到诊断请求");
+    //   try {
+    //     const diagnosis = diagnoseAutomationSupport();
+    //     sendResponse({ success: true, diagnosis });
+    //   } catch (error) {
+    //     console.error("诊断失败:", error);
+    //     sendResponse({ success: false, error: error.message });
+    //   }
+    //   return true;
+    // }
 
-    // 处理修复请求
-    if (request.action === "fixAutomation") {
-      console.log("🔧 收到修复请求");
-      try {
-        fixAutomationSupport();
-        sendResponse({ success: true, message: "修复操作已启动" });
-      } catch (error) {
-        console.error("修复失败:", error);
-        sendResponse({ success: false, error: error.message });
-      }
-      return true;
-    }
+    // // 处理修复请求
+    // if (request.action === "fixAutomation") {
+    //   console.log("🔧 收到修复请求");
+    //   try {
+    //     fixAutomationSupport();
+    //     sendResponse({ success: true, message: "修复操作已启动" });
+    //   } catch (error) {
+    //     console.error("修复失败:", error);
+    //     sendResponse({ success: false, error: error.message });
+    //   }
+    //   return true;
+    // }
 
     // 处理通用自动化工作流执行
     if (request.action === "executeWorkflow") {
@@ -1741,50 +1741,50 @@ async function testSensitiveWordDetection(data) {
   }
 }
 
-// 添加诊断功能
-function diagnoseAutomationSupport() {
-  const diagnosis = {
-    timestamp: new Date().toISOString(),
-    url: window.location.href,
-    modules: {},
-    functions: {},
-    issues: [],
-  };
+// // 添加诊断功能
+// function diagnoseAutomationSupport() {
+//   const diagnosis = {
+//     timestamp: new Date().toISOString(),
+//     url: window.location.href,
+//     modules: {},
+//     functions: {},
+//     issues: [],
+//   };
 
-  // 检查模块加载状态
-  diagnosis.modules.contentCore = !!window.ContentCore;
-  diagnosis.modules.contentAutomation = !!window.ContentAutomation;
-  diagnosis.modules.sensitiveWordDetector = !!window.SensitiveWordDetector;
+//   // 检查模块加载状态
+//   diagnosis.modules.contentCore = !!window.ContentCore;
+//   diagnosis.modules.contentAutomation = !!window.ContentAutomation;
+//   diagnosis.modules.sensitiveWordDetector = !!window.SensitiveWordDetector;
 
-  // 检查关键函数
-  diagnosis.functions.executeUniversalWorkflow =
-    !!window.ContentAutomation?.executeUniversalWorkflow;
-  diagnosis.functions.performEnhancedDragOperation =
-    !!window.ContentAutomation?.performEnhancedDragOperation;
-  diagnosis.functions.updateStatus = !!window.updateStatus;
+//   // 检查关键函数
+//   diagnosis.functions.executeUniversalWorkflow =
+//     !!window.ContentAutomation?.executeUniversalWorkflow;
+//   diagnosis.functions.performEnhancedDragOperation =
+//     !!window.ContentAutomation?.performEnhancedDragOperation;
+//   diagnosis.functions.updateStatus = !!window.updateStatus;
 
-  // 检查Chrome扩展环境
-  diagnosis.chromeExtension = !!(
-    typeof chrome !== "undefined" && chrome.runtime
-  );
+//   // 检查Chrome扩展环境
+//   diagnosis.chromeExtension = !!(
+//     typeof chrome !== "undefined" && chrome.runtime
+//   );
 
-  // 识别问题
-  if (!diagnosis.modules.contentCore) {
-    diagnosis.issues.push("ContentCore模块未加载");
-  }
-  if (!diagnosis.modules.contentAutomation) {
-    diagnosis.issues.push("ContentAutomation模块未加载");
-  }
-  if (!diagnosis.functions.executeUniversalWorkflow) {
-    diagnosis.issues.push("executeUniversalWorkflow函数不可用");
-  }
-  if (!diagnosis.chromeExtension) {
-    diagnosis.issues.push("Chrome扩展环境不可用");
-  }
+//   // 识别问题
+//   if (!diagnosis.modules.contentCore) {
+//     diagnosis.issues.push("ContentCore模块未加载");
+//   }
+//   if (!diagnosis.modules.contentAutomation) {
+//     diagnosis.issues.push("ContentAutomation模块未加载");
+//   }
+//   if (!diagnosis.functions.executeUniversalWorkflow) {
+//     diagnosis.issues.push("executeUniversalWorkflow函数不可用");
+//   }
+//   if (!diagnosis.chromeExtension) {
+//     diagnosis.issues.push("Chrome扩展环境不可用");
+//   }
 
-  console.log("🔍 自动化支持诊断结果:", diagnosis);
-  return diagnosis;
-}
+//   console.log("🔍 自动化支持诊断结果:", diagnosis);
+//   return diagnosis;
+// }
 
 // 修复自动化支持
 async function fixAutomationSupport() {
@@ -1799,10 +1799,10 @@ async function fixAutomationSupport() {
       script.src = chrome.runtime.getURL("content/content.js");
       script.onload = () => {
         console.log("✅ 原始内容脚本加载成功");
-        // 重新诊断
-        setTimeout(() => {
-          diagnoseAutomationSupport();
-        }, 1000);
+        // // 重新诊断
+        // setTimeout(() => {
+        //   diagnoseAutomationSupport();
+        // }, 1000);
       };
       script.onerror = (error) => {
         console.error("❌ 原始内容脚本加载失败:", error);
@@ -1955,13 +1955,13 @@ window.ContentCore = {
   fixAutomationSupport,
 };
 
-// 自动诊断和修复
-setTimeout(() => {
-  const diagnosis = diagnoseAutomationSupport();
-  if (diagnosis.issues.length > 0) {
-    console.log("🔧 检测到问题，尝试自动修复...");
-    fixAutomationSupport();
-  }
-}, 2000);
+// // 自动诊断和修复
+// setTimeout(() => {
+//   const diagnosis = diagnoseAutomationSupport();
+//   if (diagnosis.issues.length > 0) {
+//     console.log("🔧 检测到问题，尝试自动修复...");
+//     fixAutomationSupport();
+//   }
+// }, 2000);
 
-console.log("✅ ContentCore模块已加载");
+// console.log("✅ ContentCore模块已加载");

@@ -614,15 +614,32 @@ function sleep(ms) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'sendToWebpageStorage') {
-        // 获取当前活动标签页并转发消息
-        chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-            if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, {
-                    type: 'sendToLocalStorage',
-                    data: message.data
-                });
-            }
+        console.log('📡 Background收到数据同步请求:', message.data);
+
+        // 获取所有标签页并转发消息，不仅仅是当前活动标签页
+        chrome.tabs.query({}, (tabs) => {
+            let successCount = 0;
+            let errorCount = 0;
+
+            tabs.forEach(tab => {
+                // 跳过chrome://等特殊页面
+                if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+                    chrome.tabs.sendMessage(tab.id, {
+                        type: 'sendToLocalStorage',
+                        data: message.data
+                    }).then(() => {
+                        successCount++;
+                        console.log(`✅ 数据已同步到标签页: ${tab.url}`);
+                    }).catch(error => {
+                        errorCount++;
+                        console.log(`⚠️ 同步到标签页失败: ${tab.url}`, error.message);
+                    });
+                }
+            });
+
+            console.log(`📊 数据同步请求已发送到 ${tabs.length} 个标签页`);
         });
+
         sendResponse({success: true});
     }
 });
