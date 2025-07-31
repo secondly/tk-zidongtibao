@@ -59,6 +59,22 @@ class FloatingControlPanel {
                         <div class="progress-fill"></div>
                     </div>
                 </div>
+                <div class="log-display">
+                    <div class="log-header">
+                        <span class="log-title">📋 执行日志</span>
+                        <button class="log-clear" title="清除日志">🗑️</button>
+                    </div>
+                    <div class="log-filter">
+                        <input type="text" id="log-filter-input" placeholder="🔍 筛选日志..." />
+                        <button class="log-filter-clear" title="清除筛选">✖️</button>
+                    </div>
+                    <div class="log-content" id="log-content">
+                        <div class="log-item log-info">
+                            <span class="log-time">${new Date().toLocaleTimeString()}</span>
+                            <span class="log-message">浮层控制面板已就绪</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
 
@@ -83,7 +99,7 @@ class FloatingControlPanel {
                 position: fixed;
                 bottom: 20px;
                 right: 20px;
-                width: 280px;
+                width: 400px;
                 border: 1px solid rgba(255, 255, 255, 0.2);
                 background: rgba(255, 255, 255, 0.15);
                 backdrop-filter: blur(10px);
@@ -306,7 +322,7 @@ class FloatingControlPanel {
             }
 
             .progress-bar {
-                height: 4px;
+                height: 1px;
                 background: #f0f0f0;
                 border-radius: 2px;
                 overflow: hidden;
@@ -317,6 +333,168 @@ class FloatingControlPanel {
                 background: linear-gradient(90deg, #667eea, #764ba2);
                 width: 0%;
                 transition: width 0.3s ease;
+            }
+
+            /* 日志显示区域样式 */
+            .log-display {
+                margin-top: 12px;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+                padding-top: 8px;
+            }
+
+            .log-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 6px;
+            }
+
+            .log-title {
+                font-size: 10px;
+                font-weight: 600;
+                color: rgba(255, 255, 255, 0.8);
+            }
+
+            .log-clear {
+                background: none;
+                border: none;
+                color: rgba(255, 255, 255, 0.6);
+                cursor: pointer;
+                font-size: 10px;
+                padding: 2px 4px;
+                border-radius: 3px;
+                transition: all 0.2s;
+            }
+
+            .log-clear:hover {
+                background: rgba(255, 255, 255, 0.1);
+                color: rgba(255, 255, 255, 0.9);
+            }
+
+            /* 日志筛选区域样式 */
+            .log-filter {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                margin: 8px 0;
+                padding: 0 4px;
+            }
+
+            #log-filter-input {
+                flex: 1;
+                padding: 4px 8px;
+                background: rgba(0, 0, 0, 0.3);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 4px;
+                color: rgba(255, 255, 255, 0.9);
+                font-size: 11px;
+                outline: none;
+                transition: all 0.2s ease;
+            }
+
+            #log-filter-input:focus {
+                border-color: rgba(255, 255, 255, 0.4);
+                background: rgba(0, 0, 0, 0.5);
+            }
+
+            #log-filter-input::placeholder {
+                color: rgba(255, 255, 255, 0.5);
+            }
+
+            .log-filter-clear {
+                background: none;
+                border: none;
+                color: rgba(255, 255, 255, 0.6);
+                cursor: pointer;
+                padding: 2px 4px;
+                border-radius: 2px;
+                font-size: 10px;
+                transition: all 0.2s ease;
+                display: none;
+            }
+
+            .log-filter-clear:hover {
+                background: rgba(255, 255, 255, 0.1);
+                color: rgba(255, 255, 255, 0.9);
+            }
+
+            .log-filter-clear.show {
+                display: block;
+            }
+
+            /* 隐藏不匹配的日志项 */
+            .log-item.filtered-hidden {
+                display: none !important;
+            }
+
+            .log-content {
+                height: 200px;
+                overflow-y: auto;
+                background: rgba(0, 0, 0, 0.5);
+                border-radius: 4px;
+                padding: 4px;
+                font-size: 12px;
+                line-height: 1.3;
+            }
+
+            .log-item {
+                display: flex;
+                margin-bottom: 2px;
+                padding: 2px 4px;
+                border-radius: 2px;
+                transition: background 0.2s;
+            }
+
+            .log-item:hover {
+                background: rgba(255, 255, 255, 0.05);
+            }
+
+            .log-time {
+                color: rgba(255, 255, 255, 0.5);
+                margin-right: 6px;
+                font-size: 8px;
+                min-width: 45px;
+                flex-shrink: 0;
+            }
+
+            .log-message {
+                color: rgba(255, 255, 255, 0.8);
+                flex: 1;
+            }
+
+            .log-info .log-message {
+                color: rgba(135, 206, 250, 0.9);
+            }
+
+            .log-success .log-message {
+                color: rgba(144, 238, 144, 0.9);
+            }
+
+            .log-warning .log-message {
+                color: rgba(255, 215, 0, 0.9);
+            }
+
+            .log-error .log-message {
+                color: rgba(255, 99, 71, 0.9);
+            }
+
+            /* 日志滚动条样式 */
+            .log-content::-webkit-scrollbar {
+                width: 3px;
+            }
+
+            .log-content::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 2px;
+            }
+
+            .log-content::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 2px;
+            }
+
+            .log-content::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.5);
             }
 
             /* 拖拽时的样式 */
@@ -396,10 +574,20 @@ class FloatingControlPanel {
         this.panel.querySelector('#resume-btn').addEventListener('click', this.resumeWorkflow.bind(this));
         this.panel.querySelector('#stop-btn').addEventListener('click', this.stopWorkflow.bind(this));
 
+        // 日志清除按钮
+        this.panel.querySelector('.log-clear').addEventListener('click', this.clearLog.bind(this));
+
+        // 日志筛选功能
+        this.panel.querySelector('#log-filter-input').addEventListener('input', this.filterLogs.bind(this));
+        this.panel.querySelector('.log-filter-clear').addEventListener('click', this.clearLogFilter.bind(this));
+
         // 监听来自content script的 postMessage 状态更新
         window.addEventListener('message', (event) => {
             // 确保消息来源是当前窗口
             if (event.source !== window) return;
+
+            // 调试：打印所有接收到的消息
+            console.log('🔍 浮层收到postMessage:', event.data);
 
             // 检查消息类型
             if (event.data.type === 'FROM_CONTENT_SCRIPT') {
@@ -411,6 +599,18 @@ class FloatingControlPanel {
                 } else if (action === 'executionProgress') {
                     this.updateProgress(data.progress, data.message);
                 }
+            } else if (event.data.type === 'EXECUTION_STATE_CHANGED') {
+                // 处理执行状态变更消息
+                console.log('📊 浮层收到执行状态变更:', event.data);
+                this.setExecutionState(event.data.isRunning, event.data.isPaused);
+                if (event.data.status) {
+                    this.updateStatus(event.data.status);
+                    this.addLog(`工作流${event.data.status}`, event.data.isPaused ? 'warning' : 'success');
+                }
+            } else if (event.data.type === 'EXECUTION_LOG') {
+                // 处理执行日志消息
+                console.log('📋 浮层收到执行日志:', event.data);
+                this.addLog(event.data.message, event.data.logType || 'info');
             }
         });
     }
@@ -660,21 +860,25 @@ class FloatingControlPanel {
     executeWorkflow() {
         if (!this.executionState.currentWorkflow) {
             this.updateStatus('请先选择工作流', 'error');
+            this.addLog('执行失败: 未选择工作流', 'error');
             return;
         }
 
         try {
             this.updateStatus('正在启动执行...');
             this.setExecutionState(true, false);
+            this.addLog(`开始执行工作流: ${this.executionState.currentWorkflow.name}`, 'info');
 
             // 发送与插件面板相同的executeWorkflow消息
             this.sendMessageToContentScript('executeWorkflow', this.executionState.currentWorkflow);
 
             this.updateStatus('工作流执行中...');
+            this.addLog('工作流执行请求已发送', 'success');
             console.log('✅ 工作流执行请求已发送');
         } catch (error) {
             console.error('❌ 执行工作流失败:', error);
             this.updateStatus('执行失败: ' + error.message, 'error');
+            this.addLog(`执行失败: ${error.message}`, 'error');
             this.setExecutionState(false, false);
         }
     }
@@ -682,38 +886,46 @@ class FloatingControlPanel {
     pauseWorkflow() {
         try {
             this.updateStatus('正在暂停...');
+            this.addLog('正在暂停工作流执行...', 'warning');
 
             // 发送与插件面板相同的pauseExecution消息
             this.sendMessageToContentScript('pauseExecution');
 
-            this.setExecutionState(true, true);
-            this.updateStatus('已暂停');
-            console.log('✅ 工作流暂停请求已发送');
+            // 不立即更新状态，等待执行引擎确认暂停
+            // this.setExecutionState(true, true);
+            // this.updateStatus('已暂停');
+            // this.addLog('工作流已暂停', 'warning');
+            console.log('✅ 工作流暂停请求已发送，等待确认...');
         } catch (error) {
             console.error('❌ 暂停失败:', error);
             this.updateStatus('暂停失败: ' + error.message, 'error');
+            this.addLog(`暂停失败: ${error.message}`, 'error');
         }
     }
 
     resumeWorkflow() {
         try {
             this.updateStatus('正在恢复...');
+            this.addLog('正在恢复工作流执行...', 'info');
 
             // 发送与插件面板相同的resumeExecution消息
             this.sendMessageToContentScript('resumeExecution');
 
             this.setExecutionState(true, false);
             this.updateStatus('已恢复执行');
+            this.addLog('工作流已恢复执行', 'success');
             console.log('✅ 工作流恢复请求已发送');
         } catch (error) {
             console.error('❌ 恢复失败:', error);
             this.updateStatus('恢复失败: ' + error.message, 'error');
+            this.addLog(`恢复失败: ${error.message}`, 'error');
         }
     }
 
     stopWorkflow() {
         try {
             this.updateStatus('正在停止...');
+            this.addLog('正在停止工作流执行...', 'warning');
 
             // 发送与插件面板相同的stopExecution消息
             this.sendMessageToContentScript('stopExecution');
@@ -721,10 +933,12 @@ class FloatingControlPanel {
             this.setExecutionState(false, false);
             this.updateStatus('已停止');
             this.updateProgress(0);
+            this.addLog('工作流已停止', 'info');
             console.log('✅ 工作流停止请求已发送');
         } catch (error) {
             console.error('❌ 停止失败:', error);
             this.updateStatus('停止失败: ' + error.message, 'error');
+            this.addLog(`停止失败: ${error.message}`, 'error');
         }
     }
 
@@ -777,13 +991,31 @@ class FloatingControlPanel {
     }
 
     updateExecutionStatus(data) {
-        if (data.isRunning !== undefined) {
-            this.setExecutionState(data.isRunning, data.isPaused || false);
+        const { isRunning, isPaused, message, currentStep, totalSteps, error } = data;
+
+        // 更新执行状态
+        if (isRunning !== undefined) {
+            this.executionState.isRunning = isRunning;
+            this.executionState.isPaused = isPaused || false;
+            this.setExecutionState(isRunning, isPaused || false);
         }
 
-        if (data.message) {
-            this.updateStatus(data.message);
+        // 更新状态文本
+        if (message) {
+            this.updateStatus(message);
         }
+
+        // 记录到日志
+        if (error) {
+            this.addLog(`执行错误: ${error}`, 'error');
+        } else if (currentStep && totalSteps) {
+            this.addLog(`执行步骤 ${currentStep}/${totalSteps}: ${message || '进行中'}`, 'info');
+        } else if (message) {
+            const logType = isRunning ? 'info' : (isPaused ? 'warning' : 'success');
+            this.addLog(message, logType);
+        }
+
+        console.log('📊 浮层执行状态已更新:', data);
     }
 
     updateStatus(message, type = 'info') {
@@ -815,8 +1047,122 @@ class FloatingControlPanel {
 
         if (message) {
             statusText.textContent = message;
+            // 记录进度更新到日志
+            this.addLog(`进度更新: ${message} (${progress}%)`, 'info');
         }
     }
+
+    // 日志管理方法
+    addLog(message, type = 'info') {
+        const logContent = this.panel.querySelector('#log-content');
+        if (!logContent) return;
+
+        const logItem = document.createElement('div');
+        logItem.className = `log-item log-${type}`;
+
+        const time = new Date().toLocaleTimeString('zh-CN', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+
+        logItem.innerHTML = `
+            <span class="log-time">${time}</span>
+            <span class="log-message">${message}</span>
+        `;
+
+        logContent.appendChild(logItem);
+
+        // 应用当前筛选条件
+        const filterInput = this.panel.querySelector('#log-filter-input');
+        if (filterInput && filterInput.value.trim()) {
+            const filterText = filterInput.value.toLowerCase().trim();
+            const messageText = message.toLowerCase();
+            if (!messageText.includes(filterText)) {
+                logItem.classList.add('filtered-hidden');
+            }
+        }
+
+        // 自动滚动到底部
+        logContent.scrollTop = logContent.scrollHeight;
+
+        // 限制日志条数，保留最新的50条
+        const logItems = logContent.querySelectorAll('.log-item');
+        if (logItems.length > 50) {
+            logItems[0].remove();
+        }
+
+        console.log(`📋 浮层日志: [${type.toUpperCase()}] ${message}`);
+    }
+
+    clearLog() {
+        const logContent = this.panel.querySelector('#log-content');
+        if (logContent) {
+            logContent.innerHTML = `
+                <div class="log-item log-info">
+                    <span class="log-time">${new Date().toLocaleTimeString()}</span>
+                    <span class="log-message">日志已清除</span>
+                </div>
+            `;
+        }
+        // 清除筛选
+        this.clearLogFilter();
+        console.log('🗑️ 浮层日志已清除');
+    }
+
+    // 筛选日志功能
+    filterLogs() {
+        const filterInput = this.panel.querySelector('#log-filter-input');
+        const filterClearBtn = this.panel.querySelector('.log-filter-clear');
+        const logItems = this.panel.querySelectorAll('.log-item');
+
+        const filterText = filterInput.value.toLowerCase().trim();
+
+        // 显示/隐藏清除按钮
+        if (filterText) {
+            filterClearBtn.classList.add('show');
+        } else {
+            filterClearBtn.classList.remove('show');
+        }
+
+        // 筛选日志项
+        logItems.forEach(item => {
+            const messageElement = item.querySelector('.log-message');
+            if (messageElement) {
+                const messageText = messageElement.textContent.toLowerCase();
+                if (!filterText || messageText.includes(filterText)) {
+                    item.classList.remove('filtered-hidden');
+                } else {
+                    item.classList.add('filtered-hidden');
+                }
+            }
+        });
+
+        console.log(`📋 日志筛选: "${filterText}"`);
+    }
+
+    // 清除日志筛选
+    clearLogFilter() {
+        const filterInput = this.panel.querySelector('#log-filter-input');
+        const filterClearBtn = this.panel.querySelector('.log-filter-clear');
+        const logItems = this.panel.querySelectorAll('.log-item');
+
+        // 清空输入框
+        filterInput.value = '';
+
+        // 隐藏清除按钮
+        filterClearBtn.classList.remove('show');
+
+        // 显示所有日志项
+        logItems.forEach(item => {
+            item.classList.remove('filtered-hidden');
+        });
+
+        console.log('📋 日志筛选已清除');
+    }
+
+
 
     // 销毁方法
     destroy() {

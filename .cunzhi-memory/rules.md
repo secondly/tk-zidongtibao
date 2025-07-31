@@ -29,3 +29,5 @@
 - 工作流设计器连线渲染问题：数据结构不一致导致连线不显示，需要统一workflowConverter.js和designer-workflow.js的连线数据格式
 - 敏感词检测功能失效问题：工作流导出时敏感词检测配置没有被包含在导出数据中，需要在designer-workflow.js的导出逻辑中添加sensitiveWordDetection字段的处理
 - 新增拖拽操作功能节点：支持元素定位、水平垂直方向拖拽、像素距离配置、超时设置，通过mousedown/mousemove/mouseup事件序列实现拖拽模拟
+- 用户需要给日志增加筛选功能，可以通过匹配关键词筛选日志内容
+- 用户要求在日志中显示敏感词检测跳过的步骤，避免用户感觉少执行了步骤

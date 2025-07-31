@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>暂停功能测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        
+        .test-section h3 {
+            color: #555;
+            margin-top: 0;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        
+        .test-button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(45deg, #f093fb, #f5576c);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+        
+        .input-group {
+            margin: 15px 0;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+        }
+        
+        .status-display {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e8f4fd;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .instructions h4 {
+            margin-top: 0;
+            color: #856404;
+        }
+        
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin: 5px 0;
+            color: #856404;
+        }
+        
+        .highlight {
+            background: yellow;
+            padding: 2px 4px;
+            border-radius: 3px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { background: yellow; }
+            50% { background: orange; }
+            100% { background: yellow; }
+        }
+        
+        .disabled {
+            opacity: 0.6;
+            cursor: not-allowed !important;
+            pointer-events: none;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .delay-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 暂停功能测试页面</h1>
+        
+        <div class="instructions">
+            <h4>📋 测试说明：</h4>
+            <ol>
+                <li>打开浮层控制面板</li>
+                <li>导入或创建一个包含多个步骤的工作流</li>
+                <li>点击"执行"开始工作流</li>
+                <li>在执行过程中点击"暂停"按钮</li>
+                <li>观察是否立即暂停执行</li>
+                <li>点击"恢复"按钮继续执行</li>
+            </ol>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎯 快速点击测试区域</h3>
+            <p>这些按钮可以用来测试点击操作的暂停功能：</p>
+            <div class="button-group">
+                <button class="test-button btn-primary" id="test-btn-1">测试按钮 1</button>
+                <button class="test-button btn-secondary" id="test-btn-2">测试按钮 2</button>
+                <button class="test-button btn-success" id="test-btn-3">测试按钮 3</button>
+                <button class="test-button btn-primary" id="test-btn-4">测试按钮 4</button>
+                <button class="test-button btn-secondary" id="test-btn-5">测试按钮 5</button>
+            </div>
+            <div class="delay-info">
+                💡 建议在工作流中为每个点击步骤设置1-2秒的延迟，以便有时间测试暂停功能
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📝 输入框测试区域</h3>
+            <p>这些输入框可以用来测试输入操作的暂停功能：</p>
+            <div class="input-group">
+                <label for="test-input-1">测试输入框 1：</label>
+                <input type="text" id="test-input-1" placeholder="在这里输入测试文本...">
+            </div>
+            <div class="input-group">
+                <label for="test-input-2">测试输入框 2：</label>
+                <input type="text" id="test-input-2" placeholder="在这里输入更多测试文本...">
+            </div>
+            <div class="input-group">
+                <label for="test-input-3">测试输入框 3：</label>
+                <input type="email" id="test-input-3" placeholder="输入邮箱地址...">
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>⏱️ 等待测试区域</h3>
+            <p>这个区域可以用来测试等待操作的暂停功能：</p>
+            <div class="status-display" id="status-display">
+                <strong>状态：</strong> <span id="status-text">就绪</span>
+            </div>
+            <div class="button-group">
+                <button class="test-button btn-primary" onclick="simulateLoading()">模拟加载过程</button>
+                <button class="test-button btn-secondary" onclick="resetStatus()">重置状态</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔄 动态内容测试区域</h3>
+            <p>这个区域会动态生成内容，用于测试智能等待的暂停功能：</p>
+            <div id="dynamic-content">
+                <p>点击下面的按钮生成动态内容...</p>
+            </div>
+            <div class="button-group">
+                <button class="test-button btn-success" onclick="generateDynamicContent()">生成动态内容</button>
+                <button class="test-button btn-primary" onclick="clearDynamicContent()">清除内容</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 按钮点击事件处理
+        document.querySelectorAll('.test-button').forEach((btn, index) => {
+            if (btn.id && btn.id.startsWith('test-btn-')) {
+                btn.addEventListener('click', function() {
+                    console.log(`测试按钮 ${btn.id} 被点击`);
+                    btn.style.background = 'linear-gradient(45deg, #43e97b, #38f9d7)';
+                    btn.textContent = '已点击 ✓';
+                    
+                    setTimeout(() => {
+                        btn.style.background = '';
+                        btn.textContent = btn.textContent.replace(' ✓', '');
+                    }, 2000);
+                });
+            }
+        });
+        
+        // 模拟加载过程
+        function simulateLoading() {
+            const statusText = document.getElementById('status-text');
+            const statusDisplay = document.getElementById('status-display');
+            
+            statusText.textContent = '加载中...';
+            statusDisplay.style.background = '#fff3cd';
+            statusDisplay.style.borderColor = '#ffc107';
+            
+            setTimeout(() => {
+                statusText.textContent = '加载完成';
+                statusDisplay.style.background = '#d4edda';
+                statusDisplay.style.borderColor = '#28a745';
+            }, 3000);
+        }
+        
+        // 重置状态
+        function resetStatus() {
+            const statusText = document.getElementById('status-text');
+            const statusDisplay = document.getElementById('status-display');
+            
+            statusText.textContent = '就绪';
+            statusDisplay.style.background = '#e8f4fd';
+            statusDisplay.style.borderColor = '#2196F3';
+        }
+        
+        // 生成动态内容
+        function generateDynamicContent() {
+            const container = document.getElementById('dynamic-content');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            container.innerHTML = `
+                <div style="padding: 15px; background: #f0f8ff; border-radius: 6px; margin: 10px 0;">
+                    <h4>🎉 动态生成的内容</h4>
+                    <p><strong>生成时间：</strong> ${timestamp}</p>
+                    <button class="test-button btn-primary dynamic-btn">动态按钮 1</button>
+                    <button class="test-button btn-secondary dynamic-btn">动态按钮 2</button>
+                    <input type="text" placeholder="动态输入框" style="margin: 10px 0; padding: 8px; width: 200px;">
+                </div>
+            `;
+            
+            // 为动态按钮添加事件
+            container.querySelectorAll('.dynamic-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    btn.textContent += ' ✓';
+                    btn.style.opacity = '0.7';
+                });
+            });
+        }
+        
+        // 清除动态内容
+        function clearDynamicContent() {
+            const container = document.getElementById('dynamic-content');
+            container.innerHTML = '<p>点击下面的按钮生成动态内容...</p>';
+        }
+        
+        // 页面加载完成提示
+        console.log('🔧 暂停功能测试页面已加载完成');
+        console.log('💡 请使用浮层控制面板测试工作流的暂停功能');
+    </script>
+</body>
+</html>

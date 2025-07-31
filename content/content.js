@@ -271,11 +271,27 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         console.log("✅ 工作流执行成功，发送状态更新到浮层");
 
         // 发送成功状态到浮层
-        sendStatusToFloatingPanel({
-          isRunning: false,
-          isPaused: false,
-          message: '执行完成'
-        });
+        if (typeof sendStatusToFloatingPanel === 'function') {
+          sendStatusToFloatingPanel({
+            isRunning: false,
+            isPaused: false,
+            message: '执行完成'
+          });
+        } else {
+          // 直接发送消息到浮层
+          const message = {
+            type: 'FROM_CONTENT_SCRIPT',
+            action: 'executionStatusUpdate',
+            data: {
+              isRunning: false,
+              isPaused: false,
+              message: '执行完成'
+            },
+            timestamp: Date.now()
+          };
+          window.postMessage(message, '*');
+          console.log('📤 直接发送状态更新到浮层:', message.data);
+        }
 
         sendResponse({ success: true, result });
       })
@@ -283,11 +299,27 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         console.error("执行通用工作流失败:", error);
 
         // 发送失败状态到浮层
-        sendStatusToFloatingPanel({
-          isRunning: false,
-          isPaused: false,
-          message: '执行失败: ' + error.message
-        });
+        if (typeof sendStatusToFloatingPanel === 'function') {
+          sendStatusToFloatingPanel({
+            isRunning: false,
+            isPaused: false,
+            message: '执行失败: ' + error.message
+          });
+        } else {
+          // 直接发送消息到浮层
+          const message = {
+            type: 'FROM_CONTENT_SCRIPT',
+            action: 'executionStatusUpdate',
+            data: {
+              isRunning: false,
+              isPaused: false,
+              message: '执行失败: ' + error.message
+            },
+            timestamp: Date.now()
+          };
+          window.postMessage(message, '*');
+          console.log('📤 直接发送错误状态到浮层:', message.data);
+        }
 
         sendResponse({ success: false, error: error.message });
       });
@@ -1575,11 +1607,21 @@ async function executeSimplifiedWorkflow(workflow) {
 
     pause() {
       console.log("🔧 [DEBUG] 简化模式 pause() 被调用");
+
+      // 立即设置暂停状态
       this.isPaused = true;
       console.log("🔧 [DEBUG] 简化模式暂停状态设置为:", this.isPaused);
       console.log("⏸️ 简化模式执行已暂停");
 
-      // 发送暂停确认消息
+      // 立即发送暂停确认消息到浮层控制面板
+      window.postMessage({
+        type: 'EXECUTION_STATE_CHANGED',
+        isRunning: this.isRunning,
+        isPaused: this.isPaused,
+        status: '工作流已暂停'
+      }, '*');
+
+      // 发送暂停确认消息到插件
       chrome.runtime
         .sendMessage({
           action: "executionPaused",
@@ -1600,19 +1642,28 @@ async function executeSimplifiedWorkflow(workflow) {
         this.pausePromise = null;
       }
 
-      // 发送继续确认消息
+      // 发送继续确认消息到插件
       chrome.runtime
         .sendMessage({
           action: "executionResumed",
           data: { isPaused: false },
         })
         .catch((err) => console.error("发送继续消息失败:", err));
+
+      // 发送恢复确认消息到浮层控制面板
+      window.postMessage({
+        type: 'EXECUTION_STATE_CHANGED',
+        isRunning: this.isRunning,
+        isPaused: this.isPaused,
+        status: '已恢复执行'
+      }, '*');
     },
 
     async checkPause() {
       console.log("🔧 [DEBUG] checkPause 被调用，当前状态:", {
         isRunning: this.isRunning,
         isPaused: this.isPaused,
+        timestamp: new Date().toLocaleTimeString()
       });
 
       // 首先检查是否已停止
@@ -1625,6 +1676,16 @@ async function executeSimplifiedWorkflow(workflow) {
 
       if (this.isPaused) {
         console.log("🔧 [DEBUG] 检测到暂停状态，开始等待...");
+
+        // 立即发送暂停确认消息
+        console.log("🔧 [DEBUG] 发送暂停确认消息到浮层");
+        window.postMessage({
+          type: 'EXECUTION_STATE_CHANGED',
+          isRunning: this.isRunning,
+          isPaused: this.isPaused,
+          status: '工作流已暂停'
+        }, '*');
+
         if (!this.pausePromise) {
           console.log("🔧 [DEBUG] 创建新的暂停Promise");
           this.pausePromise = new Promise((resolve) => {
@@ -1678,6 +1739,19 @@ async function executeSimplifiedWorkflow(workflow) {
           data: { isRunning: false, isStopped: true },
         })
         .catch((err) => console.error("发送停止消息失败:", err));
+    },
+
+    // 添加日志方法
+    addLog(message, type = 'info') {
+      console.log(`📋 简化模式日志: [${type.toUpperCase()}] ${message}`);
+
+      // 发送日志到浮层控制面板
+      window.postMessage({
+        type: 'EXECUTION_LOG',
+        message: message,
+        logType: type,
+        timestamp: Date.now()
+      }, '*');
     },
   };
 
@@ -1770,10 +1844,16 @@ async function executeSimplifiedWorkflow(workflow) {
         timeoutController.clear();
       })();
 
+      // 在步骤执行前再次检查暂停状态
+      await checkPause();
+
       // 等待步骤完成或超时
       await Promise.race([stepExecution, stepTimeout]);
 
       completedSteps++;
+
+      // 步骤完成后立即检查暂停状态
+      await checkPause();
 
       // 更新完成进度
       chrome.runtime.sendMessage({
@@ -2745,6 +2825,11 @@ async function executeConditionStep(step, timeoutController = null) {
 }
 
 async function executeLoopStep(step, timeoutController = null) {
+  // 在执行循环步骤前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
   if (!step.locator) {
     throw new Error("缺少循环定位器");
   }
@@ -2818,6 +2903,48 @@ async function executeLoopStep(step, timeoutController = null) {
 
     const element = elements[i];
     console.log(`🎯 处理第 ${i + 1}/${elements.length} 个元素`);
+
+    // 敏感词检测
+    if (step.sensitiveWordDetection && step.sensitiveWordDetection.enabled) {
+      try {
+        console.log(`🔍 敏感词检测 - 第 ${i + 1} 个元素`);
+
+        // 创建敏感词检测器实例
+        const detector = new window.SensitiveWordDetector();
+
+        // 检查是否应该跳过当前元素
+        const skipResult = await detector.checkShouldSkipElement(
+          element,
+          step.sensitiveWordDetection
+        );
+
+        if (skipResult.shouldSkip) {
+          console.log(`🚫 跳过第 ${i + 1} 个元素: ${skipResult.reason}`);
+
+          // 添加到日志显示
+          if (window.simplifiedExecutionControl) {
+            window.simplifiedExecutionControl.addLog(
+              `🚫 跳过第 ${i + 1} 个元素: ${skipResult.reason}`,
+              'warning'
+            );
+          }
+
+          // 高亮显示被跳过的元素
+          highlightElement(element, "skip");
+          setTimeout(() => {
+            clearElementHighlight(element);
+          }, 1500);
+
+          // 跳过当前循环，继续下一个
+          continue;
+        } else {
+          console.log(`✅ 第 ${i + 1} 个元素通过敏感词检测`);
+        }
+      } catch (error) {
+        console.error(`❌ 敏感词检测失败 - 第 ${i + 1} 个元素:`, error);
+        // 检测失败时继续执行，避免影响正常流程
+      }
+    }
 
     // 记录当前页面滚动位置
     const scrollBefore = {
@@ -3047,6 +3174,11 @@ async function executeContainerLoopAction(element, step) {
     );
 
     for (let i = 0; i < step.subOperations.length; i++) {
+      // 在每个子操作执行前检查暂停状态
+      if (window.simplifiedExecutionControl) {
+        await window.simplifiedExecutionControl.checkPause();
+      }
+
       const subOp = step.subOperations[i];
       console.log(
         `🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${
@@ -3058,6 +3190,12 @@ async function executeContainerLoopAction(element, step) {
         // 传递容器元素上下文给子操作
         await executeSubOperation(subOp, element);
       } catch (error) {
+        // 如果是停止信号，直接重新抛出
+        if (error.isStopSignal || error.message === 'EXECUTION_STOPPED') {
+          console.log(`🛑 容器内子操作 ${i + 1} 收到停止信号，停止执行`);
+          throw error;
+        }
+
         console.error(`❌ 容器内子操作 ${i + 1} 失败:`, error);
         if (step.errorHandling === "stop") {
           throw error;
@@ -3068,7 +3206,18 @@ async function executeContainerLoopAction(element, step) {
       if (subOp.delay || subOp.waitAfterClick) {
         const waitTime = subOp.delay || subOp.waitAfterClick || 500;
         console.log(`⏳ 子操作间等待 ${waitTime}ms`);
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
+
+        // 在等待过程中支持暂停检查
+        const delayStartTime = Date.now();
+        while (Date.now() - delayStartTime < waitTime) {
+          // 每100ms检查一次暂停状态
+          if (window.simplifiedExecutionControl) {
+            await window.simplifiedExecutionControl.checkPause();
+          }
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.min(100, waitTime - (Date.now() - delayStartTime)))
+          );
+        }
       }
     }
 
@@ -3149,6 +3298,11 @@ async function executeParentLoopAction(element, step) {
     console.log(`🔧 开始执行 ${step.subOperations.length} 个子操作`);
 
     for (let i = 0; i < step.subOperations.length; i++) {
+      // 在每个子操作执行前检查暂停状态
+      if (window.simplifiedExecutionControl) {
+        await window.simplifiedExecutionControl.checkPause();
+      }
+
       const subOp = step.subOperations[i];
       console.log(
         `🎯 执行子操作 ${i + 1}: ${subOp.type} - ${
@@ -3160,6 +3314,12 @@ async function executeParentLoopAction(element, step) {
         // 传递父级元素上下文给子操作
         await executeSubOperation(subOp, element);
       } catch (error) {
+        // 如果是停止信号，直接重新抛出
+        if (error.isStopSignal || error.message === 'EXECUTION_STOPPED') {
+          console.log(`🛑 子操作 ${i + 1} 收到停止信号，停止执行`);
+          throw error;
+        }
+
         console.error(`❌ 子操作 ${i + 1} 失败:`, error);
         if (step.errorHandling === "stop") {
           throw error;
@@ -3168,7 +3328,17 @@ async function executeParentLoopAction(element, step) {
 
       // 子操作间等待
       if (subOp.delay) {
-        await new Promise((resolve) => setTimeout(resolve, subOp.delay));
+        // 在等待过程中支持暂停检查
+        const delayStartTime = Date.now();
+        while (Date.now() - delayStartTime < subOp.delay) {
+          // 每100ms检查一次暂停状态
+          if (window.simplifiedExecutionControl) {
+            await window.simplifiedExecutionControl.checkPause();
+          }
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.min(100, subOp.delay - (Date.now() - delayStartTime)))
+          );
+        }
       }
     }
 
@@ -3185,6 +3355,11 @@ async function executeParentLoopAction(element, step) {
 }
 
 async function executeSubOperation(operation, parentElement = null) {
+  // 在执行任何子操作前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
   console.log(`🔍 执行子操作: ${operation.type}`, operation.locator);
 
   switch (operation.type) {
@@ -3306,6 +3481,11 @@ async function executeSubOperation(operation, parentElement = null) {
       });
       await new Promise((resolve) => setTimeout(resolve, 300));
 
+      // 在点击前再次检查暂停状态
+      if (window.simplifiedExecutionControl) {
+        await window.simplifiedExecutionControl.checkPause();
+      }
+
       // 更新状态反馈 - 点击开始
       if (window.updateStatus) {
         const elementInfo =
@@ -3338,6 +3518,11 @@ async function executeSubOperation(operation, parentElement = null) {
       break;
 
     case "input":
+      // 在输入操作前检查暂停状态
+      if (window.simplifiedExecutionControl) {
+        await window.simplifiedExecutionControl.checkPause();
+      }
+
       let inputElement;
       if (parentElement && operation.locator?.strategy === "css") {
         // 只有CSS选择器才能在父级元素内查找
@@ -3363,7 +3548,18 @@ async function executeSubOperation(operation, parentElement = null) {
     case "wait":
       const duration = operation.duration || 1000;
       console.log(`⏱️ 子操作-等待: ${duration}ms`);
-      await new Promise((resolve) => setTimeout(resolve, duration));
+
+      // 在等待过程中支持暂停检查
+      const waitStartTime = Date.now();
+      while (Date.now() - waitStartTime < duration) {
+        // 每100ms检查一次暂停状态
+        if (window.simplifiedExecutionControl) {
+          await window.simplifiedExecutionControl.checkPause();
+        }
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.min(100, duration - (Date.now() - waitStartTime)))
+        );
+      }
       break;
 
     case "waitForElement":
@@ -3371,6 +3567,11 @@ async function executeSubOperation(operation, parentElement = null) {
       const timeout = operation.timeout || 30000;
       const startTime = Date.now();
       while (Date.now() - startTime < timeout) {
+        // 在等待元素过程中检查暂停状态
+        if (window.simplifiedExecutionControl) {
+          await window.simplifiedExecutionControl.checkPause();
+        }
+
         try {
           const waitElement = await findElementByStrategy(
             operation.locator.strategy,
@@ -3581,6 +3782,11 @@ async function executeSubOperation(operation, parentElement = null) {
 
 // 执行子操作中的自循环
 async function executeSubOperationAutoLoop(operation, parentElement = null) {
+  // 在执行自循环前检查暂停状态
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
+
   console.log(`🔁 开始执行子操作自循环: ${operation.locator.value}`);
 
   // 查找所有匹配的元素
@@ -3634,6 +3840,11 @@ async function executeSubOperationAutoLoop(operation, parentElement = null) {
   let errorCount = 0;
 
   for (let i = startIndex; i <= actualEndIndex; i++) {
+    // 在每次循环迭代前检查暂停状态
+    if (window.simplifiedExecutionControl) {
+      await window.simplifiedExecutionControl.checkPause();
+    }
+
     console.log(`🎯 自循环处理第 ${i + 1}/${actualEndIndex + 1} 个元素`);
 
     try {
@@ -4242,9 +4453,13 @@ async function executeVirtualListLoop(step) {
 
             if (skipResult.shouldSkip) {
               shouldSkip = true;
-              console.log(
-                `🚫 虚拟列表跳过包含敏感词的标题: "${unprocessedTitle.text}" - ${skipResult.reason}`
-              );
+              const skipMessage = `🚫 ${unprocessedTitle.text} 检测到敏感词：${skipResult.matchedWords.join(", ")}，跳过执行`;
+              console.log(skipMessage);
+
+              // 添加到日志显示
+              if (window.simplifiedExecutionControl) {
+                window.simplifiedExecutionControl.addLog(skipMessage, 'warning');
+              }
 
               // 高亮显示被跳过的元素
               if (unprocessedTitle.element) {
@@ -4283,6 +4498,11 @@ async function executeVirtualListLoop(step) {
             // 点击对应的按钮（使用循环操作的定位器）
             await clickVirtualListItem(unprocessedTitle, step);
 
+            // 检查暂停状态
+            if (window.simplifiedExecutionControl) {
+              await window.simplifiedExecutionControl.checkPause();
+            }
+
             // 标记为已处理
             processedTitles.add(unprocessedTitle.text);
             totalProcessed++;
@@ -4292,12 +4512,33 @@ async function executeVirtualListLoop(step) {
               `✅ 已处理: "${unprocessedTitle.text}" (总计: ${totalProcessed})`
             );
 
+            // 发送步骤更新到浮层
+            const stepMessage = {
+              type: 'FROM_CONTENT_SCRIPT',
+              action: 'executionStatusUpdate',
+              data: {
+                isRunning: true,
+                isPaused: false,
+                message: `正在处理: ${unprocessedTitle.text}`,
+                currentStep: totalProcessed,
+                totalSteps: `Max` // 虚拟列表无法预知总数
+              },
+              timestamp: Date.now()
+            };
+            window.postMessage(stepMessage, '*');
+            console.log('📤 发送步骤更新到浮层:', stepMessage.data);
+
             // 操作后等待
             if (step.operationDelay) {
               console.log(`⏳ 操作延迟 ${step.operationDelay}ms`);
               await new Promise((resolve) =>
                 setTimeout(resolve, step.operationDelay)
               );
+
+              // 等待后再次检查暂停状态
+              if (window.simplifiedExecutionControl) {
+                await window.simplifiedExecutionControl.checkPause();
+              }
             }
 
             // 处理完一个项目后立即滚动
@@ -4312,7 +4553,18 @@ async function executeVirtualListLoop(step) {
             // 等待新内容渲染
             console.log(`⏳ 等待新内容渲染 ${waitTime}ms`);
             await new Promise((resolve) => setTimeout(resolve, waitTime));
+
+            // 等待后检查暂停状态
+            if (window.simplifiedExecutionControl) {
+              await window.simplifiedExecutionControl.checkPause();
+            }
           } catch (clickError) {
+            // 如果是停止信号，直接重新抛出，停止整个循环
+            if (clickError.isStopSignal || clickError.message === 'EXECUTION_STOPPED') {
+              console.log(`🛑 虚拟列表循环收到停止信号，停止执行`);
+              throw clickError;
+            }
+
             console.log(
               `❌ 点击失败: "${unprocessedTitle.text}" - ${clickError.message}`
             );
@@ -4551,10 +4803,37 @@ async function clickVirtualListItem(titleInfo, step) {
           }`
         );
 
+        // 发送子操作步骤更新到浮层
+        const subOpMessage = {
+          type: 'FROM_CONTENT_SCRIPT',
+          action: 'executionStatusUpdate',
+          data: {
+            isRunning: true,
+            isPaused: false,
+            message: `执行子操作 ${i + 1}/${step.subOperations.length}: ${subOp.type}`,
+            currentStep: i + 1,
+            totalSteps: step.subOperations.length
+          },
+          timestamp: Date.now()
+        };
+        window.postMessage(subOpMessage, '*');
+        console.log('📤 发送子操作步骤更新到浮层:', subOpMessage.data);
+
         try {
+          // 检查暂停状态
+          if (window.simplifiedExecutionControl) {
+            await window.simplifiedExecutionControl.checkPause();
+          }
+
           // 传递容器元素上下文给子操作
           await executeSubOperation(subOp, targetButton);
         } catch (error) {
+          // 如果是停止信号，直接重新抛出
+          if (error.isStopSignal || error.message === 'EXECUTION_STOPPED') {
+            console.log(`🛑 容器内子操作 ${i + 1} 收到停止信号，停止执行`);
+            throw error;
+          }
+
           console.error(`❌ 容器内子操作 ${i + 1} 失败:`, error);
           if (step.errorHandling === "stop") {
             throw error;
@@ -4638,18 +4917,7 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// 发送状态更新到浮层
-function sendStatusToFloatingPanel(statusData) {
-  const message = {
-    type: 'FROM_CONTENT_SCRIPT',
-    action: 'executionStatusUpdate',
-    data: statusData,
-    timestamp: Date.now()
-  };
 
-  window.postMessage(message, '*');
-  console.log('📤 发送状态更新到浮层:', statusData);
-}
 
 // 加载浮层控制面板模块
 function loadFloatingControlPanel() {
