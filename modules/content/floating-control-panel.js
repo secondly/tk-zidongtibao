@@ -32,7 +32,10 @@ class FloatingControlPanel {
         this.panel.id = 'automation-floating-panel';
         this.panel.innerHTML = `
             <div class="panel-header">
-                <span class="panel-title">🤖 自动助手</span>
+                <div class="panel-title" style="display: flex; align-items: center;">
+                    🐒
+                    <span style="height: 20px; line-height: 20px; margin-left: 4px;">[秘灵]自动助手</span>
+                </div>
                 <div class="panel-controls">
                     <button class="btn-minimize" title="展开面板">+</button>
                 </div>
