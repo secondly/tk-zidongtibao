@@ -297,8 +297,8 @@ ${JSON.stringify(debugInfo, null, 2)}
  */
 function resetAppState() {
     try {
-        // 清除所有存储数据
-        localStorage.removeItem('automation_workflows');
+        // 清除所有存储数据 - 使用正确的键名
+        localStorage.removeItem('automationWorkflows'); // 修复：使用正确的键名
         localStorage.removeItem('automation_state_cache');
         localStorage.removeItem('automation_workflow_cache');
         localStorage.removeItem('automation_error_logs');

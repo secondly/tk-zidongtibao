@@ -28,26 +28,36 @@ export function loadSavedWorkflows() {
     let workflows = getWorkflowsFromStorage();
     console.log("🔍 [DEBUG] 从主存储获取:", workflows);
 
-    // 如果主存储为空，尝试从设计器存储位置获取
+    // 如果主存储为空，检查是否需要从设计器存储位置获取
     if (!workflows || workflows.length === 0) {
-      console.log("🔍 [DEBUG] 主存储为空，尝试从设计器存储获取...");
-      const designerData = localStorage.getItem("mxgraph_workflows");
-      if (designerData) {
-        try {
-          const designerWorkflows = JSON.parse(designerData);
-          if (
-            Array.isArray(designerWorkflows) &&
-            designerWorkflows.length > 0
-          ) {
-            console.log("🔍 [DEBUG] 从设计器存储找到数据:", designerWorkflows);
-            workflows = designerWorkflows;
+      console.log("🔍 [DEBUG] 主存储为空，检查设计器存储...");
 
-            // 同步到主存储
-            saveWorkflowsToStorage(workflows);
-            console.log("✅ 已同步设计器数据到主存储");
+      // 检查是否存在删除标记，如果存在则不进行回退
+      const deletionTimestamp = localStorage.getItem("automation_deletion_timestamp");
+      const currentTime = Date.now();
+      const recentDeletion = deletionTimestamp && (currentTime - parseInt(deletionTimestamp)) < 60000; // 1分钟内
+
+      if (recentDeletion) {
+        console.log("🔍 [DEBUG] 检测到最近的删除操作，跳过设计器存储回退");
+      } else {
+        const designerData = localStorage.getItem("mxgraph_workflows");
+        if (designerData) {
+          try {
+            const designerWorkflows = JSON.parse(designerData);
+            if (
+              Array.isArray(designerWorkflows) &&
+              designerWorkflows.length > 0
+            ) {
+              console.log("🔍 [DEBUG] 从设计器存储找到数据:", designerWorkflows);
+              workflows = designerWorkflows;
+
+              // 同步到主存储
+              saveWorkflowsToStorage(workflows);
+              console.log("✅ 已同步设计器数据到主存储");
+            }
+          } catch (error) {
+            console.warn("解析设计器存储数据失败:", error);
           }
-        } catch (error) {
-          console.warn("解析设计器存储数据失败:", error);
         }
       }
     }
@@ -599,6 +609,18 @@ function deleteCurrentConfig() {
     const success = saveWorkflowsToStorage(savedWorkflows);
 
     if (success) {
+      // 同时更新设计器存储，防止回退加载已删除的配置
+      try {
+        localStorage.setItem("mxgraph_workflows", JSON.stringify(savedWorkflows));
+        console.log("✅ 已同步删除到设计器存储");
+      } catch (error) {
+        console.warn("⚠️ 同步设计器存储失败:", error);
+      }
+
+      // 设置删除时间戳，防止立即回退加载
+      localStorage.setItem("automation_deletion_timestamp", Date.now().toString());
+      console.log("✅ 已设置删除时间戳标记");
+
       // 清除当前选择
       setCurrentWorkflow(null);
       hideCurrentConfigDisplay();
@@ -900,6 +922,7 @@ function handleClearCache() {
     // 清除状态缓存
     localStorage.removeItem("automation_state_cache");
     localStorage.removeItem("automation_workflow_cache");
+    localStorage.removeItem("automation_deletion_timestamp");
 
     updateExecutionStatus(EXECUTION_STATUS.IDLE, "缓存已清除");
     debugLog("缓存清除成功");
