@@ -73,6 +73,12 @@ class TabSelector {
             max-height: 70vh;
             overflow-y: auto;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: rgba(255, 255, 255, 0.9);
+            transition: all 0.3s ease;
         `;
 
         dialog.innerHTML = `
@@ -81,7 +87,12 @@ class TabSelector {
                 ${tabs.map((tab, index) => this.createTabItem(tab, index)).join('')}
             </div>
             <div style="text-align: right;">
-                <button id="cancelTabSelect" style="margin-right: 10px; padding: 8px 16px; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer;">取消</button>
+                <button id="cancelTabSelect" style="margin-right: 10px; padding: 8px 16px; border: 1px solid #ccc; background: white; border-radius: 4px; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: rgba(255, 255, 255, 0.9);
+            transition: all 0.3s ease;">取消</button>
             </div>
         `;
 
@@ -112,15 +123,20 @@ class TabSelector {
                 margin-bottom: 8px;
                 cursor: pointer;
                 border-radius: 6px;
-                background: white;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                background: rgba(255, 255, 255, 0.15);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                color: rgba(255, 255, 255, 0.9);
+                transition: all 0.3s ease;
                 transition: background-color 0.2s;
             " data-tab-index="${index}" data-tab-id="${tabId}">
                 <div style="display: flex; align-items: center; margin-bottom: 4px;">
                     <span style="margin-right: 8px; font-size: 16px;">${icon}</span>
-                    <strong style="color: #333;">${title}</strong>
-                    <small style="margin-left: auto; color: #999; font-size: 10px;">ID: ${tabId}</small>
+                    <strong style="color: #fff;">${title}</strong>
+                    <small style="margin-left: auto; color: #fff; font-size: 10px;">ID: ${tabId}</small>
                 </div>
-                <small style="color: #666; word-break: break-all;">${url}</small>
+                <small style="color: #fff; word-break: break-all;">${url}</small>
                 ${isLocal ? '<div style="margin-top: 4px;"><span style="background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 3px; font-size: 11px;">本地文件</span></div>' : ''}
             </div>
         `;
@@ -138,10 +154,10 @@ class TabSelector {
         const tabItems = dialog.querySelectorAll('.tab-item');
         tabItems.forEach(item => {
             item.addEventListener('mouseenter', () => {
-                item.style.background = '#f5f5f5';
+                item.style.background = 'rgba(255, 255, 255, 0.30)';
             });
             item.addEventListener('mouseleave', () => {
-                item.style.background = 'white';
+                item.style.background = 'rgba(255, 255, 255, 0.25)';
             });
         });
 
