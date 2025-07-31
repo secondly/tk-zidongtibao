@@ -1,8 +1,8 @@
 ﻿{
   "manifest_version": 3,
-  "name": "自动助手",
+  "name": "[秘灵]自动助手",
   "version": "2.0.0",
-  "description": "自动助手",
+  "description": "[秘灵]自动助手",
   "permissions": ["activeTab", "tabs", "scripting", "storage"],
   "host_permissions": ["<all_urls>"],
   "action": {
