@@ -643,9 +643,7 @@
       }
 
       .status-info {
-        background: #d1ecf1;
-        border: 1px solid #bee5eb;
-        color: #0c5460;
+        color: #fff;
       }
 
       .form-group {
@@ -712,6 +710,71 @@
 
       ::-webkit-scrollbar-thumb:hover {
         background: rgba(255, 255, 255, 0.5);
+      }
+
+      /* 炫彩文字动画 */
+      .rainbow-text {
+        background: linear-gradient(
+          45deg,
+          #f1f505,
+          #ff0505,
+          #ffe60a,
+          #09ff8c,
+          #03f5fd,
+          #c0ff12,
+          #ff0505,
+          #f1f505
+        );
+        background-size: 400% 400%;
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: rainbow-flow 3s ease-in-out infinite;
+        font-weight: 700;
+        text-shadow: none;
+        position: relative;
+      }
+
+      .rainbow-text::before {
+        content: attr(data-text);
+        position: absolute;
+        top: 0;
+        left: 0;
+        background: linear-gradient(
+          45deg,
+          #f1f505,
+          #ff0505,
+          #ffe60a,
+          #09ff8c,
+          #03f5fd,
+          #c0ff12,
+          #ff0505,
+          #f1f505
+        );
+        background-size: 400% 400%;
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: rainbow-flow 3s ease-in-out infinite reverse;
+        filter: blur(1px);
+        opacity: 0.7;
+        z-index: -1;
+      }
+
+      @keyframes rainbow-flow {
+        0%, 100% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+      }
+
+      /* 增强发光效果 */
+      .rainbow-text:hover {
+        filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
+        transform: scale(1.05);
+        transition: all 0.3s ease;
       }
 
       .help-text {
@@ -980,11 +1043,6 @@
   </head>
 
   <body>
-    <!-- <div class="header">
-        <h1>🤖 通用自动化</h1>
-        <p>智能网页操作助手</p>
-    </div> -->
-
     <div class="app-container">
       <!-- 主内容区域 -->
       <div class="main-content">
@@ -992,7 +1050,7 @@
         <div class="left-panel" id="leftPanel">
           <div class="panel-header">
             <img src="icons/icon128.png" alt="">
-            <h3>[秘灵]自动助手</h3>
+            <h3 class="rainbow-text">[秘灵]自动助手</h3>
           </div>
 
           <div class="panel-content">
@@ -1278,7 +1336,7 @@
                 >
                   <div
                     class="status-text"
-                    style="font-size: 14px; font-weight: 600; color: #6c757d"
+                    style="font-size: 14px; font-weight: 600; color: #fff"
                   >
                     空闲
                   </div>

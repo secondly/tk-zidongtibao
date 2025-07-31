@@ -162,7 +162,9 @@ function showEmptyPreview(container, overlay) {
         overlay.style.display = 'flex';
         overlay.innerHTML = `
             <div class="overlay-content">
-                <div class="overlay-icon">📊</div>
+                <div class="overlay-icon">
+                    <img src="icons/icon128.png" alt="秘灵" style="display: block; width: 88px; height: 88px; margin: 0 auto 10px;" />
+                </div>
                 <div class="overlay-text">选择配置后显示流程图预览</div>
             </div>
         `;
@@ -217,7 +219,9 @@ export function clearFlowPreview() {
         overlay.style.display = 'flex';
         overlay.innerHTML = `
             <div class="overlay-content">
-                <div class="overlay-icon">📊</div>
+                <div class="overlay-icon">
+                    <img src="icons/icon128.png" alt="秘灵" style="display: block; width: 88px; height: 88px; margin: 0 auto 10px;" />
+                </div>
                 <div class="overlay-text">选择配置后显示流程图预览</div>
             </div>
         `;
