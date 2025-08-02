@@ -195,7 +195,8 @@ function getNodeTypeName(type) {
         condition: '条件判断',
         checkState: '状态检测',
         extract: '数据提取',
-        drag: '拖拽操作'
+        drag: '拖拽操作',
+        closeWindow: '关闭窗口'
     };
     return typeNames[type] || '未知操作';
 }

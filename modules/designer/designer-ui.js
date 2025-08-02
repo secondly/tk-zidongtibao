@@ -216,13 +216,37 @@ class DesignerUIManager {
         this.graph.container.addEventListener('contextmenu', (evt) => {
             evt.preventDefault();
 
-            const cell = this.graph.getCellAt(evt.offsetX, evt.offsetY);
-            this.designer.contextMenuPoint = { x: evt.offsetX, y: evt.offsetY };
+            // 获取画布容器的边界矩形
+            const containerRect = this.graph.container.getBoundingClientRect();
+
+            // 计算鼠标在画布容器内的相对位置
+            const relativeX = evt.clientX - containerRect.left;
+            const relativeY = evt.clientY - containerRect.top;
+
+            // 获取当前视图的缩放和平移
+            const view = this.graph.getView();
+            const scale = view.getScale();
+            const translate = view.getTranslate();
+
+            // 计算在图形坐标系中的位置（用于创建节点）
+            const graphX = relativeX / scale - translate.x;
+            const graphY = relativeY / scale - translate.y;
+
+            this.designer.contextMenuPoint = new mxPoint(graphX, graphY);
+
+            // 检查是否在容器内右键
+            const cell = this.graph.getCellAt(graphX, graphY);
             this.designer.contextMenuContainer = null;
 
             if (cell && cell.isVertex() && this.graph.isSwimlane(cell)) {
                 // 在循环容器内右键，记录容器
                 this.designer.contextMenuContainer = cell;
+                // 调整坐标为相对于容器的坐标
+                const geometry = cell.getGeometry();
+                this.designer.contextMenuPoint = new mxPoint(
+                    graphX - geometry.x,
+                    graphY - geometry.y
+                );
             }
 
             // 显示右键菜单

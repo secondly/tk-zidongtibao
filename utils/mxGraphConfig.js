@@ -35,7 +35,8 @@ const nodeTypes = {
     condition: { name: '条件判断', color: '#e67e22', icon: '❓' },
     checkState: { name: '节点检测', color: '#8e44ad', icon: '🔍' },
     extract: { name: '提取数据', color: '#1abc9c', icon: '📊' },
-    drag: { name: '拖拽操作', color: '#ff6b35', icon: '🖱️' }
+    drag: { name: '拖拽操作', color: '#ff6b35', icon: '🖱️' },
+    closeWindow: { name: '关闭窗口', color: '#e74c3c', icon: '🗑️' }
 };
 
 /**
@@ -92,6 +93,11 @@ function getNodeDisplayText(nodeType, nodeData) {
                 }
                 if (nodeData.loopType) {
                     text += `\n(${nodeData.loopType})`;
+                }
+                break;
+            case 'closeWindow':
+                if (nodeData.closeTarget) {
+                    text += `\n${nodeData.closeTarget === 'current' ? '关闭当前窗口' : '关闭指定窗口'}`;
                 }
                 break;
         }
