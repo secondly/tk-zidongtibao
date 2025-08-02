@@ -127,22 +127,49 @@ if (
         });
       }
 
-      // 调用自动化执行模块
-      if (
-        window.ContentAutomation &&
-        window.ContentAutomation.executeUniversalWorkflow
-      ) {
-        window.ContentAutomation.executeUniversalWorkflow(request.data)
-          .then((result) => {
-            sendResponse({ success: true, result });
-          })
-          .catch((error) => {
-            console.error("执行通用工作流失败:", error);
-            sendResponse({ success: false, error: error.message });
-          });
+      // 检查是否包含新窗口操作
+      console.log("🔍 开始检查是否包含新窗口操作...");
+      const hasNewWindowOperations = request.data.steps.some((step, index) => {
+        const hasNewWindow = step.opensNewWindow ||
+          step.type === 'closeWindow' ||
+          step.action === 'closeWindow';
+        console.log(`🔍 步骤 ${index + 1} (${step.name}): opensNewWindow=${step.opensNewWindow}, type=${step.type}, action=${step.action}, hasNewWindow=${hasNewWindow}`);
+        return hasNewWindow;
+      });
+
+      console.log(`🔍 新窗口操作检测结果: ${hasNewWindowOperations}`);
+
+      if (hasNewWindowOperations) {
+        console.log("🪟 检测到新窗口操作，转交background script处理");
+
+        // 转发到background script处理
+        chrome.runtime.sendMessage({
+          action: "executeSteps",
+          steps: request.data.steps
+        }).then((result) => {
+          sendResponse({ success: true, result });
+        }).catch((error) => {
+          console.error("转发到background执行失败:", error);
+          sendResponse({ success: false, error: error.message });
+        });
       } else {
-        console.error("❌ 自动化执行模块未加载");
-        sendResponse({ success: false, error: "自动化执行模块未加载" });
+        // 调用自动化执行模块
+        if (
+          window.ContentAutomation &&
+          window.ContentAutomation.executeUniversalWorkflow
+        ) {
+          window.ContentAutomation.executeUniversalWorkflow(request.data)
+            .then((result) => {
+              sendResponse({ success: true, result });
+            })
+            .catch((error) => {
+              console.error("执行通用工作流失败:", error);
+              sendResponse({ success: false, error: error.message });
+            });
+        } else {
+          console.error("❌ 自动化执行模块未加载");
+          sendResponse({ success: false, error: "自动化执行模块未加载" });
+        }
       }
       return true;
     }

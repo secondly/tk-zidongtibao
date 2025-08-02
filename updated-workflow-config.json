@@ -1,0 +1,109 @@
+{
+    "name": "百度热搜点击工作流（新窗口优化版）",
+    "description": "点击百度热搜并在新窗口中进行后续操作",
+    "version": "1.1",
+    "createdAt": "2025-08-02T04:40:23.920Z",
+    "updatedAt": "2025-08-02T04:45:00.000Z",
+    "steps": [
+        {
+            "id": "node_1754109166384_v892yly83",
+            "type": "click",
+            "name": "点击热搜项目（打开新窗口）",
+            "x": 380,
+            "y": 160,
+            "width": 100,
+            "height": 40,
+            "locator": {
+                "strategy": "css",
+                "value": "#hotsearch-content-wrapper .hotsearch-item:first-child .title-content"
+            },
+            "waitAfterClick": 1000,
+            "waitTime": 1000,
+            "waitCondition": "attributeWait",
+            "errorHandling": "continue",
+            "opensNewWindow": true,
+            "newWindowTimeout": 10000,
+            "windowReadyTimeout": 30000,
+            "switchToNewWindow": true
+        },
+        {
+            "id": "node_wait_for_new_window",
+            "type": "smartWait",
+            "name": "等待新窗口加载",
+            "x": 380,
+            "y": 240,
+            "width": 100,
+            "height": 40,
+            "waitCondition": "elementVisible",
+            "locator": {
+                "strategy": "css",
+                "value": "#s_tab #s_tab_inner"
+            },
+            "timeout": 15000,
+            "errorHandling": "continue"
+        },
+        {
+            "id": "node_1754109218919_low4b9d6g",
+            "type": "click",
+            "name": "点击搜索标签",
+            "x": 485.421052631579,
+            "y": 304.53508771929825,
+            "width": 100,
+            "height": 40,
+            "locator": {
+                "strategy": "css",
+                "value": "#s_tab #s_tab_inner a:nth-of-type(2)"
+            },
+            "waitAfterClick": 1000,
+            "waitTime": 1000,
+            "waitCondition": "attributeWait",
+            "errorHandling": "continue"
+        },
+        {
+            "id": "node_close_window",
+            "type": "closeWindow",
+            "name": "关闭新窗口",
+            "x": 485.421052631579,
+            "y": 384.53508771929825,
+            "width": 100,
+            "height": 40,
+            "closeTarget": "current",
+            "returnToPrevious": true,
+            "waitAfterClose": 1000
+        }
+    ],
+    "connections": [
+        {
+            "id": "1",
+            "source": "node_1754109166384_v892yly83",
+            "target": "node_wait_for_new_window",
+            "label": "",
+            "style": null,
+            "parentId": null
+        },
+        {
+            "id": "2",
+            "source": "node_wait_for_new_window",
+            "target": "node_1754109218919_low4b9d6g",
+            "label": "",
+            "style": null,
+            "parentId": null
+        },
+        {
+            "id": "3",
+            "source": "node_1754109218919_low4b9d6g",
+            "target": "node_close_window",
+            "label": "",
+            "style": null,
+            "parentId": null
+        }
+    ],
+    "metadata": {
+        "nodeCount": 4,
+        "connectionCount": 3,
+        "exportedAt": "2025-08-02T04:45:00.000Z",
+        "exportedBy": "mxGraph工作流设计器"
+    },
+    "exportedAt": "2025-08-02T04:45:00.000Z",
+    "exportedBy": "workflow-designer"
+}

@@ -8,6 +8,7 @@
 - **多种元素定位策略**：支持通过 ID、Class、CSS 选择器、XPath、文本内容等多种方式定位元素
 - **动态步骤管理**：可以随时添加、删除和调整操作步骤
 - **清晰的执行反馈**：实时显示每个步骤的执行状态
+- **🪟 多窗口管理**：支持新窗口打开、切换、关闭等多窗口自动化操作
 
 ## 支持的定位方式
 
@@ -69,6 +70,96 @@
 - Content Script (content/): 在网页上执行的脚本，实现元素定位和操作
 - Background Script (background/): 协调通信和管理执行流程
 
+## 🪟 多窗口管理功能
+
+### 功能概述
+
+新窗口管理功能允许自动化工作流在多个浏览器窗口之间无缝切换和操作，支持以下场景：
+
+- 点击按钮打开新窗口，在新窗口中执行操作
+- 在新窗口完成操作后关闭窗口，返回主窗口继续执行
+- 支持多层窗口嵌套（新窗口中再打开新窗口）
+- 智能窗口状态管理和错误恢复
+
+### 支持的窗口操作
+
+#### 1. 新窗口操作 (opensNewWindow)
+```json
+{
+  "type": "click",
+  "opensNewWindow": true,
+  "locator": {
+    "strategy": "css",
+    "value": "#open-new-window-btn"
+  },
+  "newWindowTimeout": 10000,
+  "windowReadyTimeout": 30000
+}
+```
+
+#### 2. 关闭窗口操作 (closeWindow)
+```json
+{
+  "type": "closeWindow",
+  "action": "closeWindow",
+  "closeTarget": "current",
+  "returnToPrevious": true
+}
+```
+
+#### 3. 切换窗口操作 (switchWindow)
+```json
+{
+  "type": "switchWindow",
+  "action": "switchWindow",
+  "targetWindow": "main"
+}
+```
+
+### 使用示例
+
+#### 基础新窗口工作流
+1. 在主窗口填写表单
+2. 点击按钮打开新窗口（配置 `opensNewWindow: true`）
+3. 在新窗口中执行操作
+4. 关闭新窗口返回主窗口
+5. 在主窗口继续后续操作
+
+#### 复杂多窗口工作流
+1. 主窗口 → 新窗口A
+2. 新窗口A → 新窗口B
+3. 在新窗口B中操作
+4. 关闭新窗口B → 返回新窗口A
+5. 在新窗口A中继续操作
+6. 关闭新窗口A → 返回主窗口
+
+### 配置参数说明
+
+| 参数 | 类型 | 说明 | 默认值 |
+|------|------|------|--------|
+| `opensNewWindow` | boolean | 标记该操作会打开新窗口 | false |
+| `newWindowTimeout` | number | 等待新窗口创建的超时时间(ms) | 10000 |
+| `windowReadyTimeout` | number | 等待新窗口页面加载完成的超时时间(ms) | 30000 |
+| `closeTarget` | string | 关闭目标：'current', 'specific', 'all' | 'current' |
+| `targetWindow` | string | 切换目标：'main', 'previous', 'specific' | 'main' |
+
+### 测试页面
+
+项目提供了完整的测试页面来验证多窗口功能：
+
+- `test-new-window-functionality.html` - 主窗口测试页面
+- `test-new-window-target.html` - 新窗口目标页面
+- `examples/new-window-workflow-example.json` - 示例工作流配置
+
+### 技术实现
+
+多窗口管理功能基于以下核心组件：
+
+- **WindowManager** (`modules/window/window-manager.js`) - 窗口状态管理
+- **ActionExecutor** (`modules/window/action-executor.js`) - 页面操作执行
+- **WindowStepTypes** (`modules/window/window-step-types.js`) - 步骤类型定义
+- **Background Script** 增强 - 支持多窗口协调和通信
+
 ## 进一步开发
 
 未来规划的功能：
@@ -78,3 +169,4 @@
 - 添加条件判断和循环功能
 - 支持等待元素出现、页面加载等特殊步骤
 - 添加录制功能，可视化选择元素
+- 增强多窗口管理（窗口标签页管理、窗口间数据传递）

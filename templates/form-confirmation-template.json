@@ -1,0 +1,222 @@
+{
+    "name": "表单确认流程模板",
+    "description": "适用于需要在新窗口中确认表单信息的场景",
+    "version": "1.0.0",
+    "steps": [
+        {
+            "id": "form_1",
+            "name": "填写姓名",
+            "type": "input",
+            "action": "input",
+            "locator": {
+                "strategy": "css",
+                "value": "#name"
+            },
+            "text": "张三",
+            "description": "填写用户姓名，请修改为实际的姓名字段选择器"
+        },
+        {
+            "id": "form_2",
+            "name": "填写邮箱",
+            "type": "input",
+            "action": "input",
+            "locator": {
+                "strategy": "css",
+                "value": "#email"
+            },
+            "text": "zhangsan@example.com",
+            "description": "填写邮箱地址，请修改为实际的邮箱字段选择器"
+        },
+        {
+            "id": "form_3",
+            "name": "填写电话",
+            "type": "input",
+            "action": "input",
+            "locator": {
+                "strategy": "css",
+                "value": "#phone"
+            },
+            "text": "13800138000",
+            "description": "填写电话号码，请修改为实际的电话字段选择器"
+        },
+        {
+            "id": "form_4",
+            "name": "选择性别",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#gender-male"
+            },
+            "description": "选择性别选项，请修改为实际的性别选择器"
+        },
+        {
+            "id": "form_5",
+            "name": "填写备注",
+            "type": "input",
+            "action": "input",
+            "locator": {
+                "strategy": "css",
+                "value": "#remarks"
+            },
+            "text": "这是备注信息",
+            "description": "填写备注信息，请修改为实际的备注字段选择器"
+        },
+        {
+            "id": "preview",
+            "name": "点击预览按钮",
+            "type": "click",
+            "action": "click",
+            "opensNewWindow": true,
+            "locator": {
+                "strategy": "css",
+                "value": "#preview-btn"
+            },
+            "newWindowTimeout": 10000,
+            "windowReadyTimeout": 30000,
+            "description": "点击预览按钮打开确认窗口，请修改为实际的预览按钮选择器"
+        },
+        {
+            "id": "confirm_1",
+            "name": "检查预览信息",
+            "type": "smartWait",
+            "action": "smartWait",
+            "locator": {
+                "strategy": "css",
+                "value": "#preview-content"
+            },
+            "condition": "appear",
+            "timeout": 10000,
+            "description": "等待预览内容加载完成，请修改为实际的预览内容选择器"
+        },
+        {
+            "id": "confirm_2",
+            "name": "确认信息正确",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#confirm-correct-btn"
+            },
+            "description": "点击确认信息正确按钮，请修改为实际的确认按钮选择器"
+        },
+        {
+            "id": "confirm_3",
+            "name": "最终提交",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#final-submit-btn"
+            },
+            "description": "点击最终提交按钮，请修改为实际的提交按钮选择器"
+        },
+        {
+            "id": "confirm_4",
+            "name": "等待提交成功",
+            "type": "smartWait",
+            "action": "smartWait",
+            "locator": {
+                "strategy": "css",
+                "value": "#success-message"
+            },
+            "condition": "appear",
+            "timeout": 20000,
+            "description": "等待提交成功消息出现，请修改为实际的成功消息选择器"
+        },
+        {
+            "id": "confirm_5",
+            "name": "获取确认号码",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#confirmation-number"
+            },
+            "description": "点击或获取确认号码，请修改为实际的确认号码选择器"
+        },
+        {
+            "id": "close_confirm",
+            "name": "关闭确认窗口",
+            "type": "closeWindow",
+            "action": "closeWindow",
+            "closeTarget": "current",
+            "returnToPrevious": true,
+            "description": "关闭确认窗口并返回到主表单页面"
+        },
+        {
+            "id": "main_final",
+            "name": "主页面最终操作",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#main-final-action"
+            },
+            "description": "回到主页面后的最终操作，如跳转到其他页面等"
+        }
+    ],
+    "connections": [
+        {
+            "source": "form_1",
+            "target": "form_2"
+        },
+        {
+            "source": "form_2",
+            "target": "form_3"
+        },
+        {
+            "source": "form_3",
+            "target": "form_4"
+        },
+        {
+            "source": "form_4",
+            "target": "form_5"
+        },
+        {
+            "source": "form_5",
+            "target": "preview"
+        },
+        {
+            "source": "preview",
+            "target": "confirm_1"
+        },
+        {
+            "source": "confirm_1",
+            "target": "confirm_2"
+        },
+        {
+            "source": "confirm_2",
+            "target": "confirm_3"
+        },
+        {
+            "source": "confirm_3",
+            "target": "confirm_4"
+        },
+        {
+            "source": "confirm_4",
+            "target": "confirm_5"
+        },
+        {
+            "source": "confirm_5",
+            "target": "close_confirm"
+        },
+        {
+            "source": "close_confirm",
+            "target": "main_final"
+        }
+    ],
+    "settings": {
+        "windowManagement": {
+            "enabled": true,
+            "autoSwitchToNewWindow": true,
+            "autoCloseOnComplete": false,
+            "maxWindowStack": 3
+        },
+        "execution": {
+            "stepDelay": 1200,
+            "retryCount": 3,
+            "timeout": 30000
+        }
+    }
+}

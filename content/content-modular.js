@@ -73,6 +73,21 @@ async function initializeModules() {
       console.log("🎛️ 浮层控制面板模块已存在，跳过加载");
     }
 
+    // 5. 加载窗口管理相关模块
+    if (!window.ActionExecutor) {
+      await loadModule("modules/window/action-executor.js");
+      console.log("🎯 动作执行器模块加载完成");
+    } else {
+      console.log("🎯 动作执行器模块已存在，跳过加载");
+    }
+
+    if (!window.WindowStepTypes) {
+      await loadModule("modules/window/window-step-types.js");
+      console.log("📋 窗口步骤类型模块加载完成");
+    } else {
+      console.log("📋 窗口步骤类型模块已存在，跳过加载");
+    }
+
     console.log("🎉 所有内容脚本模块加载完成！");
 
     // 验证关键模块是否正确加载
@@ -155,7 +170,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { key, value } = message.data;
     localStorage.setItem(key, value);
     console.log(`✅ 已保存到localStorage: ${key}`);
-    sendResponse({success: true});
+    sendResponse({ success: true });
     return true;
   }
 
@@ -261,20 +276,54 @@ async function handleWorkflowExecution(workflowData) {
       message: '工作流执行中...'
     });
 
-    // 调用自动化执行模块
-    if (window.ContentAutomation && window.ContentAutomation.executeUniversalWorkflow) {
-      const result = await window.ContentAutomation.executeUniversalWorkflow(workflowData);
+    // 检查是否包含新窗口操作
+    console.log("🔍 开始检查是否包含新窗口操作...");
+    const hasNewWindowOperations = workflowData.steps.some((step, index) => {
+      const hasNewWindow = step.opensNewWindow ||
+        step.type === 'closeWindow' ||
+        step.action === 'closeWindow';
+      console.log(`🔍 步骤 ${index + 1} (${step.name}): opensNewWindow=${step.opensNewWindow}, type=${step.type}, action=${step.action}, hasNewWindow=${hasNewWindow}`);
+      return hasNewWindow;
+    });
 
-      // 发送成功状态
-      sendStatusToFloatingPanel({
-        isRunning: false,
-        isPaused: false,
-        message: '执行完成'
+    console.log(`🔍 新窗口操作检测结果: ${hasNewWindowOperations}`);
+
+    if (hasNewWindowOperations) {
+      console.log("🪟 检测到新窗口操作，转交background script处理");
+
+      // 转发到background script处理
+      const result = await chrome.runtime.sendMessage({
+        action: "executeSteps",
+        steps: workflowData.steps
       });
 
-      console.log('✅ 工作流执行成功:', result);
+      if (result && result.success) {
+        // 发送成功状态
+        sendStatusToFloatingPanel({
+          isRunning: false,
+          isPaused: false,
+          message: '执行完成'
+        });
+        console.log('✅ 新窗口工作流执行成功:', result);
+      } else {
+        throw new Error('新窗口工作流执行失败: ' + (result?.error || '未知错误'));
+      }
     } else {
-      throw new Error('自动化执行模块未加载');
+      // 调用自动化执行模块
+      if (window.ContentAutomation && window.ContentAutomation.executeUniversalWorkflow) {
+        const result = await window.ContentAutomation.executeUniversalWorkflow(workflowData);
+
+        // 发送成功状态
+        sendStatusToFloatingPanel({
+          isRunning: false,
+          isPaused: false,
+          message: '执行完成'
+        });
+
+        console.log('✅ 工作流执行成功:', result);
+      } else {
+        throw new Error('自动化执行模块未加载');
+      }
     }
   } catch (error) {
     console.error('❌ 工作流执行失败:', error);

@@ -1,0 +1,129 @@
+{
+    "name": "新窗口管理示例工作流",
+    "description": "演示如何使用新窗口管理功能的完整工作流",
+    "version": "1.0.0",
+    "steps": [
+        {
+            "id": "step_1",
+            "name": "在主窗口填写表单",
+            "type": "input",
+            "action": "input",
+            "locator": {
+                "strategy": "css",
+                "value": "#username"
+            },
+            "text": "用户名",
+            "description": "在主窗口输入用户名"
+        },
+        {
+            "id": "step_2",
+            "name": "点击打开新窗口按钮",
+            "type": "click",
+            "action": "click",
+            "opensNewWindow": true,
+            "locator": {
+                "strategy": "css",
+                "value": "#open-new-window-btn"
+            },
+            "newWindowTimeout": 10000,
+            "windowReadyTimeout": 30000,
+            "switchToNewWindow": true,
+            "description": "点击按钮打开新窗口，后续操作将在新窗口中执行"
+        },
+        {
+            "id": "step_3",
+            "name": "在新窗口中填写信息",
+            "type": "input",
+            "action": "input",
+            "locator": {
+                "strategy": "css",
+                "value": "#new-window-input"
+            },
+            "text": "新窗口中的数据",
+            "description": "在新打开的窗口中输入数据"
+        },
+        {
+            "id": "step_4",
+            "name": "在新窗口中点击提交",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#submit-btn"
+            },
+            "description": "在新窗口中提交表单"
+        },
+        {
+            "id": "step_5",
+            "name": "等待新窗口处理完成",
+            "type": "smartWait",
+            "action": "smartWait",
+            "locator": {
+                "strategy": "css",
+                "value": "#success-message"
+            },
+            "condition": "appear",
+            "timeout": 15000,
+            "description": "等待新窗口显示成功消息"
+        },
+        {
+            "id": "step_6",
+            "name": "关闭新窗口",
+            "type": "closeWindow",
+            "action": "closeWindow",
+            "closeTarget": "current",
+            "returnToPrevious": true,
+            "description": "关闭当前新窗口并返回到主窗口"
+        },
+        {
+            "id": "step_7",
+            "name": "在主窗口继续操作",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#continue-btn"
+            },
+            "description": "回到主窗口后继续执行操作"
+        }
+    ],
+    "connections": [
+        {
+            "source": "step_1",
+            "target": "step_2"
+        },
+        {
+            "source": "step_2",
+            "target": "step_3"
+        },
+        {
+            "source": "step_3",
+            "target": "step_4"
+        },
+        {
+            "source": "step_4",
+            "target": "step_5"
+        },
+        {
+            "source": "step_5",
+            "target": "step_6"
+        },
+        {
+            "source": "step_6",
+            "target": "step_7"
+        }
+    ],
+    "settings": {
+        "windowManagement": {
+            "enabled": true,
+            "autoSwitchToNewWindow": true,
+            "autoCloseOnComplete": false,
+            "maxWindowStack": 5
+        },
+        "execution": {
+            "stepDelay": 1000,
+            "retryCount": 3,
+            "timeout": 30000
+        }
+    }
+}

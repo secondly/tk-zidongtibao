@@ -213,15 +213,13 @@ class DesignerNodes {
     let formHtml = `
       <div class="form-group">
           <label class="form-label">节点类型</label>
-          <input type="text" class="form-input" value="${
-            nodeConfig.name || nodeType
-          }" readonly>
+          <input type="text" class="form-input" value="${nodeConfig.name || nodeType
+      }" readonly>
       </div>
       <div class="form-group">
           <label class="form-label">节点名称</label>
-          <input type="text" class="form-input" id="nodeName" value="${
-            config.name || ""
-          }" placeholder="输入节点名称">
+          <input type="text" class="form-input" id="nodeName" value="${config.name || ""
+      }" placeholder="输入节点名称">
           <div class="form-help">节点在流程图中显示的名称</div>
       </div>
     `;
@@ -399,77 +397,101 @@ class DesignerNodes {
       <div class="form-group">
           <label class="form-label">定位策略</label>
           <select class="form-select" id="locatorType">
-              <option value="css" ${
-                config.locator?.strategy === "css" ||
-                config.locator?.type === "css"
-                  ? "selected"
-                  : ""
-              }>CSS选择器 [示例: .btn-primary, #submit-btn]</option>
-              <option value="xpath" ${
-                config.locator?.strategy === "xpath" ||
-                config.locator?.type === "xpath"
-                  ? "selected"
-                  : ""
-              }>XPath [示例: //button[@class='btn']]</option>
-              <option value="id" ${
-                config.locator?.strategy === "id" ||
-                config.locator?.type === "id"
-                  ? "selected"
-                  : ""
-              }>ID [示例: submit-button]</option>
-              <option value="className" ${
-                config.locator?.strategy === "className" ||
-                config.locator?.type === "className"
-                  ? "selected"
-                  : ""
-              }>类名 [示例: btn-primary]</option>
-              <option value="text" ${
-                config.locator?.strategy === "text" ||
-                config.locator?.type === "text"
-                  ? "selected"
-                  : ""
-              }>文本内容 [示例: 确定, 提交]</option>
-              <option value="contains" ${
-                config.locator?.strategy === "contains" ||
-                config.locator?.type === "contains"
-                  ? "selected"
-                  : ""
-              }>包含文本 [示例: 部分文本匹配]</option>
-              <option value="tagName" ${
-                config.locator?.strategy === "tagName" ||
-                config.locator?.type === "tagName"
-                  ? "selected"
-                  : ""
-              }>标签名 [示例: button, input]</option>
+              <option value="css" ${config.locator?.strategy === "css" ||
+        config.locator?.type === "css"
+        ? "selected"
+        : ""
+      }>CSS选择器 [示例: .btn-primary, #submit-btn]</option>
+              <option value="xpath" ${config.locator?.strategy === "xpath" ||
+        config.locator?.type === "xpath"
+        ? "selected"
+        : ""
+      }>XPath [示例: //button[@class='btn']]</option>
+              <option value="id" ${config.locator?.strategy === "id" ||
+        config.locator?.type === "id"
+        ? "selected"
+        : ""
+      }>ID [示例: submit-button]</option>
+              <option value="className" ${config.locator?.strategy === "className" ||
+        config.locator?.type === "className"
+        ? "selected"
+        : ""
+      }>类名 [示例: btn-primary]</option>
+              <option value="text" ${config.locator?.strategy === "text" ||
+        config.locator?.type === "text"
+        ? "selected"
+        : ""
+      }>文本内容 [示例: 确定, 提交]</option>
+              <option value="contains" ${config.locator?.strategy === "contains" ||
+        config.locator?.type === "contains"
+        ? "selected"
+        : ""
+      }>包含文本 [示例: 部分文本匹配]</option>
+              <option value="tagName" ${config.locator?.strategy === "tagName" ||
+        config.locator?.type === "tagName"
+        ? "selected"
+        : ""
+      }>标签名 [示例: button, input]</option>
           </select>
       </div>
       <div class="form-group">
           <label class="form-label">定位值</label>
-          <input type="text" class="form-input" id="locatorValue" value="${
-            config.locator?.value || ""
-          }" placeholder="输入定位值">
+          <input type="text" class="form-input" id="locatorValue" value="${config.locator?.value || ""
+      }" placeholder="输入定位值">
           <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px;">🎯 测试</button>
           <div class="form-help">用于定位页面元素的值</div>
       </div>
       <div class="form-group">
           <label class="form-label">点击后等待时间(毫秒)</label>
-          <input type="number" class="form-input" id="waitAfterClick" value="${
-            config.waitAfterClick || config.waitTime || 1000
-          }" min="0">
+          <input type="number" class="form-input" id="waitAfterClick" value="${config.waitAfterClick || config.waitTime || 1000
+      }" min="0">
           <div class="form-help">点击后等待页面响应的时间</div>
+      </div>
+      
+      <!-- 新窗口管理配置 -->
+      <div class="form-group">
+          <div class="form-checkbox">
+              <input type="checkbox" id="opensNewWindow" ${config.opensNewWindow ? "checked" : ""
+      }>
+              <label for="opensNewWindow" class="checkbox-label">🪟 此操作会打开新窗口</label>
+          </div>
+          <div class="form-help">勾选此项表示点击后会打开新窗口，后续步骤将在新窗口中执行</div>
+      </div>
+      
+      <div class="new-window-options" style="display: ${config.opensNewWindow ? "block" : "none"
+      }; margin-left: 20px; border-left: 3px solid #007bff; padding-left: 15px;">
+          <div class="form-group">
+              <label class="form-label">新窗口创建超时时间(毫秒)</label>
+              <input type="number" class="form-input" id="newWindowTimeout" value="${config.newWindowTimeout || 10000
+      }" min="1000" max="60000">
+              <div class="form-help">等待新窗口创建的最大时间</div>
+          </div>
+          
+          <div class="form-group">
+              <label class="form-label">新窗口就绪超时时间(毫秒)</label>
+              <input type="number" class="form-input" id="windowReadyTimeout" value="${config.windowReadyTimeout || 30000
+      }" min="5000" max="120000">
+              <div class="form-help">等待新窗口页面加载完成的最大时间</div>
+          </div>
+          
+          <div class="form-group">
+              <div class="form-checkbox">
+                  <input type="checkbox" id="switchToNewWindow" ${config.switchToNewWindow !== false ? "checked" : ""
+      }>
+                  <label for="switchToNewWindow" class="checkbox-label">自动切换到新窗口</label>
+              </div>
+              <div class="form-help">是否自动将焦点切换到新打开的窗口</div>
+          </div>
       </div>
       <div class="form-group">
           <label class="form-label">错误处理</label>
           <select class="form-select" id="errorHandling">
-              <option value="continue" ${
-                config.errorHandling === "continue" ? "selected" : ""
-              }>继续执行</option>
-              <option value="stop" ${
-                config.errorHandling === "stop" ? "selected" : ""
-              }>停止执行</option>
-              <option value="retry" ${
-                config.errorHandling === "retry" ? "selected" : ""
-              }>重试操作</option>
+              <option value="continue" ${config.errorHandling === "continue" ? "selected" : ""
+      }>继续执行</option>
+              <option value="stop" ${config.errorHandling === "stop" ? "selected" : ""
+      }>停止执行</option>
+              <option value="retry" ${config.errorHandling === "retry" ? "selected" : ""
+      }>重试操作</option>
           </select>
       </div>
     `;
@@ -480,89 +502,75 @@ class DesignerNodes {
       <div class="form-group">
           <label class="form-label">定位策略</label>
           <select class="form-select" id="locatorType">
-              <option value="css" ${
-                config.locator?.strategy === "css" ||
-                config.locator?.type === "css"
-                  ? "selected"
-                  : ""
-              }>CSS选择器 [示例: input[name='username'], #email]</option>
-              <option value="xpath" ${
-                config.locator?.strategy === "xpath" ||
-                config.locator?.type === "xpath"
-                  ? "selected"
-                  : ""
-              }>XPath [示例: //input[@type='text']]</option>
-              <option value="id" ${
-                config.locator?.strategy === "id" ||
-                config.locator?.type === "id"
-                  ? "selected"
-                  : ""
-              }>ID [示例: username-input]</option>
-              <option value="className" ${
-                config.locator?.strategy === "className" ||
-                config.locator?.type === "className"
-                  ? "selected"
-                  : ""
-              }>类名 [示例: form-control]</option>
-              <option value="text" ${
-                config.locator?.strategy === "text" ||
-                config.locator?.type === "text"
-                  ? "selected"
-                  : ""
-              }>文本内容 [示例: 用户名, 邮箱]</option>
-              <option value="contains" ${
-                config.locator?.strategy === "contains" ||
-                config.locator?.type === "contains"
-                  ? "selected"
-                  : ""
-              }>包含文本 [示例: 部分文本匹配]</option>
-              <option value="tagName" ${
-                config.locator?.strategy === "tagName" ||
-                config.locator?.type === "tagName"
-                  ? "selected"
-                  : ""
-              }>标签名 [示例: input, textarea]</option>
+              <option value="css" ${config.locator?.strategy === "css" ||
+        config.locator?.type === "css"
+        ? "selected"
+        : ""
+      }>CSS选择器 [示例: input[name='username'], #email]</option>
+              <option value="xpath" ${config.locator?.strategy === "xpath" ||
+        config.locator?.type === "xpath"
+        ? "selected"
+        : ""
+      }>XPath [示例: //input[@type='text']]</option>
+              <option value="id" ${config.locator?.strategy === "id" ||
+        config.locator?.type === "id"
+        ? "selected"
+        : ""
+      }>ID [示例: username-input]</option>
+              <option value="className" ${config.locator?.strategy === "className" ||
+        config.locator?.type === "className"
+        ? "selected"
+        : ""
+      }>类名 [示例: form-control]</option>
+              <option value="text" ${config.locator?.strategy === "text" ||
+        config.locator?.type === "text"
+        ? "selected"
+        : ""
+      }>文本内容 [示例: 用户名, 邮箱]</option>
+              <option value="contains" ${config.locator?.strategy === "contains" ||
+        config.locator?.type === "contains"
+        ? "selected"
+        : ""
+      }>包含文本 [示例: 部分文本匹配]</option>
+              <option value="tagName" ${config.locator?.strategy === "tagName" ||
+        config.locator?.type === "tagName"
+        ? "selected"
+        : ""
+      }>标签名 [示例: input, textarea]</option>
           </select>
       </div>
       <div class="form-group">
           <label class="form-label">定位值</label>
-          <input type="text" class="form-input" id="locatorValue" value="${
-            config.locator?.value || ""
-          }" placeholder="输入定位值">
+          <input type="text" class="form-input" id="locatorValue" value="${config.locator?.value || ""
+      }" placeholder="输入定位值">
           <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px;">🎯 测试</button>
           <div class="form-help">用于定位输入框元素的值</div>
       </div>
       <div class="form-group">
           <label class="form-label">输入内容</label>
-          <textarea class="form-textarea" id="inputText" placeholder="输入要填写的内容">${
-            config.inputText || ""
-          }</textarea>
+          <textarea class="form-textarea" id="inputText" placeholder="输入要填写的内容">${config.inputText || ""
+      }</textarea>
           <div class="form-help">要输入到目标元素中的文本内容</div>
       </div>
       <div class="form-group">
           <label class="form-label">输入前清空</label>
           <select class="form-select" id="clearFirst">
-              <option value="true" ${
-                config.clearFirst !== false ? "selected" : ""
-              }>是</option>
-              <option value="false" ${
-                config.clearFirst === false ? "selected" : ""
-              }>否</option>
+              <option value="true" ${config.clearFirst !== false ? "selected" : ""
+      }>是</option>
+              <option value="false" ${config.clearFirst === false ? "selected" : ""
+      }>否</option>
           </select>
           <div class="form-help">输入前是否清空原有内容</div>
       </div>
       <div class="form-group">
           <label class="form-label">错误处理</label>
           <select class="form-select" id="errorHandling">
-              <option value="continue" ${
-                config.errorHandling === "continue" ? "selected" : ""
-              }>继续执行</option>
-              <option value="stop" ${
-                config.errorHandling === "stop" ? "selected" : ""
-              }>停止执行</option>
-              <option value="retry" ${
-                config.errorHandling === "retry" ? "selected" : ""
-              }>重试操作</option>
+              <option value="continue" ${config.errorHandling === "continue" ? "selected" : ""
+      }>继续执行</option>
+              <option value="stop" ${config.errorHandling === "stop" ? "selected" : ""
+      }>停止执行</option>
+              <option value="retry" ${config.errorHandling === "retry" ? "selected" : ""
+      }>重试操作</option>
           </select>
       </div>
     `;
@@ -572,20 +580,17 @@ class DesignerNodes {
     return `
       <div class="form-group">
           <label class="form-label">等待时间(毫秒)</label>
-          <input type="number" class="form-input" id="waitDuration" value="${
-            config.duration || config.waitTime || 1000
-          }" min="100" max="60000" step="100">
+          <input type="number" class="form-input" id="waitDuration" value="${config.duration || config.waitTime || 1000
+      }" min="100" max="60000" step="100">
           <div class="form-help">固定等待的时间长度</div>
       </div>
       <div class="form-group">
           <label class="form-label">错误处理</label>
           <select class="form-select" id="errorHandling">
-              <option value="continue" ${
-                config.errorHandling === "continue" ? "selected" : ""
-              }>继续执行</option>
-              <option value="stop" ${
-                config.errorHandling === "stop" ? "selected" : ""
-              }>停止执行</option>
+              <option value="continue" ${config.errorHandling === "continue" ? "selected" : ""
+      }>继续执行</option>
+              <option value="stop" ${config.errorHandling === "stop" ? "selected" : ""
+      }>停止执行</option>
           </select>
       </div>
     `;
@@ -595,99 +600,85 @@ class DesignerNodes {
       <div class="form-group">
           <label class="form-label">定位策略</label>
           <select class="form-select" id="locatorType">
-              <option value="css" ${
-                config.locator?.strategy === "css" ||
-                config.locator?.type === "css"
-                  ? "selected"
-                  : ""
-              }>CSS选择器 [示例: .loading, #content]</option>
-              <option value="xpath" ${
-                config.locator?.strategy === "xpath" ||
-                config.locator?.type === "xpath"
-                  ? "selected"
-                  : ""
-              }>XPath [示例: //div[@class='loaded']]</option>
-              <option value="id" ${
-                config.locator?.strategy === "id" ||
-                config.locator?.type === "id"
-                  ? "selected"
-                  : ""
-              }>ID [示例: loading-indicator]</option>
-              <option value="className" ${
-                config.locator?.strategy === "className" ||
-                config.locator?.type === "className"
-                  ? "selected"
-                  : ""
-              }>类名 [示例: content-loaded]</option>
-              <option value="text" ${
-                config.locator?.strategy === "text" ||
-                config.locator?.type === "text"
-                  ? "selected"
-                  : ""
-              }>文本内容 [示例: 加载完成]</option>
-              <option value="contains" ${
-                config.locator?.strategy === "contains" ||
-                config.locator?.type === "contains"
-                  ? "selected"
-                  : ""
-              }>包含文本 [示例: 部分文本匹配]</option>
-              <option value="tagName" ${
-                config.locator?.strategy === "tagName" ||
-                config.locator?.type === "tagName"
-                  ? "selected"
-                  : ""
-              }>标签名 [示例: div, span]</option>
+              <option value="css" ${config.locator?.strategy === "css" ||
+        config.locator?.type === "css"
+        ? "selected"
+        : ""
+      }>CSS选择器 [示例: .loading, #content]</option>
+              <option value="xpath" ${config.locator?.strategy === "xpath" ||
+        config.locator?.type === "xpath"
+        ? "selected"
+        : ""
+      }>XPath [示例: //div[@class='loaded']]</option>
+              <option value="id" ${config.locator?.strategy === "id" ||
+        config.locator?.type === "id"
+        ? "selected"
+        : ""
+      }>ID [示例: loading-indicator]</option>
+              <option value="className" ${config.locator?.strategy === "className" ||
+        config.locator?.type === "className"
+        ? "selected"
+        : ""
+      }>类名 [示例: content-loaded]</option>
+              <option value="text" ${config.locator?.strategy === "text" ||
+        config.locator?.type === "text"
+        ? "selected"
+        : ""
+      }>文本内容 [示例: 加载完成]</option>
+              <option value="contains" ${config.locator?.strategy === "contains" ||
+        config.locator?.type === "contains"
+        ? "selected"
+        : ""
+      }>包含文本 [示例: 部分文本匹配]</option>
+              <option value="tagName" ${config.locator?.strategy === "tagName" ||
+        config.locator?.type === "tagName"
+        ? "selected"
+        : ""
+      }>标签名 [示例: div, span]</option>
           </select>
       </div>
       <div class="form-group">
           <label class="form-label">定位值</label>
-          <input type="text" class="form-input" id="locatorValue" value="${
-            config.locator?.value || ""
-          }" placeholder="输入定位值">
+          <input type="text" class="form-input" id="locatorValue" value="${config.locator?.value || ""
+      }" placeholder="输入定位值">
           <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px;">🎯 测试</button>
           <div class="form-help">等待出现或消失的元素定位值</div>
       </div>
       <div class="form-group">
           <label class="form-label">属性名称</label>
-          <input type="text" class="form-input" id="attributeName" value="${
-            config.attributeName || ""
-          }" placeholder="例如：class、disabled、data-value等">
+          <input type="text" class="form-input" id="attributeName" value="${config.attributeName || ""
+      }" placeholder="例如：class、disabled、data-value等">
           <div class="form-help">要等待的属性名称</div>
       </div>
 
       <div class="form-group">
           <label class="form-label">比较方式</label>
           <select class="form-select" id="comparisonType">
-              <option value="equals" ${
-                config.comparisonType === "equals" ? "selected" : ""
-              }>等于</option>
-              <option value="contains" ${
-                config.comparisonType === "contains" ? "selected" : ""
-              }>包含</option>
+              <option value="equals" ${config.comparisonType === "equals" ? "selected" : ""
+      }>等于</option>
+              <option value="contains" ${config.comparisonType === "contains" ? "selected" : ""
+      }>包含</option>
           </select>
           <div class="form-help">属性值的比较方式</div>
       </div>
 
       <div class="form-group">
           <label class="form-label">期望值</label>
-          <input type="text" class="form-input" id="expectedValue" value="${
-            config.expectedValue || ""
-          }" placeholder="输入期望的值">
+          <input type="text" class="form-input" id="expectedValue" value="${config.expectedValue || ""
+      }" placeholder="输入期望的值">
           <button type="button" class="test-condition-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🧪 测试条件</button>
           <div class="form-help">期望的属性值</div>
       </div>
       <div class="form-group">
           <label class="form-label">超时时间(毫秒)</label>
-          <input type="number" class="form-input" id="timeout" value="${
-            config.timeout || config.waitTime || 30000
-          }" min="1000" max="60000" step="1000">
+          <input type="number" class="form-input" id="timeout" value="${config.timeout || config.waitTime || 30000
+      }" min="1000" max="60000" step="1000">
           <div class="form-help">最长等待时间，超时后继续执行</div>
       </div>
       <div class="form-group">
           <label class="form-label">检查间隔(毫秒)</label>
-          <input type="number" class="form-input" id="checkInterval" value="${
-            config.checkInterval || 500
-          }" min="100" max="5000" step="100">
+          <input type="number" class="form-input" id="checkInterval" value="${config.checkInterval || 500
+      }" min="100" max="5000" step="100">
           <div class="form-help">检查条件的时间间隔</div>
       </div>
     `;
@@ -698,99 +689,81 @@ class DesignerNodes {
       <div class="form-group">
           <label class="form-label">定位策略</label>
           <select class="form-select" id="locatorType">
-              <option value="css" ${
-                config.locator?.strategy === "css" ||
-                config.locator?.type === "css"
-                  ? "selected"
-                  : ""
-              }>CSS选择器 [示例: input[type='checkbox'], .btn]</option>
-              <option value="xpath" ${
-                config.locator?.strategy === "xpath" ||
-                config.locator?.type === "xpath"
-                  ? "selected"
-                  : ""
-              }>XPath [示例: //button[@disabled]]</option>
-              <option value="id" ${
-                config.locator?.strategy === "id" ||
-                config.locator?.type === "id"
-                  ? "selected"
-                  : ""
-              }>ID [示例: submit-btn]</option>
-              <option value="className" ${
-                config.locator?.strategy === "className" ||
-                config.locator?.type === "className"
-                  ? "selected"
-                  : ""
-              }>类名 [示例: disabled-btn]</option>
-              <option value="text" ${
-                config.locator?.strategy === "text" ||
-                config.locator?.type === "text"
-                  ? "selected"
-                  : ""
-              }>文本内容 [示例: 提交按钮]</option>
-              <option value="contains" ${
-                config.locator?.strategy === "contains" ||
-                config.locator?.type === "contains"
-                  ? "selected"
-                  : ""
-              }>包含文本 [示例: 部分文本匹配]</option>
-              <option value="tagName" ${
-                config.locator?.strategy === "tagName" ||
-                config.locator?.type === "tagName"
-                  ? "selected"
-                  : ""
-              }>标签名 [示例: button, input]</option>
+              <option value="css" ${config.locator?.strategy === "css" ||
+        config.locator?.type === "css"
+        ? "selected"
+        : ""
+      }>CSS选择器 [示例: input[type='checkbox'], .btn]</option>
+              <option value="xpath" ${config.locator?.strategy === "xpath" ||
+        config.locator?.type === "xpath"
+        ? "selected"
+        : ""
+      }>XPath [示例: //button[@disabled]]</option>
+              <option value="id" ${config.locator?.strategy === "id" ||
+        config.locator?.type === "id"
+        ? "selected"
+        : ""
+      }>ID [示例: submit-btn]</option>
+              <option value="className" ${config.locator?.strategy === "className" ||
+        config.locator?.type === "className"
+        ? "selected"
+        : ""
+      }>类名 [示例: disabled-btn]</option>
+              <option value="text" ${config.locator?.strategy === "text" ||
+        config.locator?.type === "text"
+        ? "selected"
+        : ""
+      }>文本内容 [示例: 提交按钮]</option>
+              <option value="contains" ${config.locator?.strategy === "contains" ||
+        config.locator?.type === "contains"
+        ? "selected"
+        : ""
+      }>包含文本 [示例: 部分文本匹配]</option>
+              <option value="tagName" ${config.locator?.strategy === "tagName" ||
+        config.locator?.type === "tagName"
+        ? "selected"
+        : ""
+      }>标签名 [示例: button, input]</option>
           </select>
       </div>
       <div class="form-group">
           <label class="form-label">定位值</label>
-          <input type="text" class="form-input" id="locatorValue" value="${
-            config.locator?.value || ""
-          }" placeholder="输入定位值">
+          <input type="text" class="form-input" id="locatorValue" value="${config.locator?.value || ""
+      }" placeholder="输入定位值">
           <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px;">🎯 测试</button>
           <div class="form-help">要检查状态的元素定位值</div>
       </div>
       <div class="form-group">
           <label class="form-label">检查类型</label>
           <select class="form-select" id="checkType">
-              <option value="exists" ${
-                config.checkType === "exists" ? "selected" : ""
-              }>元素是否存在</option>
-              <option value="visible" ${
-                config.checkType === "visible" ? "selected" : ""
-              }>元素是否可见</option>
-              <option value="enabled" ${
-                config.checkType === "enabled" ? "selected" : ""
-              }>元素是否启用</option>
-              <option value="checked" ${
-                config.checkType === "checked" ? "selected" : ""
-              }>复选框是否选中</option>
-              <option value="text" ${
-                config.checkType === "text" ? "selected" : ""
-              }>文本内容检查</option>
-              <option value="attribute" ${
-                config.checkType === "attribute" ? "selected" : ""
-              }>属性值检查</option>
+              <option value="exists" ${config.checkType === "exists" ? "selected" : ""
+      }>元素是否存在</option>
+              <option value="visible" ${config.checkType === "visible" ? "selected" : ""
+      }>元素是否可见</option>
+              <option value="enabled" ${config.checkType === "enabled" ? "selected" : ""
+      }>元素是否启用</option>
+              <option value="checked" ${config.checkType === "checked" ? "selected" : ""
+      }>复选框是否选中</option>
+              <option value="text" ${config.checkType === "text" ? "selected" : ""
+      }>文本内容检查</option>
+              <option value="attribute" ${config.checkType === "attribute" ? "selected" : ""
+      }>属性值检查</option>
           </select>
       </div>
-      <div class="form-group" id="expectedValueGroup" style="display: ${
-        config.checkType === "text" || config.checkType === "attribute"
-          ? "block"
-          : "none"
+      <div class="form-group" id="expectedValueGroup" style="display: ${config.checkType === "text" || config.checkType === "attribute"
+        ? "block"
+        : "none"
       };">
           <label class="form-label">期望值</label>
-          <input type="text" class="form-input" id="expectedValue" value="${
-            config.expectedValue || ""
-          }" placeholder="输入期望的值">
+          <input type="text" class="form-input" id="expectedValue" value="${config.expectedValue || ""
+      }" placeholder="输入期望的值">
           <div class="form-help">要检查的期望值</div>
       </div>
-      <div class="form-group" id="attributeNameGroup" style="display: ${
-        config.checkType === "attribute" ? "block" : "none"
+      <div class="form-group" id="attributeNameGroup" style="display: ${config.checkType === "attribute" ? "block" : "none"
       };">
           <label class="form-label">属性名称</label>
-          <input type="text" class="form-input" id="attributeName" value="${
-            config.attributeName || ""
-          }" placeholder="例如：class、id、data-value等">
+          <input type="text" class="form-input" id="attributeName" value="${config.attributeName || ""
+      }" placeholder="例如：class、id、data-value等">
           <div class="form-help">要检查的属性名称</div>
       </div>
     `;
@@ -809,54 +782,44 @@ class DesignerNodes {
       <div class="form-group">
         <label class="form-label">定位策略</label>
         <select class="form-select" id="locatorType">
-          <option value="css" ${
-            locator.strategy === "css" ? "selected" : ""
-          }>CSS选择器</option>
-          <option value="xpath" ${
-            locator.strategy === "xpath" ? "selected" : ""
-          }>XPath路径</option>
-          <option value="id" ${
-            locator.strategy === "id" ? "selected" : ""
-          }>ID属性</option>
-          <option value="className" ${
-            locator.strategy === "className" ? "selected" : ""
-          }>Class名称</option>
-          <option value="text" ${
-            locator.strategy === "text" ? "selected" : ""
-          }>精确文本</option>
-          <option value="contains" ${
-            locator.strategy === "contains" ? "selected" : ""
-          }>包含文本</option>
+          <option value="css" ${locator.strategy === "css" ? "selected" : ""
+      }>CSS选择器</option>
+          <option value="xpath" ${locator.strategy === "xpath" ? "selected" : ""
+      }>XPath路径</option>
+          <option value="id" ${locator.strategy === "id" ? "selected" : ""
+      }>ID属性</option>
+          <option value="className" ${locator.strategy === "className" ? "selected" : ""
+      }>Class名称</option>
+          <option value="text" ${locator.strategy === "text" ? "selected" : ""
+      }>精确文本</option>
+          <option value="contains" ${locator.strategy === "contains" ? "selected" : ""
+      }>包含文本</option>
         </select>
       </div>
       <div class="form-group">
         <label class="form-label">定位值</label>
         <div style="display: flex; gap: 10px; align-items: center;">
-          <input type="text" class="form-input" id="locatorValue" value="${
-            locator.value
-          }" placeholder="输入定位表达式">
+          <input type="text" class="form-input" id="locatorValue" value="${locator.value
+      }" placeholder="输入定位表达式">
           <button type="button" class="test-locator-btn" style="padding: 5px 10px; background: #27ae60; color: white; border: none; border-radius: 3px;">🔍 测试</button>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label">水平移动距离（像素）</label>
-        <input type="number" class="form-input" id="horizontalDistance" value="${
-          config.horizontalDistance || 0
-        }" min="-2000" max="2000">
+        <input type="number" class="form-input" id="horizontalDistance" value="${config.horizontalDistance || 0
+      }" min="-2000" max="2000">
         <div class="form-help">正数向右移动，负数向左移动</div>
       </div>
       <div class="form-group">
         <label class="form-label">垂直移动距离（像素）</label>
-        <input type="number" class="form-input" id="verticalDistance" value="${
-          config.verticalDistance || 0
-        }" min="-2000" max="2000">
+        <input type="number" class="form-input" id="verticalDistance" value="${config.verticalDistance || 0
+      }" min="-2000" max="2000">
         <div class="form-help">正数向下移动，负数向上移动</div>
       </div>
       <div class="form-group">
         <label class="form-label">操作超时（毫秒）</label>
-        <input type="number" class="form-input" id="dragTimeout" value="${
-          config.timeout || 10000
-        }" min="1000" max="60000" step="1000">
+        <input type="number" class="form-input" id="dragTimeout" value="${config.timeout || 10000
+      }" min="1000" max="60000" step="1000">
       </div>
     `;
   }
@@ -866,100 +829,81 @@ class DesignerNodes {
       <div class="form-group">
           <label class="form-label">定位策略</label>
           <select class="form-select" id="locatorType">
-              <option value="css" ${
-                config.locator?.strategy === "css" ||
-                config.locator?.type === "css"
-                  ? "selected"
-                  : ""
-              }>CSS选择器</option>
-              <option value="xpath" ${
-                config.locator?.strategy === "xpath" ||
-                config.locator?.type === "xpath"
-                  ? "selected"
-                  : ""
-              }>XPath</option>
-              <option value="id" ${
-                config.locator?.strategy === "id" ||
-                config.locator?.type === "id"
-                  ? "selected"
-                  : ""
-              }>ID</option>
-              <option value="className" ${
-                config.locator?.strategy === "className" ||
-                config.locator?.type === "className"
-                  ? "selected"
-                  : ""
-              }>类名</option>
-              <option value="text" ${
-                config.locator?.strategy === "text" ||
-                config.locator?.type === "text"
-                  ? "selected"
-                  : ""
-              }>文本内容</option>
+              <option value="css" ${config.locator?.strategy === "css" ||
+        config.locator?.type === "css"
+        ? "selected"
+        : ""
+      }>CSS选择器</option>
+              <option value="xpath" ${config.locator?.strategy === "xpath" ||
+        config.locator?.type === "xpath"
+        ? "selected"
+        : ""
+      }>XPath</option>
+              <option value="id" ${config.locator?.strategy === "id" ||
+        config.locator?.type === "id"
+        ? "selected"
+        : ""
+      }>ID</option>
+              <option value="className" ${config.locator?.strategy === "className" ||
+        config.locator?.type === "className"
+        ? "selected"
+        : ""
+      }>类名</option>
+              <option value="text" ${config.locator?.strategy === "text" ||
+        config.locator?.type === "text"
+        ? "selected"
+        : ""
+      }>文本内容</option>
           </select>
       </div>
       <div class="form-group">
           <label class="form-label">定位值</label>
-          <input type="text" class="form-input" id="locatorValue" value="${
-            config.locator?.value || ""
-          }" placeholder="输入定位值">
+          <input type="text" class="form-input" id="locatorValue" value="${config.locator?.value || ""
+      }" placeholder="输入定位值">
           <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px;">🎯 测试</button>
       </div>
       <div class="form-group">
           <label class="form-label">条件类型</label>
           <select class="form-select" id="conditionType">
-              <option value="exists" ${
-                config.conditionType === "exists" ? "selected" : ""
-              }>元素存在</option>
-              <option value="visible" ${
-                config.conditionType === "visible" ? "selected" : ""
-              }>元素可见</option>
-              <option value="text" ${
-                config.conditionType === "text" ? "selected" : ""
-              }>文本内容</option>
-              <option value="attribute" ${
-                config.conditionType === "attribute" ? "selected" : ""
-              }>属性值</option>
+              <option value="exists" ${config.conditionType === "exists" ? "selected" : ""
+      }>元素存在</option>
+              <option value="visible" ${config.conditionType === "visible" ? "selected" : ""
+      }>元素可见</option>
+              <option value="text" ${config.conditionType === "text" ? "selected" : ""
+      }>文本内容</option>
+              <option value="attribute" ${config.conditionType === "attribute" ? "selected" : ""
+      }>属性值</option>
           </select>
       </div>
-      <div class="form-group" id="attributeNameGroup" style="display: ${
-        config.conditionType === "attribute" ? "block" : "none"
+      <div class="form-group" id="attributeNameGroup" style="display: ${config.conditionType === "attribute" ? "block" : "none"
       };">
           <label class="form-label">属性名称</label>
-          <input type="text" class="form-input" id="attributeName" value="${
-            config.attributeName || ""
-          }" placeholder="例如：class、disabled、data-value等">
+          <input type="text" class="form-input" id="attributeName" value="${config.attributeName || ""
+      }" placeholder="例如：class、disabled、data-value等">
       </div>
-      <div class="form-group" id="comparisonGroup" style="display: ${
-        config.conditionType === "text" || config.conditionType === "attribute"
-          ? "block"
-          : "none"
+      <div class="form-group" id="comparisonGroup" style="display: ${config.conditionType === "text" || config.conditionType === "attribute"
+        ? "block"
+        : "none"
       };">
           <label class="form-label">比较方式</label>
           <select class="form-select" id="comparisonType">
-              <option value="equals" ${
-                config.comparisonType === "equals" ? "selected" : ""
-              }>等于</option>
-              <option value="contains" ${
-                config.comparisonType === "contains" ? "selected" : ""
-              }>包含</option>
-              <option value="startsWith" ${
-                config.comparisonType === "startsWith" ? "selected" : ""
-              }>开始于</option>
-              <option value="endsWith" ${
-                config.comparisonType === "endsWith" ? "selected" : ""
-              }>结束于</option>
+              <option value="equals" ${config.comparisonType === "equals" ? "selected" : ""
+      }>等于</option>
+              <option value="contains" ${config.comparisonType === "contains" ? "selected" : ""
+      }>包含</option>
+              <option value="startsWith" ${config.comparisonType === "startsWith" ? "selected" : ""
+      }>开始于</option>
+              <option value="endsWith" ${config.comparisonType === "endsWith" ? "selected" : ""
+      }>结束于</option>
           </select>
       </div>
-      <div class="form-group" id="expectedValueGroup" style="display: ${
-        config.conditionType === "text" || config.conditionType === "attribute"
-          ? "block"
-          : "none"
+      <div class="form-group" id="expectedValueGroup" style="display: ${config.conditionType === "text" || config.conditionType === "attribute"
+        ? "block"
+        : "none"
       };">
           <label class="form-label">期望值</label>
-          <input type="text" class="form-input" id="expectedValue" value="${
-            config.expectedValue || ""
-          }" placeholder="输入期望的值">
+          <input type="text" class="form-input" id="expectedValue" value="${config.expectedValue || ""
+      }" placeholder="输入期望的值">
           <button type="button" class="test-condition-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🧪 测试条件</button>
       </div>
     `;
@@ -969,140 +913,116 @@ class DesignerNodes {
     return `
       <div class="form-group">
           <label class="form-label">循环类型</label>
-          <input type="text" class="form-input" value="${
-            config.loopType === "container"
-              ? "循环操作带子操作（容器）"
-              : "自循环操作"
-          }" readonly>
+          <input type="text" class="form-input" value="${config.loopType === "container"
+        ? "循环操作带子操作（容器）"
+        : "自循环操作"
+      }" readonly>
       </div>
       <div class="form-group">
           <label class="form-label">定位策略</label>
           <select class="form-select" id="locatorType">
-              <option value="css" ${
-                config.locator?.strategy === "css" ? "selected" : ""
-              }>CSS选择器 [示例: .list-item, .btn-action]</option>
-              <option value="xpath" ${
-                config.locator?.strategy === "xpath" ? "selected" : ""
-              }>XPath [示例: //div[@class='list-item']]</option>
-              <option value="id" ${
-                config.locator?.strategy === "id" ? "selected" : ""
-              }>ID [示例: list-item]</option>
-              <option value="className" ${
-                config.locator?.strategy === "className" ? "selected" : ""
-              }>类名 [示例: list-item]</option>
-              <option value="text" ${
-                config.locator?.strategy === "text" ? "selected" : ""
-              }>文本内容 [示例: 按钮文本]</option>
-              <option value="contains" ${
-                config.locator?.strategy === "contains" ? "selected" : ""
-              }>包含文本 [示例: 部分文本匹配]</option>
-              <option value="tagName" ${
-                config.locator?.strategy === "tagName" ? "selected" : ""
-              }>标签名 [示例: button, div]</option>
+              <option value="css" ${config.locator?.strategy === "css" ? "selected" : ""
+      }>CSS选择器 [示例: .list-item, .btn-action]</option>
+              <option value="xpath" ${config.locator?.strategy === "xpath" ? "selected" : ""
+      }>XPath [示例: //div[@class='list-item']]</option>
+              <option value="id" ${config.locator?.strategy === "id" ? "selected" : ""
+      }>ID [示例: list-item]</option>
+              <option value="className" ${config.locator?.strategy === "className" ? "selected" : ""
+      }>类名 [示例: list-item]</option>
+              <option value="text" ${config.locator?.strategy === "text" ? "selected" : ""
+      }>文本内容 [示例: 按钮文本]</option>
+              <option value="contains" ${config.locator?.strategy === "contains" ? "selected" : ""
+      }>包含文本 [示例: 部分文本匹配]</option>
+              <option value="tagName" ${config.locator?.strategy === "tagName" ? "selected" : ""
+      }>标签名 [示例: button, div]</option>
           </select>
       </div>
       <div class="form-group">
           <label class="form-label">循环选择器</label>
-          <input type="text" class="form-input" id="loopSelector" value="${
-            config.loopSelector || config.locator?.value || ""
-          }" placeholder="输入循环元素的选择器">
+          <input type="text" class="form-input" id="loopSelector" value="${config.loopSelector || config.locator?.value || ""
+      }" placeholder="输入循环元素的选择器">
           <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px;">🎯 测试</button>
       </div>
       <div class="form-group">
           <label class="form-label">最大循环次数</label>
-          <input type="number" class="form-input" id="maxIterations" value="${
-            config.maxIterations || 10
-          }" min="1" max="1000">
+          <input type="number" class="form-input" id="maxIterations" value="${config.maxIterations || 10
+      }" min="1" max="1000">
       </div>
       <div class="form-group">
           <label class="form-label">开始索引</label>
-          <input type="number" class="form-input" id="startIndex" value="${
-            config.startIndex || 0
-          }" min="0">
+          <input type="number" class="form-input" id="startIndex" value="${config.startIndex || 0
+      }" min="0">
       </div>
       <div class="form-group">
           <label class="form-label">结束索引</label>
-          <input type="number" class="form-input" id="endIndex" value="${
-            config.endIndex || -1
-          }" min="-1">
+          <input type="number" class="form-input" id="endIndex" value="${config.endIndex || -1
+      }" min="-1">
           <div class="form-help">-1 表示循环到最后一个元素</div>
       </div>
       <div class="form-group">
           <label class="form-label">操作延迟(毫秒)</label>
-          <input type="number" class="form-input" id="operationDelay" value="${
-            config.operationDelay || config.waitTime || 1000
-          }" min="100" max="60000" step="100">
+          <input type="number" class="form-input" id="operationDelay" value="${config.operationDelay || config.waitTime || 1000
+      }" min="100" max="60000" step="100">
           <div class="form-help">每次循环操作后的等待时间</div>
       </div>
 
       <!-- 敏感词检测配置 -->
       <div class="form-group">
           <label class="form-label">
-              <input type="checkbox" id="enableSensitiveWordDetection" ${
-                config.sensitiveWordDetection?.enabled ? "checked" : ""
-              } style="margin-right: 8px;">
+              <input type="checkbox" id="enableSensitiveWordDetection" ${config.sensitiveWordDetection?.enabled ? "checked" : ""
+      } style="margin-right: 8px;">
               敏感词检测
           </label>
           <div class="form-help">启用后，包含敏感词的循环元素将被跳过</div>
       </div>
 
-      <div id="sensitiveWordConfig" style="display: ${
-        config.sensitiveWordDetection?.enabled ? "block" : "none"
+      <div id="sensitiveWordConfig" style="display: ${config.sensitiveWordDetection?.enabled ? "block" : "none"
       }; margin-left: 20px; border-left: 3px solid #e74c3c; padding-left: 15px;">
           <div class="form-group">
               <label class="form-label">敏感词列表</label>
-              <textarea class="form-textarea" id="sensitiveWords" placeholder="输入敏感词，用英文逗号分隔，例如：广告,推广,营销" rows="3">${
-                config.sensitiveWordDetection?.sensitiveWords || ""
-              }</textarea>
+              <textarea class="form-textarea" id="sensitiveWords" placeholder="输入敏感词，用英文逗号分隔，例如：广告,推广,营销" rows="3">${config.sensitiveWordDetection?.sensitiveWords || ""
+      }</textarea>
               <div class="form-help">每个敏感词用英文逗号分隔，检测时不区分大小写</div>
           </div>
           <div class="form-group">
               <label class="form-label">敏感词检测定位策略</label>
               <select class="form-select" id="sensitiveWordLocatorStrategy">
-                  <option value="css" ${
-                    config.sensitiveWordDetection?.locatorStrategy === "css"
-                      ? "selected"
-                      : ""
-                  }>CSS选择器 [示例: .content, .title]</option>
-                  <option value="xpath" ${
-                    config.sensitiveWordDetection?.locatorStrategy === "xpath"
-                      ? "selected"
-                      : ""
-                  }>XPath [示例: //div[@class='content']]</option>
-                  <option value="id" ${
-                    config.sensitiveWordDetection?.locatorStrategy === "id"
-                      ? "selected"
-                      : ""
-                  }>ID [示例: content-text]</option>
-                  <option value="className" ${
-                    config.sensitiveWordDetection?.locatorStrategy ===
-                    "className"
-                      ? "selected"
-                      : ""
-                  }>类名 [示例: content-text]</option>
-                  <option value="text" ${
-                    config.sensitiveWordDetection?.locatorStrategy === "text"
-                      ? "selected"
-                      : ""
-                  }>文本内容 [示例: 标题文本]</option>
-                  <option value="contains" ${
-                    config.sensitiveWordDetection?.locatorStrategy ===
-                    "contains"
-                      ? "selected"
-                      : ""
-                  }>包含文本 [示例: 部分文本匹配]</option>
-                  <option value="tagName" ${
-                    config.sensitiveWordDetection?.locatorStrategy === "tagName"
-                      ? "selected"
-                      : ""
-                  }>标签名 [示例: p, span, div]</option>
+                  <option value="css" ${config.sensitiveWordDetection?.locatorStrategy === "css"
+        ? "selected"
+        : ""
+      }>CSS选择器 [示例: .content, .title]</option>
+                  <option value="xpath" ${config.sensitiveWordDetection?.locatorStrategy === "xpath"
+        ? "selected"
+        : ""
+      }>XPath [示例: //div[@class='content']]</option>
+                  <option value="id" ${config.sensitiveWordDetection?.locatorStrategy === "id"
+        ? "selected"
+        : ""
+      }>ID [示例: content-text]</option>
+                  <option value="className" ${config.sensitiveWordDetection?.locatorStrategy ===
+        "className"
+        ? "selected"
+        : ""
+      }>类名 [示例: content-text]</option>
+                  <option value="text" ${config.sensitiveWordDetection?.locatorStrategy === "text"
+        ? "selected"
+        : ""
+      }>文本内容 [示例: 标题文本]</option>
+                  <option value="contains" ${config.sensitiveWordDetection?.locatorStrategy ===
+        "contains"
+        ? "selected"
+        : ""
+      }>包含文本 [示例: 部分文本匹配]</option>
+                  <option value="tagName" ${config.sensitiveWordDetection?.locatorStrategy === "tagName"
+        ? "selected"
+        : ""
+      }>标签名 [示例: p, span, div]</option>
               </select>
           </div>
           <div class="form-group">
               <label class="form-label">敏感词检测定位值</label>
-              <input type="text" class="form-input" id="sensitiveWordLocatorValue" value="${
-                config.sensitiveWordDetection?.locatorValue || ""
-              }" placeholder="留空则检测整个循环元素的文本">
+              <input type="text" class="form-input" id="sensitiveWordLocatorValue" value="${config.sensitiveWordDetection?.locatorValue || ""
+      }" placeholder="留空则检测整个循环元素的文本">
               <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #e74c3c; color: white; border: none; border-radius: 3px;">🔍 测试检测</button>
               <div class="form-help">指定要检测敏感词的元素位置，留空则检测整个循环元素</div>
           </div>
@@ -1111,50 +1031,43 @@ class DesignerNodes {
           <div class="form-group">
               <label class="form-label">父级容器定位策略</label>
               <select class="form-select" id="sensitiveWordParentLocatorStrategy">
-                  <option value="" ${
-                    !config.sensitiveWordDetection?.parentLocatorStrategy ||
-                    config.sensitiveWordDetection?.parentLocatorStrategy === ""
-                      ? "selected"
-                      : ""
-                  }>不限制（默认）</option>
-                  <option value="css" ${
-                    config.sensitiveWordDetection?.parentLocatorStrategy ===
-                    "css"
-                      ? "selected"
-                      : ""
-                  }>CSS选择器 [示例: .container, .list-wrapper]</option>
-                  <option value="xpath" ${
-                    config.sensitiveWordDetection?.parentLocatorStrategy ===
-                    "xpath"
-                      ? "selected"
-                      : ""
-                  }>XPath [示例: //div[@class='container']]</option>
-                  <option value="id" ${
-                    config.sensitiveWordDetection?.parentLocatorStrategy ===
-                    "id"
-                      ? "selected"
-                      : ""
-                  }>ID [示例: main-container]</option>
-                  <option value="className" ${
-                    config.sensitiveWordDetection?.parentLocatorStrategy ===
-                    "className"
-                      ? "selected"
-                      : ""
-                  }>类名 [示例: list-container]</option>
-                  <option value="tagName" ${
-                    config.sensitiveWordDetection?.parentLocatorStrategy ===
-                    "tagName"
-                      ? "selected"
-                      : ""
-                  }>标签名 [示例: section, article]</option>
+                  <option value="" ${!config.sensitiveWordDetection?.parentLocatorStrategy ||
+        config.sensitiveWordDetection?.parentLocatorStrategy === ""
+        ? "selected"
+        : ""
+      }>不限制（默认）</option>
+                  <option value="css" ${config.sensitiveWordDetection?.parentLocatorStrategy ===
+        "css"
+        ? "selected"
+        : ""
+      }>CSS选择器 [示例: .container, .list-wrapper]</option>
+                  <option value="xpath" ${config.sensitiveWordDetection?.parentLocatorStrategy ===
+        "xpath"
+        ? "selected"
+        : ""
+      }>XPath [示例: //div[@class='container']]</option>
+                  <option value="id" ${config.sensitiveWordDetection?.parentLocatorStrategy ===
+        "id"
+        ? "selected"
+        : ""
+      }>ID [示例: main-container]</option>
+                  <option value="className" ${config.sensitiveWordDetection?.parentLocatorStrategy ===
+        "className"
+        ? "selected"
+        : ""
+      }>类名 [示例: list-container]</option>
+                  <option value="tagName" ${config.sensitiveWordDetection?.parentLocatorStrategy ===
+        "tagName"
+        ? "selected"
+        : ""
+      }>标签名 [示例: section, article]</option>
               </select>
               <div class="form-help">指定敏感词检测的父级容器范围，限制检测范围提高精确度</div>
           </div>
           <div class="form-group">
               <label class="form-label">父级容器定位值</label>
-              <input type="text" class="form-input" id="sensitiveWordParentLocatorValue" value="${
-                config.sensitiveWordDetection?.parentLocatorValue || ""
-              }" placeholder="留空则不限制父级容器">
+              <input type="text" class="form-input" id="sensitiveWordParentLocatorValue" value="${config.sensitiveWordDetection?.parentLocatorValue || ""
+      }" placeholder="留空则不限制父级容器">
               <div class="form-help">指定父级容器的具体定位值，留空则在整个页面范围内检测</div>
           </div>
       </div>
@@ -1162,157 +1075,131 @@ class DesignerNodes {
       <!-- 虚拟列表配置 -->
       <div class="form-group">
           <label class="form-label">
-              <input type="checkbox" id="isVirtualList" ${
-                config.isVirtualList ? "checked" : ""
-              } style="margin-right: 8px;">
+              <input type="checkbox" id="isVirtualList" ${config.isVirtualList ? "checked" : ""
+      } style="margin-right: 8px;">
               启用虚拟列表模式
           </label>
           <div class="form-help">适用于需要滚动加载的长列表，自动遍历所有项目</div>
       </div>
 
-      <div id="virtualListConfig" style="display: ${
-        config.isVirtualList ? "block" : "none"
+      <div id="virtualListConfig" style="display: ${config.isVirtualList ? "block" : "none"
       }; margin-left: 20px; border-left: 3px solid #3498db; padding-left: 15px;">
           <div class="form-group">
               <label class="form-label">容器定位策略</label>
               <select class="form-select" id="virtualListContainerStrategy">
-                  <option value="css" ${
-                    config.virtualListContainer?.strategy === "css"
-                      ? "selected"
-                      : ""
-                  }>CSS选择器 [示例: .list-container, #virtual-list]</option>
-                  <option value="xpath" ${
-                    config.virtualListContainer?.strategy === "xpath"
-                      ? "selected"
-                      : ""
-                  }>XPath [示例: //div[@class='list-container']]</option>
-                  <option value="id" ${
-                    config.virtualListContainer?.strategy === "id"
-                      ? "selected"
-                      : ""
-                  }>ID [示例: virtual-list-container]</option>
-                  <option value="className" ${
-                    config.virtualListContainer?.strategy === "className"
-                      ? "selected"
-                      : ""
-                  }>类名 [示例: list-container]</option>
-                  <option value="text" ${
-                    config.virtualListContainer?.strategy === "text"
-                      ? "selected"
-                      : ""
-                  }>文本内容 [示例: 列表容器]</option>
-                  <option value="contains" ${
-                    config.virtualListContainer?.strategy === "contains"
-                      ? "selected"
-                      : ""
-                  }>包含文本 [示例: 部分文本匹配]</option>
-                  <option value="tagName" ${
-                    config.virtualListContainer?.strategy === "tagName"
-                      ? "selected"
-                      : ""
-                  }>标签名 [示例: div, ul]</option>
+                  <option value="css" ${config.virtualListContainer?.strategy === "css"
+        ? "selected"
+        : ""
+      }>CSS选择器 [示例: .list-container, #virtual-list]</option>
+                  <option value="xpath" ${config.virtualListContainer?.strategy === "xpath"
+        ? "selected"
+        : ""
+      }>XPath [示例: //div[@class='list-container']]</option>
+                  <option value="id" ${config.virtualListContainer?.strategy === "id"
+        ? "selected"
+        : ""
+      }>ID [示例: virtual-list-container]</option>
+                  <option value="className" ${config.virtualListContainer?.strategy === "className"
+        ? "selected"
+        : ""
+      }>类名 [示例: list-container]</option>
+                  <option value="text" ${config.virtualListContainer?.strategy === "text"
+        ? "selected"
+        : ""
+      }>文本内容 [示例: 列表容器]</option>
+                  <option value="contains" ${config.virtualListContainer?.strategy === "contains"
+        ? "selected"
+        : ""
+      }>包含文本 [示例: 部分文本匹配]</option>
+                  <option value="tagName" ${config.virtualListContainer?.strategy === "tagName"
+        ? "selected"
+        : ""
+      }>标签名 [示例: div, ul]</option>
               </select>
           </div>
           <div class="form-group">
               <label class="form-label">容器定位值</label>
-              <input type="text" class="form-input" id="virtualListContainerValue" value="${
-                config.virtualListContainer?.value || ""
-              }" placeholder="虚拟列表容器的选择器">
+              <input type="text" class="form-input" id="virtualListContainerValue" value="${config.virtualListContainer?.value || ""
+      }" placeholder="虚拟列表容器的选择器">
               <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🎯 测试容器</button>
           </div>
           <div class="form-group">
               <label class="form-label">标题定位策略</label>
               <select class="form-select" id="virtualListTitleStrategy">
-                  <option value="css" ${
-                    config.virtualListTitleLocator?.strategy === "css"
-                      ? "selected"
-                      : ""
-                  }>CSS选择器 [示例: .item-title, .list-item h3]</option>
-                  <option value="xpath" ${
-                    config.virtualListTitleLocator?.strategy === "xpath"
-                      ? "selected"
-                      : ""
-                  }>XPath [示例: //div[@class='item-title']]</option>
-                  <option value="id" ${
-                    config.virtualListTitleLocator?.strategy === "id"
-                      ? "selected"
-                      : ""
-                  }>ID [示例: item-title]</option>
-                  <option value="className" ${
-                    config.virtualListTitleLocator?.strategy === "className"
-                      ? "selected"
-                      : ""
-                  }>类名 [示例: item-title]</option>
-                  <option value="text" ${
-                    config.virtualListTitleLocator?.strategy === "text"
-                      ? "selected"
-                      : ""
-                  }>文本内容 [示例: 标题文本]</option>
-                  <option value="contains" ${
-                    config.virtualListTitleLocator?.strategy === "contains"
-                      ? "selected"
-                      : ""
-                  }>包含文本 [示例: 部分标题文本]</option>
-                  <option value="tagName" ${
-                    config.virtualListTitleLocator?.strategy === "tagName"
-                      ? "selected"
-                      : ""
-                  }>标签名 [示例: h1, h2, span]</option>
+                  <option value="css" ${config.virtualListTitleLocator?.strategy === "css"
+        ? "selected"
+        : ""
+      }>CSS选择器 [示例: .item-title, .list-item h3]</option>
+                  <option value="xpath" ${config.virtualListTitleLocator?.strategy === "xpath"
+        ? "selected"
+        : ""
+      }>XPath [示例: //div[@class='item-title']]</option>
+                  <option value="id" ${config.virtualListTitleLocator?.strategy === "id"
+        ? "selected"
+        : ""
+      }>ID [示例: item-title]</option>
+                  <option value="className" ${config.virtualListTitleLocator?.strategy === "className"
+        ? "selected"
+        : ""
+      }>类名 [示例: item-title]</option>
+                  <option value="text" ${config.virtualListTitleLocator?.strategy === "text"
+        ? "selected"
+        : ""
+      }>文本内容 [示例: 标题文本]</option>
+                  <option value="contains" ${config.virtualListTitleLocator?.strategy === "contains"
+        ? "selected"
+        : ""
+      }>包含文本 [示例: 部分标题文本]</option>
+                  <option value="tagName" ${config.virtualListTitleLocator?.strategy === "tagName"
+        ? "selected"
+        : ""
+      }>标签名 [示例: h1, h2, span]</option>
               </select>
           </div>
           <div class="form-group">
               <label class="form-label">标题定位值</label>
-              <input type="text" class="form-input" id="virtualListTitleValue" value="${
-                config.virtualListTitleLocator?.value || ""
-              }" placeholder="列表项标题元素的选择器">
+              <input type="text" class="form-input" id="virtualListTitleValue" value="${config.virtualListTitleLocator?.value || ""
+      }" placeholder="列表项标题元素的选择器">
               <button type="button" class="test-locator-btn" style="margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 3px;">🎯 测试标题</button>
           </div>
           <div class="form-group">
               <label class="form-label">滚动距离(px)</label>
-              <input type="number" class="form-input" id="virtualListScrollDistance" value="${
-                config.virtualListScrollDistance || 100
-              }" min="10" max="1000" step="10">
+              <input type="number" class="form-input" id="virtualListScrollDistance" value="${config.virtualListScrollDistance || 100
+      }" min="10" max="1000" step="10">
               <div class="form-help">每次滚动的像素距离</div>
           </div>
           <div class="form-group">
               <label class="form-label">滚动等待时间(毫秒)</label>
-              <input type="number" class="form-input" id="virtualListWaitTime" value="${
-                config.virtualListWaitTime || 1000
-              }" min="100" max="10000" step="100">
+              <input type="number" class="form-input" id="virtualListWaitTime" value="${config.virtualListWaitTime || 1000
+      }" min="100" max="10000" step="100">
               <div class="form-help">滚动后等待新内容渲染的时间</div>
           </div>
           <div class="form-group">
               <label class="form-label">最大重试次数</label>
-              <input type="number" class="form-input" id="virtualListMaxRetries" value="${
-                config.virtualListMaxRetries || 10
-              }" min="1" max="100">
+              <input type="number" class="form-input" id="virtualListMaxRetries" value="${config.virtualListMaxRetries || 10
+      }" min="1" max="100">
               <div class="form-help">防止死循环的保护机制</div>
           </div>
       </div>
-      ${
-        config.loopType === "self" || config.loopType === "container"
-          ? `
+      ${config.loopType === "self" || config.loopType === "container"
+        ? `
       <div class="form-group">
           <label class="form-label">操作类型</label>
           <select class="form-select" id="operationType">
-              <option value="click" ${
-                config.operationType === "click" ? "selected" : ""
-              }>点击</option>
-              <option value="input" ${
-                config.operationType === "input" ? "selected" : ""
-              }>输入</option>
-              <option value="hover" ${
-                config.operationType === "hover" ? "selected" : ""
-              }>悬停</option>
+              <option value="click" ${config.operationType === "click" ? "selected" : ""
+        }>点击</option>
+              <option value="input" ${config.operationType === "input" ? "selected" : ""
+        }>输入</option>
+              <option value="hover" ${config.operationType === "hover" ? "selected" : ""
+        }>悬停</option>
           </select>
-          ${
-            config.loopType === "container"
-              ? '<div class="form-help">容器循环的操作类型用于点击容器元素</div>'
-              : '<div class="form-help">自循环的操作类型用于对每个匹配元素执行的操作</div>'
-          }
+          ${config.loopType === "container"
+          ? '<div class="form-help">容器循环的操作类型用于点击容器元素</div>'
+          : '<div class="form-help">自循环的操作类型用于对每个匹配元素执行的操作</div>'
+        }
       </div>
       `
-          : ""
+        : ""
       }
     `;
   }
@@ -1566,6 +1453,9 @@ class DesignerNodes {
       case "drag":
         this.saveDragConfig(config);
         break;
+      case "closeWindow":
+        this.saveCloseWindowConfig(config);
+        break;
     }
 
     // 更新配置
@@ -1594,6 +1484,29 @@ class DesignerNodes {
     if (waitAfterClick) {
       config.waitAfterClick = parseInt(waitAfterClick.value) || 1000;
       config.waitTime = config.waitAfterClick; // 兼容性
+    }
+
+    // 保存新窗口管理配置
+    const opensNewWindowCheckbox = document.getElementById("opensNewWindow");
+    if (opensNewWindowCheckbox) {
+      config.opensNewWindow = opensNewWindowCheckbox.checked;
+
+      if (config.opensNewWindow) {
+        const newWindowTimeout = document.getElementById("newWindowTimeout");
+        if (newWindowTimeout) {
+          config.newWindowTimeout = parseInt(newWindowTimeout.value) || 10000;
+        }
+
+        const windowReadyTimeout = document.getElementById("windowReadyTimeout");
+        if (windowReadyTimeout) {
+          config.windowReadyTimeout = parseInt(windowReadyTimeout.value) || 30000;
+        }
+
+        const switchToNewWindow = document.getElementById("switchToNewWindow");
+        if (switchToNewWindow) {
+          config.switchToNewWindow = switchToNewWindow.checked;
+        }
+      }
     }
 
     // 保存输入操作特定配置
@@ -1880,6 +1793,31 @@ class DesignerNodes {
     }
 
     console.log("保存拖拽配置:", config);
+  }
+
+  saveCloseWindowConfig(config) {
+    // 保存关闭窗口特定配置
+    const closeTarget = document.getElementById("closeTarget");
+    if (closeTarget) {
+      config.closeTarget = closeTarget.value;
+    }
+
+    const targetWindowId = document.getElementById("targetWindowId");
+    if (targetWindowId) {
+      config.targetWindowId = targetWindowId.value.trim();
+    }
+
+    const returnToPrevious = document.getElementById("returnToPrevious");
+    if (returnToPrevious) {
+      config.returnToPrevious = returnToPrevious.checked;
+    }
+
+    const waitAfterClose = document.getElementById("waitAfterClose");
+    if (waitAfterClose) {
+      config.waitAfterClose = parseInt(waitAfterClose.value) || 1000;
+    }
+
+    console.log("保存关闭窗口配置:", config);
   }
 
   updateNodeDisplay(cell) {
@@ -2843,9 +2781,8 @@ class DesignerNodes {
           <ul>
             <li>敏感词: ${config.sensitiveWords}</li>
             <li>循环选择器: ${config.loopSelector}</li>
-            <li>目标选择器: ${
-              config.sensitiveWordLocatorValue || "(整个元素)"
-            }</li>
+            <li>目标选择器: ${config.sensitiveWordLocatorValue || "(整个元素)"
+        }</li>
           </ul>
 
           <p><strong>测试结果:</strong></p>
@@ -3137,8 +3074,7 @@ function executeSensitiveWordTestInPage(config) {
               );
             } else {
               console.warn(
-                `🔍 循环项目 ${
-                  i + 1
+                `🔍 循环项目 ${i + 1
                 } 未找到父级容器 "${strategy}=${value}"，使用整个循环项目`
               );
             }
@@ -3183,8 +3119,7 @@ function executeSensitiveWordTestInPage(config) {
               console.log(`  - 最终文本: "${textToCheck}"`);
             } else {
               console.warn(
-                `❌ 循环项目 ${i + 1} 未找到子元素 "${
-                  config.sensitiveWordLocatorValue
+                `❌ 循环项目 ${i + 1} 未找到子元素 "${config.sensitiveWordLocatorValue
                 }"`
               );
               console.log(`  - 上下文元素类名: ${contextElement.className}`);
@@ -3212,8 +3147,7 @@ function executeSensitiveWordTestInPage(config) {
                 }
 
                 console.log(
-                  `    ${j + 1}. <${child.tagName.toLowerCase()}${
-                    childClassName ? ` class="${childClassName}"` : ""
+                  `    ${j + 1}. <${child.tagName.toLowerCase()}${childClassName ? ` class="${childClassName}"` : ""
                   }>${child.textContent?.substring(0, 50) || ""}</>`
                 );
               }
@@ -3247,13 +3181,11 @@ function executeSensitiveWordTestInPage(config) {
           `  - 敏感词检测定位值: "${config.sensitiveWordLocatorValue}"`
         );
         console.log(
-          `  - 父级容器策略: "${
-            config.sensitiveWordDetection?.parentLocatorStrategy || "未配置"
+          `  - 父级容器策略: "${config.sensitiveWordDetection?.parentLocatorStrategy || "未配置"
           }"`
         );
         console.log(
-          `  - 父级容器值: "${
-            config.sensitiveWordDetection?.parentLocatorValue || "未配置"
+          `  - 父级容器值: "${config.sensitiveWordDetection?.parentLocatorValue || "未配置"
           }"`
         );
         console.log(
@@ -3332,8 +3264,7 @@ function executeSensitiveWordTestInPage(config) {
             `循环项目 ${i + 1} 被跳过: 包含敏感词 [${matchedWords.join(", ")}]`
           );
           console.log(
-            `  文本内容: "${textToCheck.substring(0, 100)}${
-              textToCheck.length > 100 ? "..." : ""
+            `  文本内容: "${textToCheck.substring(0, 100)}${textToCheck.length > 100 ? "..." : ""
             }"`
           );
         } else {
@@ -3465,11 +3396,9 @@ function executeLocalAttributeTest(config) {
     return {
       success: true,
       conditionMet: conditionMet,
-      message: `元素 ${config.strategy}="${config.value}" 的属性 "${
-        config.attributeName
-      }" 值为 "${actualValue}"，${conditionMet ? "满足" : "不满足"}条件 "${
-        config.comparisonType
-      }" "${config.expectedValue}"`,
+      message: `元素 ${config.strategy}="${config.value}" 的属性 "${config.attributeName
+        }" 值为 "${actualValue}"，${conditionMet ? "满足" : "不满足"}条件 "${config.comparisonType
+        }" "${config.expectedValue}"`,
     };
   } catch (error) {
     console.error("本地属性测试出错:", error);

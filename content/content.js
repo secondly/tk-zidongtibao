@@ -266,9 +266,29 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         });
       });
     }
-    executeUniversalWorkflow(request.data)
-      .then((result) => {
-        console.log("✅ 工作流执行成功，发送状态更新到浮层");
+    // 检查是否包含新窗口操作
+    console.log("🔍 开始检查是否包含新窗口操作...");
+    const hasNewWindowOperations = request.data.steps.some((step, index) => {
+      const hasNewWindow = step.opensNewWindow ||
+        step.type === 'closeWindow' ||
+        step.action === 'closeWindow';
+      console.log(`🔍 步骤 ${index + 1} (${step.name}): opensNewWindow=${step.opensNewWindow}, type=${step.type}, action=${step.action}, hasNewWindow=${hasNewWindow}`);
+      return hasNewWindow;
+    });
+
+    console.log(`🔍 新窗口操作检测结果: ${hasNewWindowOperations}`);
+
+    if (hasNewWindowOperations) {
+      console.log("🪟 检测到新窗口操作，转交background script处理");
+
+      // 转发到background script处理
+      console.log("🪟 正在发送executeSteps消息到background...");
+      chrome.runtime.sendMessage({
+        action: "executeSteps",
+        steps: request.data.steps
+      }).then((result) => {
+        console.log("🪟 收到background响应:", result);
+        console.log("✅ 新窗口工作流执行成功，发送状态更新到浮层");
 
         // 发送成功状态到浮层
         if (typeof sendStatusToFloatingPanel === 'function') {
@@ -294,11 +314,10 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         }
 
         sendResponse({ success: true, result });
-      })
-      .catch((error) => {
-        console.error("执行通用工作流失败:", error);
+      }).catch((error) => {
+        console.error("转发到background执行失败:", error);
 
-        // 发送失败状态到浮层
+        // 发送错误状态到浮层
         if (typeof sendStatusToFloatingPanel === 'function') {
           sendStatusToFloatingPanel({
             isRunning: false,
@@ -323,6 +342,66 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
         sendResponse({ success: false, error: error.message });
       });
+    } else {
+      executeUniversalWorkflow(request.data)
+        .then((result) => {
+          console.log("✅ 工作流执行成功，发送状态更新到浮层");
+
+          // 发送成功状态到浮层
+          if (typeof sendStatusToFloatingPanel === 'function') {
+            sendStatusToFloatingPanel({
+              isRunning: false,
+              isPaused: false,
+              message: '执行完成'
+            });
+          } else {
+            // 直接发送消息到浮层
+            const message = {
+              type: 'FROM_CONTENT_SCRIPT',
+              action: 'executionStatusUpdate',
+              data: {
+                isRunning: false,
+                isPaused: false,
+                message: '执行完成'
+              },
+              timestamp: Date.now()
+            };
+            window.postMessage(message, '*');
+            console.log('📤 直接发送状态更新到浮层:', message.data);
+          }
+
+          sendResponse({ success: true, result });
+        })
+        .catch((error) => {
+          console.error("执行通用工作流失败:", error);
+
+          // 发送失败状态到浮层
+          if (typeof sendStatusToFloatingPanel === 'function') {
+            sendStatusToFloatingPanel({
+              isRunning: false,
+              isPaused: false,
+              message: '执行失败: ' + error.message
+            });
+          } else {
+            // 直接发送消息到浮层
+            const message = {
+              type: 'FROM_CONTENT_SCRIPT',
+              action: 'executionStatusUpdate',
+              data: {
+                isRunning: false,
+                isPaused: false,
+                message: '执行失败: ' + error.message
+              },
+              timestamp: Date.now()
+            };
+            window.postMessage(message, '*');
+            console.log('📤 直接发送错误状态到浮层:', message.data);
+          }
+
+          sendResponse({ success: false, error: error.message });
+        });
+    }
+
     return true;
   }
 
@@ -360,7 +439,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
       }
     }
 
-    sendResponse({success: true});
+    sendResponse({ success: true });
     return true;
   }
 
@@ -796,17 +875,93 @@ async function performActionOnElementByIndex(
  */
 async function performAction(config) {
   try {
+    // 兼容性处理：支持 config.action 和 config.type 字段
+    const actionType = config.action || config.type;
+
+    if (!actionType) {
+      throw new Error(`操作类型未定义: ${JSON.stringify(config)}`);
+    }
+
     // 等待操作不需要查找元素
-    if (config.action === "wait") {
-      const waitTime = config.waitTime || 3; // 默认3秒
-      console.log(`执行等待操作: ${waitTime}秒`);
+    if (actionType === "wait") {
+      const waitTime = config.waitTime || config.duration || 3000; // 默认3秒
+      console.log(`执行等待操作: ${waitTime}毫秒`);
 
       // 返回一个Promise，在指定的时间后解析
-      await new Promise((resolve) => setTimeout(resolve, waitTime * 1000));
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
 
       return {
-        message: `成功等待 ${waitTime} 秒`,
+        message: `成功等待 ${waitTime} 毫秒`,
       };
+    }
+
+    // 智能等待操作
+    if (actionType === "smartWait") {
+      const timeout = config.timeout || 30000;
+      const checkInterval = config.checkInterval || 500;
+
+      console.log(`执行智能等待操作，等待元素: ${config.locator?.value}`);
+
+      if (!config.locator) {
+        throw new Error("智能等待操作需要定位器配置");
+      }
+
+      // 等待元素出现
+      const startTime = Date.now();
+      while (Date.now() - startTime < timeout) {
+        try {
+          const element = await findElementByStrategy(
+            config.locator.strategy,
+            config.locator.value
+          );
+          if (element) {
+            return {
+              message: `智能等待成功，元素已出现: ${config.locator.value}`,
+              element: elementToString(element),
+            };
+          }
+        } catch (error) {
+          // 元素未找到，继续等待
+        }
+        await new Promise((resolve) => setTimeout(resolve, checkInterval));
+      }
+
+      throw new Error(`智能等待超时: ${config.locator.value}`);
+    }
+
+    // 关闭窗口操作
+    if (actionType === "closeWindow") {
+      console.log(`执行关闭窗口操作: ${config.closeTarget}`);
+
+      // 通知background脚本处理关闭窗口
+      if (typeof chrome !== 'undefined' && chrome.runtime) {
+        try {
+          const response = await chrome.runtime.sendMessage({
+            action: 'handleCloseWindow',
+            config: config
+          });
+
+          if (response && response.success) {
+            return {
+              message: `窗口关闭成功: ${response.message}`,
+            };
+          } else {
+            throw new Error(response?.error || "关闭窗口失败");
+          }
+        } catch (error) {
+          throw new Error(`关闭窗口失败: ${error.message}`);
+        }
+      } else {
+        // 如果没有chrome API，尝试关闭当前窗口
+        if (config.closeTarget === "current") {
+          window.close();
+          return {
+            message: "窗口关闭命令已发送",
+          };
+        } else {
+          throw new Error("无chrome API支持，无法关闭指定窗口");
+        }
+      }
     }
 
     // 对于其他操作，需要查找元素
@@ -817,17 +972,17 @@ async function performAction(config) {
     );
 
     // 根据操作类型执行相应动作
-    switch (config.action) {
+    switch (actionType) {
       case "click":
         await clickElement(element);
         break;
 
       case "input":
-        await inputText(element, config.inputText);
+        await inputText(element, config.inputText || config.text);
         break;
 
       default:
-        throw new Error(`不支持的操作类型: ${config.action}`);
+        throw new Error(`不支持的操作类型: ${actionType}`);
     }
 
     return {
@@ -1521,8 +1676,7 @@ function buildExecutionOrderSimplified(steps, connections = []) {
       graph.get(conn.source).push(conn.target);
       inDegree.set(conn.target, inDegree.get(conn.target) + 1);
       console.log(
-        `🔗 简化模式：连接 ${stepMap.get(conn.source).name} -> ${
-          stepMap.get(conn.target).name
+        `🔗 简化模式：连接 ${stepMap.get(conn.source).name} -> ${stepMap.get(conn.target).name
         }`
       );
     }
@@ -3141,9 +3295,8 @@ async function executeContainerLoopAction(element, step) {
     const containerInfo =
       element.tagName === "BUTTON"
         ? `按钮容器: ${element.textContent?.trim() || "未知按钮"}`
-        : `${element.tagName}容器: ${
-            element.className || element.id || "未知容器"
-          }`;
+        : `${element.tagName}容器: ${element.className || element.id || "未知容器"
+        }`;
     window.updateStatus(`📦 处理循环容器: ${containerInfo}`, "info");
   }
 
@@ -3181,8 +3334,7 @@ async function executeContainerLoopAction(element, step) {
 
       const subOp = step.subOperations[i];
       console.log(
-        `🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${
-          subOp.locator?.value || subOp.locator
+        `🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator
         }`
       );
 
@@ -3305,8 +3457,7 @@ async function executeParentLoopAction(element, step) {
 
       const subOp = step.subOperations[i];
       console.log(
-        `🎯 执行子操作 ${i + 1}: ${subOp.type} - ${
-          subOp.locator?.value || subOp.locator
+        `🎯 执行子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator
         }`
       );
 
@@ -3381,10 +3532,9 @@ async function executeSubOperation(operation, parentElement = null) {
             parentElement.closest("tr") ||
             parentElement.closest(".core-table-tr");
           console.log(
-            `🔧 [DEBUG] 按钮父级，向上查找表格行容器: ${
-              containerElement
-                ? containerElement.tagName + "." + containerElement.className
-                : "未找到"
+            `🔧 [DEBUG] 按钮父级，向上查找表格行容器: ${containerElement
+              ? containerElement.tagName + "." + containerElement.className
+              : "未找到"
             }`
           );
         }
@@ -3670,10 +3820,9 @@ async function executeSubOperation(operation, parentElement = null) {
             parentElement.closest("tr") ||
             parentElement.closest(".core-table-tr");
           console.log(
-            `🔍 按钮父级，向上查找表格行容器: ${
-              containerElement
-                ? containerElement.tagName + "." + containerElement.className
-                : "未找到"
+            `🔍 按钮父级，向上查找表格行容器: ${containerElement
+              ? containerElement.tagName + "." + containerElement.className
+              : "未找到"
             }`
           );
         }
@@ -3682,8 +3831,7 @@ async function executeSubOperation(operation, parentElement = null) {
           dragElement = containerElement.querySelector(operation.locator.value);
           if (dragElement) {
             console.log(
-              `🔍 在容器内找到拖拽目标: ${
-                dragElement.id || dragElement.className
+              `🔍 在容器内找到拖拽目标: ${dragElement.id || dragElement.className
               }`
             );
           } else {
@@ -3719,16 +3867,14 @@ async function executeSubOperation(operation, parentElement = null) {
       const endY = startY + (operation.verticalDistance || 0);
 
       console.log(
-        `🖱️ 拖拽详情: 从(${startX}, ${startY}) 到 (${endX}, ${endY}), 距离: ${
-          operation.horizontalDistance || 0
+        `🖱️ 拖拽详情: 从(${startX}, ${startY}) 到 (${endX}, ${endY}), 距离: ${operation.horizontalDistance || 0
         }px, ${operation.verticalDistance || 0}px`
       );
 
       // 更新状态反馈 - 拖拽开始
       if (window.updateStatus) {
         window.updateStatus(
-          `🖱️ 开始拖拽: ${dragElement.id || "拖拽元素"} (${
-            operation.horizontalDistance || 0
+          `🖱️ 开始拖拽: ${dragElement.id || "拖拽元素"} (${operation.horizontalDistance || 0
           }px, ${operation.verticalDistance || 0}px)`,
           "info"
         );
@@ -4715,7 +4861,7 @@ async function clickVirtualListItem(titleInfo, step) {
       // 计算距离
       const distance = Math.sqrt(
         Math.pow(titleCenterX - buttonCenterX, 2) +
-          Math.pow(titleCenterY - buttonCenterY, 2)
+        Math.pow(titleCenterY - buttonCenterY, 2)
       );
 
       if (distance < minDistance) {
@@ -4798,8 +4944,7 @@ async function clickVirtualListItem(titleInfo, step) {
       for (let i = 0; i < step.subOperations.length; i++) {
         const subOp = step.subOperations[i];
         console.log(
-          `🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${
-            subOp.locator?.value || subOp.locator
+          `🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator
           }`
         );
 

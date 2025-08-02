@@ -160,8 +160,7 @@ class UniversalAutomationEngine {
 
       this.log(`🎉 自动化流程执行完成！`, "success");
       this.log(
-        `📊 统计: 成功 ${this.executionStats.successCount}, 失败 ${
-          this.executionStats.errorCount
+        `📊 统计: 成功 ${this.executionStats.successCount}, 失败 ${this.executionStats.errorCount
         }, 耗时 ${duration.toFixed(1)}秒`,
         "info"
       );
@@ -257,8 +256,7 @@ class UniversalAutomationEngine {
       if (currentStep) {
         result.push(currentStep);
         this.log(
-          `📋 添加到执行序列: ${
-            currentStep.name || currentStep.type
+          `📋 添加到执行序列: ${currentStep.name || currentStep.type
           } (${currentId})`,
           "info"
         );
@@ -373,6 +371,9 @@ class UniversalAutomationEngine {
       case "drag":
         await this.executeDragStep(step);
         break;
+      case "closeWindow":
+        await this.executeCloseWindowStep(step);
+        break;
       case "custom":
         await this.executeCustomStep(step);
         break;
@@ -399,7 +400,14 @@ class UniversalAutomationEngine {
     const element = await this.findElement(step.locator);
 
     console.log("🔧 [DEBUG] 高级引擎准备点击元素");
-    await this.clickElement(element);
+
+    // 如果这个点击操作会打开新窗口，需要特殊处理
+    if (step.opensNewWindow) {
+      await this.handleNewWindowClick(element, step);
+    } else {
+      await this.clickElement(element);
+    }
+
     this.log(`👆 已点击元素: ${step.locator.value}`, "success");
   }
 
@@ -706,8 +714,7 @@ class UniversalAutomationEngine {
     }
 
     this.log(
-      `🔄 开始执行${
-        loopType === "simpleLoop" ? "简单" : "父级"
+      `🔄 开始执行${loopType === "simpleLoop" ? "简单" : "父级"
       }循环: ${loopName}`,
       "info"
     );
@@ -1156,6 +1163,108 @@ class UniversalAutomationEngine {
   }
 
   /**
+   * 处理会打开新窗口的点击操作
+   */
+  async handleNewWindowClick(element, step) {
+    console.log("🪟 处理新窗口点击操作");
+
+    // 记录当前窗口数量
+    const initialWindowCount = window.length || 1;
+
+    // 执行点击操作
+    await this.clickElement(element);
+
+    // 等待新窗口创建
+    const newWindowTimeout = step.newWindowTimeout || 10000;
+    const windowReadyTimeout = step.windowReadyTimeout || 30000;
+
+    this.log(`🪟 等待新窗口创建 (超时: ${newWindowTimeout}ms)`, "info");
+
+    try {
+      // 通知background脚本有新窗口操作
+      if (typeof chrome !== 'undefined' && chrome.runtime) {
+        const response = await chrome.runtime.sendMessage({
+          action: 'handleNewWindow',
+          config: {
+            newWindowTimeout: newWindowTimeout,
+            windowReadyTimeout: windowReadyTimeout,
+            switchToNewWindow: step.switchToNewWindow !== false
+          }
+        });
+
+        if (response && response.success) {
+          this.log(`✅ 新窗口处理完成: ${response.message}`, "success");
+        } else {
+          throw new Error(response?.error || "新窗口处理失败");
+        }
+      } else {
+        // 如果没有chrome API，使用简单的等待
+        this.log("⚠️ 无法使用chrome API，使用简单等待", "warning");
+        await this.sleep(2000);
+      }
+    } catch (error) {
+      console.error("❌ 新窗口处理失败:", error);
+      this.log(`❌ 新窗口处理失败: ${error.message}`, "error");
+      throw error;
+    }
+  }
+
+  /**
+   * 执行关闭窗口步骤
+   */
+  async executeCloseWindowStep(step) {
+    console.log("🗑️ 执行关闭窗口步骤");
+
+    // 在执行具体操作前检查暂停状态
+    await this.checkPause();
+
+    const closeTarget = step.closeTarget || "current";
+    const returnToPrevious = step.returnToPrevious !== false;
+    const waitAfterClose = step.waitAfterClose || 1000;
+
+    this.log(`🗑️ 关闭窗口: ${closeTarget}`, "info");
+
+    try {
+      // 通知background脚本关闭窗口
+      if (typeof chrome !== 'undefined' && chrome.runtime) {
+        const response = await chrome.runtime.sendMessage({
+          action: 'handleCloseWindow',
+          config: {
+            closeTarget: closeTarget,
+            targetWindowId: step.targetWindowId,
+            returnToPrevious: returnToPrevious,
+            waitAfterClose: waitAfterClose
+          }
+        });
+
+        if (response && response.success) {
+          this.log(`✅ 窗口关闭完成: ${response.message}`, "success");
+
+          // 等待窗口关闭后的处理时间
+          if (waitAfterClose > 0) {
+            await this.sleep(waitAfterClose);
+          }
+        } else {
+          throw new Error(response?.error || "关闭窗口失败");
+        }
+      } else {
+        // 如果没有chrome API，尝试关闭当前窗口
+        this.log("⚠️ 无法使用chrome API，尝试关闭当前窗口", "warning");
+        if (closeTarget === "current") {
+          window.close();
+          await this.sleep(waitAfterClose);
+        } else {
+          throw new Error("无chrome API支持，无法关闭指定窗口");
+        }
+      }
+    } catch (error) {
+      console.error("❌ 关闭窗口失败:", error);
+      this.log(`❌ 关闭窗口失败: ${error.message}`, "error");
+      throw error;
+    }
+  }
+
+  /**
    * 输入文本到元素
    */
   async inputText(element, text) {
@@ -1221,8 +1330,8 @@ class UniversalAutomationEngine {
         progress:
           this.executionStats.totalSteps > 0
             ? (this.executionStats.completedSteps /
-                this.executionStats.totalSteps) *
-              100
+              this.executionStats.totalSteps) *
+            100
             : 0,
       });
     }
@@ -1442,9 +1551,8 @@ class UniversalAutomationEngine {
             // 更新子操作进度
             this.updateProgress({
               currentSubOperation: currentSubOp,
-              currentOperation: `执行子操作 ${currentSubOp}/${
-                step.subOperations.length
-              }: ${subOp.name || subOp.type}`,
+              currentOperation: `执行子操作 ${currentSubOp}/${step.subOperations.length
+                }: ${subOp.name || subOp.type}`,
             });
 
             try {
@@ -1552,9 +1660,8 @@ class UniversalAutomationEngine {
           // 更新子操作进度
           this.updateProgress({
             currentSubOperation: currentSubOp,
-            currentOperation: `执行子操作 ${currentSubOp}/${
-              step.subOperations.length
-            }: ${subOp.name || subOp.type}`,
+            currentOperation: `执行子操作 ${currentSubOp}/${step.subOperations.length
+              }: ${subOp.name || subOp.type}`,
           });
 
           try {
@@ -1611,8 +1718,7 @@ class UniversalAutomationEngine {
     await this.checkPause();
 
     this.log(
-      `🔍 执行子操作: ${operation.type} - ${
-        operation.locator?.value || "无定位器"
+      `🔍 执行子操作: ${operation.type} - ${operation.locator?.value || "无定位器"
       }`,
       "info"
     );
@@ -1748,8 +1854,7 @@ class UniversalAutomationEngine {
           waitAfterDrag: operation.waitAfterDrag || 1000,
         });
         this.log(
-          `🖱️ 子操作-拖拽完成: 水平${
-            operation.horizontalDistance || 0
+          `🖱️ 子操作-拖拽完成: 水平${operation.horizontalDistance || 0
           }px, 垂直${operation.verticalDistance || 0}px`,
           "success"
         );
@@ -2346,7 +2451,7 @@ class UniversalAutomationEngine {
         // 计算距离
         const distance = Math.sqrt(
           Math.pow(titleCenterX - buttonCenterX, 2) +
-            Math.pow(titleCenterY - buttonCenterY, 2)
+          Math.pow(titleCenterY - buttonCenterY, 2)
         );
 
         if (distance < minDistance) {

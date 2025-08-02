@@ -285,6 +285,13 @@ async function executeSimplifiedWorkflow(workflow) {
           case "drag":
             await executeDragStep(step);
             break;
+          case "closeWindow":
+            console.log("🪟 检测到关闭窗口操作，发送到background处理");
+            await chrome.runtime.sendMessage({
+              action: "handleCloseWindow",
+              step: step
+            });
+            break;
           default:
             console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
         }
@@ -1534,8 +1541,7 @@ async function executeContainerLoopAction(element, step) {
     for (let i = 0; i < step.subOperations.length; i++) {
       const subOp = step.subOperations[i];
       console.log(
-        `🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${
-          subOp.locator?.value || subOp.locator
+        `🎯 执行容器内子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator
         }`
       );
 
@@ -1636,8 +1642,7 @@ async function executeParentLoopAction(element, step) {
     for (let i = 0; i < step.subOperations.length; i++) {
       const subOp = step.subOperations[i];
       console.log(
-        `🎯 执行子操作 ${i + 1}: ${subOp.type} - ${
-          subOp.locator?.value || subOp.locator
+        `🎯 执行子操作 ${i + 1}: ${subOp.type} - ${subOp.locator?.value || subOp.locator
         }`
       );
 
@@ -1683,10 +1688,9 @@ async function executeSubOperation(operation, parentElement = null) {
             parentElement.closest("tr") ||
             parentElement.closest(".core-table-tr");
           console.log(
-            `🔧 [DEBUG] 按钮父级，向上查找表格行容器: ${
-              containerElement
-                ? containerElement.tagName + "." + containerElement.className
-                : "未找到"
+            `🔧 [DEBUG] 按钮父级，向上查找表格行容器: ${containerElement
+              ? containerElement.tagName + "." + containerElement.className
+              : "未找到"
             }`
           );
         }
@@ -1923,10 +1927,9 @@ async function executeSubOperation(operation, parentElement = null) {
             parentElement.closest("tr") ||
             parentElement.closest(".core-table-tr");
           console.log(
-            `🔍 按钮父级，向上查找表格行容器: ${
-              containerElement
-                ? containerElement.tagName + "." + containerElement.className
-                : "未找到"
+            `🔍 按钮父级，向上查找表格行容器: ${containerElement
+              ? containerElement.tagName + "." + containerElement.className
+              : "未找到"
             }`
           );
         }
@@ -1935,8 +1938,7 @@ async function executeSubOperation(operation, parentElement = null) {
           dragElement = containerElement.querySelector(operation.locator.value);
           if (dragElement) {
             console.log(
-              `🔍 在容器内找到拖拽目标: ${
-                dragElement.id || dragElement.className
+              `🔍 在容器内找到拖拽目标: ${dragElement.id || dragElement.className
               }`
             );
           } else {
@@ -1972,16 +1974,14 @@ async function executeSubOperation(operation, parentElement = null) {
       const endY = startY + (operation.verticalDistance || 0);
 
       console.log(
-        `🖱️ 拖拽详情: 从(${startX}, ${startY}) 到 (${endX}, ${endY}), 距离: ${
-          operation.horizontalDistance || 0
+        `🖱️ 拖拽详情: 从(${startX}, ${startY}) 到 (${endX}, ${endY}), 距离: ${operation.horizontalDistance || 0
         }px, ${operation.verticalDistance || 0}px`
       );
 
       // 更新状态反馈 - 拖拽开始
       if (window.updateStatus) {
         window.updateStatus(
-          `🖱️ 开始拖拽: ${dragElement.id || "拖拽元素"} (${
-            operation.horizontalDistance || 0
+          `🖱️ 开始拖拽: ${dragElement.id || "拖拽元素"} (${operation.horizontalDistance || 0
           }px, ${operation.verticalDistance || 0}px)`,
           "info"
         );

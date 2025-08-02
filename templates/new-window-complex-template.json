@@ -1,0 +1,205 @@
+{
+    "name": "复杂多窗口嵌套流程模板",
+    "description": "演示多层窗口嵌套的复杂流程，支持窗口A->窗口B->返回窗口A->返回主窗口",
+    "version": "1.0.0",
+    "steps": [
+        {
+            "id": "main_1",
+            "name": "主窗口：初始化操作",
+            "type": "input",
+            "action": "input",
+            "locator": {
+                "strategy": "css",
+                "value": "#main-input"
+            },
+            "text": "主窗口初始数据",
+            "description": "在主窗口进行初始化操作"
+        },
+        {
+            "id": "main_2",
+            "name": "主窗口：打开窗口A",
+            "type": "click",
+            "action": "click",
+            "opensNewWindow": true,
+            "locator": {
+                "strategy": "css",
+                "value": "#open-window-a-btn"
+            },
+            "newWindowTimeout": 10000,
+            "windowReadyTimeout": 30000,
+            "description": "从主窗口打开窗口A"
+        },
+        {
+            "id": "window_a_1",
+            "name": "窗口A：填写数据",
+            "type": "input",
+            "action": "input",
+            "locator": {
+                "strategy": "css",
+                "value": "#window-a-input"
+            },
+            "text": "窗口A的数据",
+            "description": "在窗口A中填写数据"
+        },
+        {
+            "id": "window_a_2",
+            "name": "窗口A：打开窗口B",
+            "type": "click",
+            "action": "click",
+            "opensNewWindow": true,
+            "locator": {
+                "strategy": "css",
+                "value": "#open-window-b-btn"
+            },
+            "newWindowTimeout": 10000,
+            "windowReadyTimeout": 30000,
+            "description": "从窗口A打开窗口B"
+        },
+        {
+            "id": "window_b_1",
+            "name": "窗口B：执行操作",
+            "type": "input",
+            "action": "input",
+            "locator": {
+                "strategy": "css",
+                "value": "#window-b-input"
+            },
+            "text": "窗口B的数据",
+            "description": "在窗口B中执行操作"
+        },
+        {
+            "id": "window_b_2",
+            "name": "窗口B：提交数据",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#window-b-submit"
+            },
+            "description": "在窗口B中提交数据"
+        },
+        {
+            "id": "window_b_3",
+            "name": "窗口B：等待处理完成",
+            "type": "smartWait",
+            "action": "smartWait",
+            "locator": {
+                "strategy": "css",
+                "value": "#window-b-success"
+            },
+            "condition": "appear",
+            "timeout": 15000,
+            "description": "等待窗口B处理完成"
+        },
+        {
+            "id": "close_b",
+            "name": "关闭窗口B，返回窗口A",
+            "type": "closeWindow",
+            "action": "closeWindow",
+            "closeTarget": "current",
+            "returnToPrevious": true,
+            "description": "关闭窗口B并返回到窗口A"
+        },
+        {
+            "id": "window_a_3",
+            "name": "窗口A：继续操作",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#window-a-continue"
+            },
+            "description": "回到窗口A后继续操作"
+        },
+        {
+            "id": "window_a_4",
+            "name": "窗口A：完成操作",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#window-a-finish"
+            },
+            "description": "在窗口A中完成操作"
+        },
+        {
+            "id": "close_a",
+            "name": "关闭窗口A，返回主窗口",
+            "type": "closeWindow",
+            "action": "closeWindow",
+            "closeTarget": "current",
+            "returnToPrevious": true,
+            "description": "关闭窗口A并返回到主窗口"
+        },
+        {
+            "id": "main_3",
+            "name": "主窗口：最终操作",
+            "type": "click",
+            "action": "click",
+            "locator": {
+                "strategy": "css",
+                "value": "#main-final-btn"
+            },
+            "description": "回到主窗口后执行最终操作"
+        }
+    ],
+    "connections": [
+        {
+            "source": "main_1",
+            "target": "main_2"
+        },
+        {
+            "source": "main_2",
+            "target": "window_a_1"
+        },
+        {
+            "source": "window_a_1",
+            "target": "window_a_2"
+        },
+        {
+            "source": "window_a_2",
+            "target": "window_b_1"
+        },
+        {
+            "source": "window_b_1",
+            "target": "window_b_2"
+        },
+        {
+            "source": "window_b_2",
+            "target": "window_b_3"
+        },
+        {
+            "source": "window_b_3",
+            "target": "close_b"
+        },
+        {
+            "source": "close_b",
+            "target": "window_a_3"
+        },
+        {
+            "source": "window_a_3",
+            "target": "window_a_4"
+        },
+        {
+            "source": "window_a_4",
+            "target": "close_a"
+        },
+        {
+            "source": "close_a",
+            "target": "main_3"
+        }
+    ],
+    "settings": {
+        "windowManagement": {
+            "enabled": true,
+            "autoSwitchToNewWindow": true,
+            "autoCloseOnComplete": false,
+            "maxWindowStack": 10
+        },
+        "execution": {
+            "stepDelay": 1500,
+            "retryCount": 3,
+            "timeout": 45000
+        }
+    }
+}
