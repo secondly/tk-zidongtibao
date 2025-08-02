@@ -1549,6 +1549,9 @@ async function inputText(element, text) {
 // 全局标志：是否在虚拟列表模式中（禁用页面滚动）
 window.isVirtualListMode = false;
 
+// 全局标志：当前窗口上下文ID（用于循环操作中的新窗口处理）
+window.currentWindowContextId = null;
+
 /**
  * 智能滚动函数 - 在虚拟列表模式下禁用页面滚动
  * @param {HTMLElement} element - 要滚动到的元素
@@ -3374,6 +3377,10 @@ async function executeContainerLoopAction(element, step) {
     }
 
     console.log(`✅ 容器内所有子操作执行完成`);
+    
+    // 重置窗口上下文，确保后续操作在正确的窗口中执行
+    window.currentWindowContextId = null;
+    console.log("🔄 重置窗口上下文");
   } else {
     console.log(`📦 容器循环没有配置子操作，执行直接操作`);
 
@@ -3494,6 +3501,10 @@ async function executeParentLoopAction(element, step) {
     }
 
     console.log(`✅ 所有子操作执行完成`);
+    
+    // 重置窗口上下文，确保后续操作在正确的窗口中执行
+    window.currentWindowContextId = null;
+    console.log("🔄 重置窗口上下文");
   }
 
   // 4. 父级循环操作延迟
@@ -3512,6 +3523,12 @@ async function executeSubOperation(operation, parentElement = null) {
   }
 
   console.log(`🔍 执行子操作: ${operation.type}`, operation.locator);
+  
+  // 检查是否需要更新窗口上下文（处理循环中的新窗口操作）
+  if (window.currentWindowContextId) {
+    console.log(`🔄 当前窗口上下文ID: ${window.currentWindowContextId}`);
+    // 这里可以添加窗口上下文验证逻辑
+  }
 
   switch (operation.type) {
     case "click":
@@ -3607,17 +3624,24 @@ async function executeSubOperation(operation, parentElement = null) {
       // 如果在父级元素内没找到，或者没有父级元素，则进行全局查找
       if (!clickElement) {
         console.log(
-          `🌐 使用全局查找: ${operation.locator.strategy}=${operation.locator.value}`
+          `🌐 使用全局查找: ${operation.locator.strategy}="${operation.locator.value}"`
         );
-        clickElement = await findElementByStrategy(
-          operation.locator.strategy,
-          operation.locator.value
-        );
+        try {
+          clickElement = await findElementByStrategy(
+            operation.locator.strategy,
+            operation.locator.value
+          );
+        } catch (globalError) {
+          console.error(`❌ 全局查找失败:`, globalError);
+          throw new Error(
+            `找不到点击目标元素: ${operation.locator.strategy}="${operation.locator.value}" (全局查找失败: ${globalError.message})`
+          );
+        }
       }
 
       if (!clickElement) {
         throw new Error(
-          `找不到点击目标元素: ${operation.locator.strategy}=${operation.locator.value}`
+          `找不到点击目标元素: ${operation.locator.strategy}="${operation.locator.value}"`
         );
       }
 
@@ -3650,6 +3674,84 @@ async function executeSubOperation(operation, parentElement = null) {
       clickElement.click();
       console.log(`👆 子操作-点击完成: ${operation.locator.value}`);
 
+      // 处理新窗口操作
+      if (operation.opensNewWindow) {
+        console.log("🪟 检测到子操作需要打开新窗口");
+        
+        // 等待新窗口创建
+        const newWindowTimeout = operation.newWindowTimeout || 10000;
+        console.log(`⏳ 等待新窗口创建 (${newWindowTimeout}ms)`);
+        
+        // 等待指定时间让新窗口创建
+        await new Promise((resolve) => setTimeout(resolve, newWindowTimeout));
+        
+        // 如果需要切换到新窗口
+        if (operation.switchToNewWindow !== false) {
+          console.log("🔄 需要切换到新窗口，请求background处理");
+          
+          try {
+            // 请求background获取最新的窗口并切换到新窗口
+            const response = await chrome.runtime.sendMessage({
+              action: "switchToLatestWindow"
+            });
+            
+            if (response && response.success) {
+              console.log(`✅ 成功切换到新窗口: ${response.windowId}`);
+              // 等待新窗口加载完成
+              const windowReadyTimeout = operation.windowReadyTimeout || 30000;
+              console.log(`⏳ 等待新窗口准备就绪 (${windowReadyTimeout}ms)`);
+              await new Promise((resolve) => setTimeout(resolve, windowReadyTimeout));
+              
+              // 确保新窗口的content script已准备就绪
+              console.log("🔄 检查新窗口content script是否就绪...");
+              let contentScriptReady = false;
+              for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                  const pingResponse = await chrome.runtime.sendMessage({
+                    action: "ping"
+                  });
+                  if (pingResponse && pingResponse.status === "ready") {
+                    contentScriptReady = true;
+                    console.log("✅ 新窗口content script已就绪");
+                    break;
+                  }
+                } catch (pingError) {
+                  console.log(`🔄 content script就绪检查尝试 ${attempt}/3 失败:`, pingError.message);
+                }
+                if (attempt < 3) {
+                  await new Promise((resolve) => setTimeout(resolve, 500));
+                }
+              }
+              
+              if (!contentScriptReady) {
+                console.warn("⚠️ 新窗口content script可能未完全就绪，继续执行...");
+              }
+              
+              // 设置当前窗口上下文ID，确保后续操作在新窗口中执行
+              if (response.windowId) {
+                window.currentWindowContextId = response.windowId;
+                console.log(`✅ 设置当前窗口上下文ID为: ${window.currentWindowContextId}`);
+                
+                // 通知background script更新当前执行窗口
+                try {
+                  await chrome.runtime.sendMessage({
+                    action: "updateCurrentExecutionTab",
+                    tabId: response.windowId
+                  });
+                  console.log(`✅ 通知background script更新执行窗口`);
+                } catch (updateError) {
+                  console.warn("⚠️ 更新执行窗口ID失败:", updateError.message);
+                }
+              }
+            } else {
+              console.warn("⚠️ 切换到新窗口失败:", response?.error || "未知错误");
+            }
+          } catch (error) {
+            console.error("❌ 切换到新窗口时出错:", error);
+          }
+        }
+      }
+
       // 更新状态反馈 - 点击完成
       if (window.updateStatus) {
         const elementInfo =
@@ -3678,16 +3780,36 @@ async function executeSubOperation(operation, parentElement = null) {
         // 只有CSS选择器才能在父级元素内查找
         inputElement = parentElement.querySelector(operation.locator.value);
         if (!inputElement) {
+          console.log(
+            `🔍 在父级元素内未找到输入目标，使用全局查找: ${operation.locator.strategy}="${operation.locator.value}"`
+          );
+          try {
+            inputElement = await findElementByStrategy(
+              operation.locator.strategy,
+              operation.locator.value
+            );
+          } catch (globalError) {
+            console.error(`❌ 全局查找输入元素失败:`, globalError);
+            throw new Error(
+              `找不到输入目标元素: ${operation.locator.strategy}="${operation.locator.value}" (全局查找失败: ${globalError.message})`
+            );
+          }
+        }
+      } else {
+        console.log(
+          `🌐 使用全局查找输入元素: ${operation.locator.strategy}="${operation.locator.value}"`
+        );
+        try {
           inputElement = await findElementByStrategy(
             operation.locator.strategy,
             operation.locator.value
           );
+        } catch (globalError) {
+          console.error(`❌ 全局查找输入元素失败:`, globalError);
+          throw new Error(
+            `找不到输入目标元素: ${operation.locator.strategy}="${operation.locator.value}" (全局查找失败: ${globalError.message})`
+          );
         }
-      } else {
-        inputElement = await findElementByStrategy(
-          operation.locator.strategy,
-          operation.locator.value
-        );
       }
       inputElement.value = operation.text || "";
       inputElement.dispatchEvent(new Event("input", { bubbles: true }));

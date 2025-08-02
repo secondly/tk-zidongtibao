@@ -104,7 +104,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     };
 
     // 等待新窗口创建和准备就绪
-    waitForNewWindowAndReady(currentTabId, mockStep)
+    const newWindowPromise = waitForNewWindowAndReady(currentTabId, mockStep)
       .then((result) => {
         sendResponse({
           success: true,
@@ -170,6 +170,60 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
     sendResponse({ stopped: true });
     return true;
+  }
+
+  // 处理更新当前执行窗口的请求
+  if (request.action === "updateCurrentExecutionTab" && request.tabId) {
+    currentExecutionTabId = request.tabId;
+    console.log(`🔄 更新当前执行窗口ID为: ${currentExecutionTabId}`);
+    sendResponse({ success: true });
+    return true;
+  }
+
+  // 处理切换到最新窗口的请求
+  if (request.action === "switchToLatestWindow") {
+    console.log("🔄 收到切换到最新窗口请求");
+
+    (async () => {
+      try {
+        // 获取最新的窗口（窗口栈中的最后一个）
+        let targetWindowId = null;
+        if (windowStack && windowStack.length > 0) {
+          targetWindowId = windowStack[windowStack.length - 1];
+          console.log(`🎯 目标窗口ID: ${targetWindowId}`);
+        }
+
+        if (targetWindowId) {
+          // 激活目标窗口
+          await chrome.tabs.update(targetWindowId, { active: true });
+          console.log(`✅ 成功切换到窗口: ${targetWindowId}`);
+          
+          // 更新当前执行窗口ID，确保后续操作在新窗口中执行
+          currentExecutionTabId = targetWindowId;
+          console.log(`🔄 更新当前执行窗口ID为: ${currentExecutionTabId}`);
+          
+          sendResponse({ 
+            success: true, 
+            windowId: targetWindowId,
+            message: `已切换到窗口 ${targetWindowId}`
+          });
+        } else {
+          console.warn("⚠️ 没有找到可切换的窗口");
+          sendResponse({ 
+            success: false, 
+            error: "没有找到可切换的窗口"
+          });
+        }
+      } catch (error) {
+        console.error("❌ 切换窗口失败:", error);
+        sendResponse({ 
+          success: false, 
+          error: error.message 
+        });
+      }
+    })();
+
+    return true; // 保持消息通道开放
   }
 
   if (request.action === "pauseExecution") {
@@ -1194,4 +1248,25 @@ function notifyExecutionStatusChange(statusData) {
       });
     });
   });
+}
+
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js')
+    .then(registration => {
+      console.log('Service Worker registered:', registration);
+    })
+    .catch(error => {
+      console.error('Service Worker registration failed:', error);
+      // Handle specific error codes
+      if (error.name === 'SecurityError') {
+        console.error('Service Worker registration failed due to security restrictions');
+      } else if (error.name === 'NetworkError') {
+        console.error('Service Worker registration failed due to network issues');
+      } else {
+        console.error(`Service Worker registration failed with error: ${error.message}`);
+      }
+    });
+} else {
+  console.warn('Service Workers are not supported in this browser');
 }
