@@ -176,30 +176,55 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // 处理工作流执行请求
   if (message.action === 'executeWorkflow') {
-    console.log(`🚀 收到工作流执行请求:`, message.data);
+    console.log(`🚀 [浮层面板-DEBUG] 收到工作流执行请求:`, message.data);
+    console.log(`🚀 [浮层面板-DEBUG] 工作流名称:`, message.data?.name);
+    console.log(`🚀 [浮层面板-DEBUG] 步骤数量:`, message.data?.steps?.length);
 
-    // 确保模块已初始化
-    ensureModulesLoaded()
-      .then(() => {
-        // 使用ContentCore的完整执行逻辑
-        if (window.ContentCore && window.ContentCore.handleMessage) {
-          console.log(`✅ 使用ContentCore处理工作流执行`);
-          window.ContentCore.handleMessage(message, sender, sendResponse);
-        } else {
-          throw new Error('ContentCore模块未正确加载');
-        }
-      })
-      .catch(error => {
-        console.error(`❌ 工作流执行失败:`, error);
-        sendResponse({ success: false, error: error.message });
-
-        // 发送错误状态到浮层
-        sendStatusToFloatingPanel({
-          isRunning: false,
-          isPaused: false,
-          message: '执行失败: ' + error.message
+    // 检查是否有循环步骤
+    const loopSteps = message.data?.steps?.filter(step => step.type === 'loop' || step.action === 'loop');
+    if (loopSteps && loopSteps.length > 0) {
+      console.log(`🔄 [浮层面板-DEBUG] 发现循环步骤:`, loopSteps.length, '个');
+      loopSteps.forEach((step, index) => {
+        console.log(`🔄 [浮层面板-DEBUG] 循环步骤${index + 1}:`, {
+          name: step.name,
+          startIndex: step.startIndex,
+          endIndex: step.endIndex,
+          maxIterations: step.maxIterations,
+          loopType: step.loopType
         });
       });
+    }
+
+    // 重要：将浮层面板的执行请求转发到background script，而不是在content script中处理
+    console.log(`📡 [浮层面板-DEBUG] 开始转发执行请求到background script`);
+    console.log(`📡 [浮层面板-DEBUG] 转发的数据:`, JSON.stringify(message.data, null, 2));
+
+    chrome.runtime.sendMessage({
+      action: 'executeWorkflow',
+      data: message.data
+    }).then(response => {
+      console.log(`✅ [浮层面板-DEBUG] Background script执行完成:`, response);
+      sendResponse({ success: true, response: response });
+
+      // 发送成功状态到浮层
+      sendStatusToFloatingPanel({
+        isRunning: false,
+        isPaused: false,
+        message: '执行完成'
+      });
+    }).catch(error => {
+      console.error(`❌ [浮层面板-DEBUG] Background script执行失败:`, error);
+      console.error(`❌ [浮层面板-DEBUG] 错误详情:`, error.message);
+      console.error(`❌ [浮层面板-DEBUG] 错误堆栈:`, error.stack);
+      sendResponse({ success: false, error: error.message });
+
+      // 发送错误状态到浮层
+      sendStatusToFloatingPanel({
+        isRunning: false,
+        isPaused: false,
+        message: '执行失败: ' + error.message
+      });
+    });
 
     return true; // 保持消息通道开放
   }
@@ -339,51 +364,129 @@ async function handleWorkflowExecution(workflowData) {
 
 // 处理暂停执行
 function handlePauseExecution() {
-  console.log('⏸️ 暂停执行');
+  console.log('⏸️ [浮层面板-DEBUG] 收到暂停执行请求');
+  console.log('⏸️ [浮层面板-DEBUG] chrome.runtime可用:', !!chrome.runtime);
+  console.log('⏸️ [浮层面板-DEBUG] chrome.runtime.sendMessage可用:', !!chrome.runtime.sendMessage);
 
-  if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.pause) {
-    window.simplifiedExecutionControl.pause();
+  // 重要：将暂停请求转发到background script
+  console.log('📡 [浮层面板-DEBUG] 开始发送暂停请求到background script');
+
+  chrome.runtime.sendMessage({
+    action: 'pauseExecution'
+  }).then(response => {
+    console.log('✅ [浮层面板-DEBUG] 暂停请求已发送到background script:', response);
+    console.log('✅ [浮层面板-DEBUG] 响应类型:', typeof response);
+    console.log('✅ [浮层面板-DEBUG] 响应内容:', JSON.stringify(response, null, 2));
+
     sendStatusToFloatingPanel({
       isRunning: true,
       isPaused: true,
       message: '执行已暂停'
     });
-  } else {
-    console.warn('⚠️ 暂停功能不可用');
-  }
+  }).catch(error => {
+    console.error('❌ [浮层面板-DEBUG] 暂停请求发送失败:', error);
+    console.error('❌ [浮层面板-DEBUG] 错误类型:', typeof error);
+    console.error('❌ [浮层面板-DEBUG] 错误消息:', error.message);
+    console.error('❌ [浮层面板-DEBUG] 错误堆栈:', error.stack);
+
+    // 回退到本地暂停
+    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.pause) {
+      console.log('🔄 [浮层面板-DEBUG] 回退到本地暂停');
+      window.simplifiedExecutionControl.pause();
+      sendStatusToFloatingPanel({
+        isRunning: true,
+        isPaused: true,
+        message: '执行已暂停 (本地)'
+      });
+    } else {
+      console.log('❌ [浮层面板-DEBUG] 本地暂停功能不可用');
+    }
+  });
 }
 
 // 处理恢复执行
 function handleResumeExecution() {
-  console.log('▶️ 恢复执行');
+  console.log('▶️ [浮层面板-DEBUG] 收到恢复执行请求');
+  console.log('▶️ [浮层面板-DEBUG] chrome.runtime可用:', !!chrome.runtime);
+  console.log('▶️ [浮层面板-DEBUG] chrome.runtime.sendMessage可用:', !!chrome.runtime.sendMessage);
 
-  if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.resume) {
-    window.simplifiedExecutionControl.resume();
+  // 重要：将恢复请求转发到background script
+  console.log('📡 [浮层面板-DEBUG] 开始发送恢复请求到background script');
+
+  chrome.runtime.sendMessage({
+    action: 'resumeExecution'
+  }).then(response => {
+    console.log('✅ [浮层面板-DEBUG] 恢复请求已发送到background script:', response);
+    console.log('✅ [浮层面板-DEBUG] 响应类型:', typeof response);
+    console.log('✅ [浮层面板-DEBUG] 响应内容:', JSON.stringify(response, null, 2));
+
     sendStatusToFloatingPanel({
       isRunning: true,
       isPaused: false,
       message: '执行已恢复'
     });
-  } else {
-    console.warn('⚠️ 恢复功能不可用');
-  }
+  }).catch(error => {
+    console.error('❌ [浮层面板-DEBUG] 恢复请求发送失败:', error);
+    console.error('❌ [浮层面板-DEBUG] 错误类型:', typeof error);
+    console.error('❌ [浮层面板-DEBUG] 错误消息:', error.message);
+    console.error('❌ [浮层面板-DEBUG] 错误堆栈:', error.stack);
+
+    // 回退到本地恢复
+    if (window.simplifiedExecutionControl && window.simplifiedExecutionControl.resume) {
+      console.log('🔄 [浮层面板-DEBUG] 回退到本地恢复');
+      window.simplifiedExecutionControl.resume();
+      sendStatusToFloatingPanel({
+        isRunning: true,
+        isPaused: false,
+        message: '执行已恢复 (本地)'
+      });
+    } else {
+      console.log('❌ [浮层面板-DEBUG] 本地恢复功能不可用');
+    }
+  });
 }
 
 // 处理停止执行
 function handleStopExecution() {
-  console.log('⏹️ 停止执行');
+  console.log('⏹️ [浮层面板-DEBUG] 收到停止执行请求');
+  console.log('⏹️ [浮层面板-DEBUG] chrome.runtime可用:', !!chrome.runtime);
+  console.log('⏹️ [浮层面板-DEBUG] chrome.runtime.sendMessage可用:', !!chrome.runtime.sendMessage);
 
-  if (window.simplifiedExecutionControl) {
-    window.simplifiedExecutionControl.isStopped = true;
-    window.simplifiedExecutionControl.isPaused = false;
+  // 重要：将停止请求转发到background script
+  console.log('📡 [浮层面板-DEBUG] 开始发送停止请求到background script');
+
+  chrome.runtime.sendMessage({
+    action: 'stopExecution'
+  }).then(response => {
+    console.log('✅ [浮层面板-DEBUG] 停止请求已发送到background script:', response);
+    console.log('✅ [浮层面板-DEBUG] 响应类型:', typeof response);
+    console.log('✅ [浮层面板-DEBUG] 响应内容:', JSON.stringify(response, null, 2));
+
     sendStatusToFloatingPanel({
       isRunning: false,
       isPaused: false,
       message: '执行已停止'
     });
-  } else {
-    console.warn('⚠️ 停止功能不可用');
-  }
+  }).catch(error => {
+    console.error('❌ [浮层面板-DEBUG] 停止请求发送失败:', error);
+    console.error('❌ [浮层面板-DEBUG] 错误类型:', typeof error);
+    console.error('❌ [浮层面板-DEBUG] 错误消息:', error.message);
+    console.error('❌ [浮层面板-DEBUG] 错误堆栈:', error.stack);
+
+    // 回退到本地停止
+    if (window.simplifiedExecutionControl) {
+      console.log('🔄 [浮层面板-DEBUG] 回退到本地停止');
+      window.simplifiedExecutionControl.isStopped = true;
+      window.simplifiedExecutionControl.isPaused = false;
+      sendStatusToFloatingPanel({
+        isRunning: false,
+        isPaused: false,
+        message: '执行已停止 (本地)'
+      });
+    } else {
+      console.log('❌ [浮层面板-DEBUG] 本地停止功能不可用');
+    }
+  });
 }
 
 // 发送状态更新到浮层

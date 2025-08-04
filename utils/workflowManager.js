@@ -28,7 +28,7 @@ class WorkflowManager {
 
         this.workflows.set(workflow.id, workflow);
         this.currentWorkflowId = workflow.id;
-        
+
         console.log('✅ 创建新工作流:', workflow.name);
         return workflow;
     }
@@ -89,7 +89,7 @@ class WorkflowManager {
         }
 
         this.workflows.delete(id);
-        
+
         // 如果删除的是当前工作流，清空当前工作流
         if (this.currentWorkflowId === id) {
             this.currentWorkflowId = null;
@@ -267,7 +267,7 @@ class WorkflowManager {
                         if (!step.id) {
                             step.id = `step_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`;
                         }
-                        
+
                         // 确保子操作也有ID
                         if (step.subOperations) {
                             step.subOperations.forEach((subOp, subIndex) => {
@@ -303,13 +303,23 @@ class WorkflowManager {
 
             localStorage.setItem('automationWorkflows', JSON.stringify(data));
             const value = localStorage.getItem('automationWorkflows'); // 从扩展的 localStorage 获取数据
+
+            console.log('📡 [数据同步-DEBUG] 开始同步工作流数据到浏览器缓存');
+            console.log('📡 [数据同步-DEBUG] 同步的数据大小:', value ? value.length : 0, '字符');
+            console.log('📡 [数据同步-DEBUG] 工作流数量:', this.workflows.size);
+
             chrome.runtime.sendMessage({
                 action: 'sendToWebpageStorage',
                 data: {
                     key: 'automationWorkflows',
                     value: value
                 }
+            }).then(response => {
+                console.log('✅ [数据同步-DEBUG] 数据同步请求已发送到background script:', response);
+            }).catch(error => {
+                console.error('❌ [数据同步-DEBUG] 数据同步请求发送失败:', error);
             });
+
             console.log('✅ 工作流已保存到本地存储');
             return true;
         } catch (error) {
@@ -330,7 +340,7 @@ class WorkflowManager {
             }
 
             const parsed = JSON.parse(data);
-            
+
             // 恢复工作流数据
             this.workflows = new Map(parsed.workflows || []);
             this.currentWorkflowId = parsed.currentWorkflowId;
@@ -349,7 +359,7 @@ class WorkflowManager {
     getStatistics() {
         const workflows = this.getAllWorkflows();
         const totalSteps = workflows.reduce((sum, workflow) => sum + workflow.steps.length, 0);
-        
+
         return {
             totalWorkflows: workflows.length,
             totalSteps: totalSteps,
