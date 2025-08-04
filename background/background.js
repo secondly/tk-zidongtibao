@@ -1315,7 +1315,7 @@ function waitForNewWindow(timeout = 10000) {
 }
 
 function handleNewTabCreated(tab) {
-  console.log(`🆕 检测到新窗口创建: ${tab.id}, URL: ${tab.url}`);
+  console.log(`🆕 检测到新窗口创建: ${tab.id}, URL: ${tab.url || '(URL未加载)'}`);
 
   // 如果有等待中的Promise，只解决第一个
   if (windowCreationPromises.size > 0) {
@@ -1323,8 +1323,7 @@ function handleNewTabCreated(tab) {
     const firstPromise = windowCreationPromises.values().next().value;
 
     if (firstPromise) {
-      // 清除所有等待中的Promise（避免重复处理）
-      windowCreationPromises.clear();
+      console.log(`✅ 新窗口 ${tab.id} 被选为目标窗口，解决等待Promise`);
 
       // 解决第一个Promise
       firstPromise.resolve(tab.id);
@@ -1332,48 +1331,202 @@ function handleNewTabCreated(tab) {
       // 将新窗口添加到窗口栈
       pushWindow(tab.id);
 
-      console.log(`✅ 新窗口 ${tab.id} 已被选为目标窗口`);
+      // 清除所有等待中的Promise（避免重复处理）
+      windowCreationPromises.clear();
 
-      // 简单的重复窗口清理：2秒后检查并关闭相似的窗口
-      setTimeout(() => {
-        closeDuplicateWindows(tab.id);
-      }, 2000);
+      console.log(`📋 已清除 ${windowCreationPromises.size} 个等待中的Promise，防止重复窗口`);
     }
+  } else {
+    console.log(`⚠️ 检测到意外的新窗口创建: ${tab.id}，没有等待中的Promise`);
+    console.log(`🔍 这可能是重复窗口，准备检查并清理`);
+
+    // 延迟检查，给新窗口时间加载URL
+    setTimeout(() => {
+      console.log(`🔍 开始检查意外窗口: ${tab.id}`);
+      closeDuplicateWindows(tab.id);
+    }, 2000);
   }
 }
 
 /**
- * 关闭重复的窗口（简化版）
- * @param {number} keepWindowId - 要保留的窗口ID
+ * 关闭重复的窗口（智能版）
+ * @param {number} triggerWindowId - 触发检查的窗口ID（通常是新创建的窗口）
  */
-async function closeDuplicateWindows(keepWindowId) {
+async function closeDuplicateWindows(triggerWindowId) {
   try {
-    // 获取要保留的窗口信息
-    const keepTab = await chrome.tabs.get(keepWindowId);
-    if (!keepTab) return;
+    console.log(`🔍 开始智能检查重复窗口，触发窗口: ${triggerWindowId}`);
+
+    // 获取触发窗口信息
+    const triggerTab = await chrome.tabs.get(triggerWindowId);
+    if (!triggerTab || !triggerTab.url) {
+      console.log(`⚠️ 无法获取触发窗口信息或URL未加载: ${triggerWindowId}`);
+      return;
+    }
+
+    console.log(`📋 触发窗口信息: ${triggerTab.id}, URL: ${triggerTab.url}`);
+    const triggerDomain = extractDomain(triggerTab.url);
+
+    if (!triggerDomain) {
+      console.log(`⚠️ 无法提取触发窗口域名: ${triggerTab.url}`);
+      return;
+    }
 
     // 获取所有标签页
     const allTabs = await chrome.tabs.query({});
+    console.log(`📊 找到 ${allTabs.length} 个标签页，开始检查重复窗口`);
 
-    // 查找可能的重复窗口
+    // 找到所有相同域名的窗口（放宽条件，不要求URL完全相似）
+    const sameDomainTabs = [];
     for (const tab of allTabs) {
-      if (tab.id !== keepWindowId &&
-        tab.url && keepTab.url &&
-        tab.url.includes('baidu.com') &&
-        keepTab.url.includes('baidu.com')) {
-
-        // 提取搜索关键词进行比较
-        const keepKeyword = extractBaiduKeyword(keepTab.url);
-        const tabKeyword = extractBaiduKeyword(tab.url);
-
-        if (keepKeyword && tabKeyword && keepKeyword === tabKeyword) {
-          console.log(`🗑️ 关闭重复的百度搜索窗口: ${tab.id} (关键词: ${tabKeyword})`);
-          await chrome.tabs.remove(tab.id);
+      if (tab.url) {
+        const tabDomain = extractDomain(tab.url);
+        if (tabDomain === triggerDomain) {
+          sameDomainTabs.push(tab);
+          console.log(`🎯 发现相同域名窗口: ${tab.id}, URL: ${tab.url}`);
         }
       }
     }
+
+    // 过滤出最近创建的窗口（ID相近的窗口）
+    const recentTabs = sameDomainTabs.filter(tab => {
+      const idDiff = Math.abs(tab.id - triggerWindowId);
+      return idDiff <= 5; // ID差距在5以内的认为是同时创建的
+    });
+
+    console.log(`🔍 在相同域名窗口中，找到 ${recentTabs.length} 个最近创建的窗口`);
+
+    // 使用最近创建的窗口列表进行后续处理
+    sameDomainTabs.length = 0;
+    sameDomainTabs.push(...recentTabs);
+
+    console.log(`📊 找到 ${sameDomainTabs.length} 个相同域名的窗口`);
+
+    // 如果只有1个窗口，不需要清理
+    if (sameDomainTabs.length <= 1) {
+      console.log(`✅ 窗口数量正常 (${sameDomainTabs.length}个)，无需清理`);
+      return;
+    }
+
+    // 简化逻辑：如果发现多个相同URL的窗口，直接清理多余的
+    console.log(`🔍 检查是否有重复的相同URL窗口需要清理`);
+
+    // 按URL分组
+    const urlGroups = {};
+    for (const tab of sameDomainTabs) {
+      const url = tab.url;
+      if (!urlGroups[url]) {
+        urlGroups[url] = [];
+      }
+      urlGroups[url].push(tab);
+    }
+
+    // 检查每个URL组是否有重复
+    let hasMultipleSameUrl = false;
+    for (const [url, tabs] of Object.entries(urlGroups)) {
+      if (tabs.length > 1) {
+        console.log(`⚠️ 发现 ${tabs.length} 个相同URL的窗口: ${url}`);
+        hasMultipleSameUrl = true;
+      }
+    }
+
+    // 如果没有重复的相同URL窗口，不需要清理
+    if (!hasMultipleSameUrl) {
+      console.log(`✅ 没有发现重复的相同URL窗口，无需清理`);
+      return;
+    }
+
+    // 按窗口ID排序（ID越小越早创建）
+    sameDomainTabs.sort((a, b) => a.id - b.id);
+
+    console.log(`📋 窗口创建顺序:`, sameDomainTabs.map(tab => `${tab.id}(${tab.id === triggerWindowId ? '新' : '旧'})`).join(', '));
+
+    // 简化策略：对于相同URL的重复窗口，只保留第一个（ID最小的），关闭其余
+    const windowsToKeep = [];
+    const windowsToClose = [];
+
+    // 按URL分组处理
+    for (const [url, tabs] of Object.entries(urlGroups)) {
+      if (tabs.length > 1) {
+        console.log(`🔍 处理 ${tabs.length} 个相同URL的窗口: ${url}`);
+
+        // 按ID排序，保留第一个（ID最小的）
+        tabs.sort((a, b) => a.id - b.id);
+        const keepTab = tabs[0];
+        const closeTabs = tabs.slice(1);
+
+        windowsToKeep.push(keepTab);
+        windowsToClose.push(...closeTabs);
+
+        console.log(`📌 保留第一个窗口: ${keepTab.id}`);
+        closeTabs.forEach(tab => {
+          console.log(`🗑️ 标记关闭重复窗口: ${tab.id}`);
+        });
+      } else {
+        // 只有一个窗口，直接保留
+        windowsToKeep.push(tabs[0]);
+        console.log(`📌 保留唯一窗口: ${tabs[0].id}`);
+      }
+    }
+
+    // 执行关闭操作
+    for (const tab of windowsToClose) {
+      try {
+        console.log(`🗑️ 关闭多余窗口: ${tab.id} (URL: ${tab.url})`);
+        await chrome.tabs.remove(tab.id);
+        console.log(`✅ 成功关闭多余窗口: ${tab.id}`);
+      } catch (removeError) {
+        console.log(`❌ 关闭窗口失败: ${tab.id}`, removeError.message);
+      }
+    }
+
+    console.log(`✅ 重复窗口清理完成，保留 ${windowsToKeep.length} 个窗口，关闭 ${windowsToClose.length} 个窗口`);
   } catch (error) {
     console.log('清理重复窗口时出错:', error.message);
+  }
+}
+
+/**
+ * 提取URL的域名
+ * @param {string} url - URL字符串
+ * @returns {string|null} 域名
+ */
+function extractDomain(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch (error) {
+    console.log(`提取域名失败: ${url}`, error.message);
+    return null;
+  }
+}
+
+/**
+ * 检查两个URL是否相似（用于判断是否为重复窗口）
+ * @param {string} url1 - 第一个URL
+ * @param {string} url2 - 第二个URL
+ * @returns {boolean} 是否相似
+ */
+function areUrlsSimilar(url1, url2) {
+  try {
+    const urlObj1 = new URL(url1);
+    const urlObj2 = new URL(url2);
+
+    // 检查域名和路径是否相同
+    if (urlObj1.hostname !== urlObj2.hostname) {
+      return false;
+    }
+
+    // 检查路径是否相同
+    if (urlObj1.pathname !== urlObj2.pathname) {
+      return false;
+    }
+
+    // 对于相同路径的页面，认为是相似的
+    // 可以根据需要添加更多的相似性检查逻辑
+    return true;
+  } catch (error) {
+    console.log(`URL相似性检查失败: ${url1} vs ${url2}`, error.message);
+    return false;
   }
 }
 
@@ -1818,3 +1971,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 });
+
+// 监听标签页创建事件
+chrome.tabs.onCreated.addListener((tab) => {
+  console.log(`🆕 [标签页监听] 检测到新标签页创建: ${tab.id}, URL: ${tab.url || '(URL未加载)'}`);
+
+  // 调用新窗口处理函数
+  handleNewTabCreated(tab);
+});
+
+console.log('✅ [Background] 标签页创建监听器已启动');
+
+// 监听存储变化，通知浮层面板刷新工作流列表
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  console.log('📦 [存储监听] 检测到存储变化:', changes, namespace);
+
+  // 检查是否是工作流相关的变化
+  const workflowKeys = ['automationWorkflows', 'mxgraph_workflows'];
+  const hasWorkflowChange = Object.keys(changes).some(key =>
+    workflowKeys.some(wfKey => key.includes(wfKey))
+  );
+
+  if (hasWorkflowChange) {
+    console.log('🔄 [存储监听] 检测到工作流数据变化，通知浮层面板刷新');
+
+    // 通知所有标签页刷新工作流列表
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+        if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'refreshWorkflowList',
+            source: 'storageChange'
+          }).catch(error => {
+            // 忽略无法连接的标签页
+          });
+        }
+      });
+    });
+  }
+});
+
+console.log('✅ [Background] 存储变化监听器已启动');
