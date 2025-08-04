@@ -2,6 +2,7 @@
 let isExecutionStopped = false;
 let isExecutionPaused = false;
 let currentExecutionTabId = null;
+let pauseNotificationSent = false; // 添加全局标志，避免重复发送暂停通知
 
 // 全局停止检查函数
 async function checkExecutionControl(context = "未知位置") {
@@ -12,17 +13,29 @@ async function checkExecutionControl(context = "未知位置") {
   }
 
   // 强化暂停检查
-  while (isExecutionPaused && !isExecutionStopped) {
+  if (isExecutionPaused && !isExecutionStopped) {
     console.log(`⏸️ [执行控制] 在 ${context} 检测到暂停信号，等待恢复...`);
 
-    // 通知暂停状态
-    notifyExecutionStatusChange({
-      isRunning: true,
-      isPaused: true,
-      message: `⏸️ 执行已暂停 (位置: ${context})`
-    });
+    while (isExecutionPaused && !isExecutionStopped) {
+      if (!pauseNotificationSent) {
+        // 只在第一次暂停时发送通知，使用全局标志
+        notifyExecutionStatusChange({
+          isRunning: true,
+          isPaused: true,
+          message: `⏸️ 执行已暂停 (位置: ${context})`
+        });
+        pauseNotificationSent = true;
+        console.log(`⏸️ [执行控制] 已发送暂停通知: ${context}`);
+      }
 
-    await sleep(500);
+      await sleep(500);
+    }
+
+    // 暂停恢复后发送恢复通知并重置标志
+    if (!isExecutionStopped) {
+      console.log(`▶️ [执行控制] 在 ${context} 检测到恢复信号，继续执行`);
+      pauseNotificationSent = false; // 重置标志，为下次暂停做准备
+    }
   }
 
   // 暂停恢复后再次检查停止状态
@@ -456,6 +469,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     isExecutionStopped = true;
     isExecutionPaused = false;
     currentExecutionTabId = null;
+    pauseNotificationSent = false; // 重置暂停通知标志
 
     console.log("⏹️ [Background-DEBUG] 已设置停止标志");
     console.log("⏹️ [Background-DEBUG] 新的执行状态:", { isExecutionStopped, isExecutionPaused, currentExecutionTabId });
@@ -478,6 +492,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     console.log("⏸️ [Background-DEBUG] 当前执行状态:", { isExecutionStopped, isExecutionPaused, currentExecutionTabId });
 
     isExecutionPaused = true;
+    pauseNotificationSent = false; // 重置暂停通知标志，允许发送新的暂停通知
 
     console.log("⏸️ [Background-DEBUG] 已设置暂停标志");
     console.log("⏸️ [Background-DEBUG] 新的执行状态:", { isExecutionStopped, isExecutionPaused, currentExecutionTabId });
