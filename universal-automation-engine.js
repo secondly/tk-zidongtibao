@@ -1168,6 +1168,9 @@ class UniversalAutomationEngine {
   async handleNewWindowClick(element, step) {
     console.log("🪟 处理新窗口点击操作");
 
+    // 在执行新窗口操作前检查暂停状态
+    await this.checkPause();
+
     // 记录当前窗口数量
     const initialWindowCount = window.length || 1;
 

@@ -533,6 +533,42 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.action === 'executionStatusUpdate') {
     console.log(`📡 [浮层面板-DEBUG] Content Script收到执行状态更新:`, request.data);
 
+    // 🔧 [修复] 更新本地执行控制状态
+    if (window.simplifiedExecutionControl) {
+      // 更新运行状态
+      if (request.data.hasOwnProperty('isRunning')) {
+        window.simplifiedExecutionControl.isRunning = request.data.isRunning;
+        console.log(`🔧 [修复] 更新本地isRunning状态为:`, request.data.isRunning);
+
+        // 🔧 [修复] 同步更新全局停止标志
+        if (!request.data.isRunning) {
+          window.globalExecutionStopped = true;
+          console.log(`🔧 [修复] 设置全局停止标志为: true`);
+        }
+      }
+
+      // 更新暂停状态
+      if (request.data.hasOwnProperty('isPaused')) {
+        const wasAlreadyPaused = window.simplifiedExecutionControl.isPaused;
+        window.simplifiedExecutionControl.isPaused = request.data.isPaused;
+        console.log(`🔧 [修复] 更新本地isPaused状态为:`, request.data.isPaused);
+
+        // 如果从暂停状态恢复，解决暂停Promise
+        if (wasAlreadyPaused && !request.data.isPaused && window.simplifiedExecutionControl.pauseResolve) {
+          console.log(`🔧 [修复] 解决暂停Promise，恢复执行`);
+          window.simplifiedExecutionControl.pauseResolve();
+          window.simplifiedExecutionControl.pauseResolve = null;
+          window.simplifiedExecutionControl.pausePromise = null;
+        }
+      }
+    } else {
+      // 🔧 [修复] 如果执行控制对象不存在，直接更新全局标志
+      if (request.data.hasOwnProperty('isRunning') && !request.data.isRunning) {
+        window.globalExecutionStopped = true;
+        console.log(`🔧 [修复] 执行控制对象不存在，设置全局停止标志为: true`);
+      }
+    }
+
     // 转发状态更新到浮层控制面板
     const message = {
       type: 'FROM_CONTENT_SCRIPT',
@@ -1545,17 +1581,23 @@ async function clickElement(element) {
   highlightElement(element);
 
   try {
-    // 尝试多种点击方法
-    // 1. 原生点击
-    element.click();
+    // 🔧 [修复] 只使用一种点击方法，避免重复触发新窗口
+    // 优先使用原生点击，如果失败再尝试事件分发
+    try {
+      element.click();
+      console.log(`原生点击成功`);
+    } catch (clickError) {
+      console.log(`原生点击失败，尝试事件分发:`, clickError.message);
 
-    // 2. 创建并分发点击事件
-    const clickEvent = new MouseEvent("click", {
-      view: window,
-      bubbles: true,
-      cancelable: true,
-    });
-    element.dispatchEvent(clickEvent);
+      // 创建并分发点击事件
+      const clickEvent = new MouseEvent("click", {
+        view: window,
+        bubbles: true,
+        cancelable: true,
+      });
+      element.dispatchEvent(clickEvent);
+      console.log(`事件分发点击成功`);
+    }
 
     // 清除高亮
     setTimeout(removeHighlights, 500);
@@ -1628,6 +1670,14 @@ async function inputText(element, text) {
 
 // 全局标志：是否在虚拟列表模式中（禁用页面滚动）
 window.isVirtualListMode = false;
+
+// 🔧 [修复] 全局停止标志，防止残留异步任务继续执行
+window.globalExecutionStopped = false;
+
+// 🔧 [修复] 新窗口去重机制 - Content Script层面
+window.isCreatingNewWindow = false;
+window.lastNewWindowTime = 0;
+window.newWindowCooldown = 3000; // 3秒冷却时间
 
 // 全局标志：当前窗口上下文ID（用于循环操作中的新窗口处理）
 window.currentWindowContextId = null;
@@ -1829,6 +1879,10 @@ async function executeSimplifiedWorkflow(workflow) {
 
   let completedSteps = 0;
   const totalSteps = orderedSteps.length;
+
+  // 🔧 [修复] 重置全局停止标志
+  window.globalExecutionStopped = false;
+  console.log(`🔧 [修复] 工作流开始，重置全局停止标志为: false`);
 
   // 创建简化模式的执行控制对象
   window.simplifiedExecutionControl = {
@@ -3845,6 +3899,28 @@ async function executeSubOperation(operation, parentElement = null) {
       if (shouldHandleNewWindow) {
         console.log("🪟 检测到子操作需要打开新窗口");
 
+        // 🔧 [修复] 新窗口去重检查 - Content Script层面
+        const currentTime = Date.now();
+        const timeSinceLastWindow = currentTime - window.lastNewWindowTime;
+
+        if (window.isCreatingNewWindow && timeSinceLastWindow < window.newWindowCooldown) {
+          console.log(`🚫 [Content Script去重] 新窗口创建冷却中，距离上次创建仅 ${timeSinceLastWindow}ms，跳过重复请求`);
+          console.log(`🔄 [Content Script去重] 假设新窗口已经打开，设置窗口上下文标记`);
+
+          // 设置模拟的新窗口上下文，让后续操作知道应该在新窗口中执行
+          const mockNewWindowId = Date.now();
+          window.currentWindowContextId = mockNewWindowId;
+          console.log(`✅ [Content Script去重] 设置模拟新窗口上下文: ${mockNewWindowId}`);
+
+          // 跳过实际的新窗口创建逻辑，直接返回
+          return;
+        }
+
+        // 🔧 [修复] 设置新窗口创建状态
+        window.isCreatingNewWindow = true;
+        window.lastNewWindowTime = currentTime;
+        console.log(`🔧 [Content Script去重] 设置新窗口创建状态，时间戳: ${currentTime}`);
+
         // 等待新窗口创建
         const newWindowTimeout = operation.newWindowTimeout || 10000;
         console.log(`⏳ 等待新窗口创建 (${newWindowTimeout}ms)`);
@@ -3865,6 +3941,10 @@ async function executeSubOperation(operation, parentElement = null) {
 
             console.log(`✅ 设置新窗口上下文标记: ${mockNewWindowId}`);
             console.log("🔄 后续操作将通过跨窗口机制执行");
+
+            // 🔧 [修复] 新窗口创建完成，重置创建状态
+            window.isCreatingNewWindow = false;
+            console.log(`🔧 [Content Script去重] 新窗口创建完成，重置创建状态`);
 
             // 模拟成功响应
             const response = {
@@ -3926,6 +4006,10 @@ async function executeSubOperation(operation, parentElement = null) {
             }
           } catch (error) {
             console.error("❌ 切换到新窗口时出错:", error);
+
+            // 🔧 [修复] 新窗口创建失败，重置创建状态
+            window.isCreatingNewWindow = false;
+            console.log(`🔧 [Content Script去重] 新窗口创建失败，重置创建状态`);
           }
         }
       }
@@ -4977,10 +5061,25 @@ async function executeVirtualListLoop(step) {
 
         if (!shouldSkip) {
           try {
+            // 🔧 [修复] 在点击前再次检查停止状态
+            if (window.simplifiedExecutionControl) {
+              await window.simplifiedExecutionControl.checkPause();
+            }
+
+            // 🔧 [修复] 在处理前再次检查是否已被处理（防止并发重复处理）
+            if (processedTitles.has(unprocessedTitle.text)) {
+              console.log(`⏭️ [去重检查] 标题 "${unprocessedTitle.text}" 已被处理，跳过`);
+              continue;
+            }
+
+            // 🔧 [修复] 立即标记为正在处理，防止并发重复
+            processedTitles.add(unprocessedTitle.text);
+            console.log(`🔒 [去重保护] 立即标记 "${unprocessedTitle.text}" 为已处理，防止重复`);
+
             // 点击对应的按钮（使用循环操作的定位器）
             await clickVirtualListItem(unprocessedTitle, step);
 
-            // 检查暂停状态
+            // 🔧 [修复] 在点击后立即检查停止状态
             if (window.simplifiedExecutionControl) {
               await window.simplifiedExecutionControl.checkPause();
             }
@@ -5089,6 +5188,13 @@ async function executeVirtualListLoop(step) {
       // retryCount 不在这里增加，只在出错时增加
     } catch (error) {
       console.log(`❌ 虚拟列表处理出错: ${error.message}`);
+
+      // 🔧 [修复] 如果是停止信号，直接重新抛出，不进行重试
+      if (error.isStopSignal || error.message === 'EXECUTION_STOPPED') {
+        console.log(`🛑 虚拟列表循环检测到停止信号，立即停止，不进行重试`);
+        throw error;
+      }
+
       retryCount++;
 
       if (retryCount >= maxRetries) {
@@ -5253,6 +5359,18 @@ async function clickVirtualListItem(titleInfo, step) {
   }
 
   await new Promise((resolve) => setTimeout(resolve, 200)); // 等待滚动完成
+
+  // 🔧 [修复] 在点击前检查停止状态（包括全局停止标志）
+  if (window.globalExecutionStopped) {
+    console.log(`🛑 [全局停止] clickVirtualListItem检测到全局停止标志，停止执行`);
+    const stopError = new Error("EXECUTION_STOPPED");
+    stopError.isStopSignal = true;
+    throw stopError;
+  }
+
+  if (window.simplifiedExecutionControl) {
+    await window.simplifiedExecutionControl.checkPause();
+  }
 
   // 根据循环类型决定如何处理
   if (step.loopType === "container") {

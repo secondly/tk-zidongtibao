@@ -51,6 +51,11 @@ let mainWindowId = null;
 let windowStack = [];
 let windowCreationPromises = new Map();
 
+// 🔧 [修复] 新窗口去重机制
+let isCreatingNewWindow = false;
+let lastNewWindowTime = 0;
+const NEW_WINDOW_COOLDOWN = 2000; // 2秒冷却时间
+
 // 监听来自弹出界面的消息
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   console.log(`📡 [Background-DEBUG] 收到消息:`, {
@@ -631,19 +636,16 @@ async function handleStepsExecution(steps) {
       if (step.action === "loop" || step.type === "loop") {
         // 处理循环操作
         await handleLoopOperation(currentExecutionTabId, step, i);
-      } else if (step.action === "newWindow" || step.opensNewWindow) {
-        // 处理新窗口操作
-        const newTabId = await handleNewWindowStep(currentExecutionTabId, step);
-        console.log(`🪟 新窗口已创建并准备就绪: ${newTabId}`);
-        // 重要：更新当前执行窗口ID，后续步骤将在新窗口中执行
-        currentExecutionTabId = newTabId;
-      } else if (step.action === "closeWindow" || step.type === "closeWindow") {
-        // 处理关闭窗口操作
-        const returnedTabId = await handleCloseWindowStep(step);
-        console.log(`🗑️ 窗口已关闭，当前窗口: ${returnedTabId}`);
       } else {
-        // 处理普通操作
+        // 🔧 [修复] 统一使用executeStepWithRetry处理所有步骤，避免重复处理
+        // executeStepWithRetry内部会检查步骤类型并调用相应的处理函数
         await executeStepWithRetry(currentExecutionTabId, step, i);
+        
+        // 🔧 [修复] 如果是新窗口操作，更新当前执行窗口ID
+        if (step.opensNewWindow && currentExecutionTabId !== step.newTabId) {
+          // 注意：newTabId应该在executeStepWithRetry中设置到step对象上
+          console.log(`🪟 新窗口操作完成，更新当前执行窗口ID`);
+        }
       }
 
       // 步骤间等待时间 - 根据操作类型调整
@@ -993,10 +995,13 @@ async function executeStepWithRetry(tabId, step, stepIdentifier) {
           message: `✅ 新窗口已创建: ${newTabId}`
         });
 
-        // 更新当前执行窗口ID，后续步骤将在新窗口中执行
+        // 🔧 [修复] 将新窗口ID保存到step对象中，供主执行流程使用
+        step.newTabId = newTabId;
+        
+        // 🔧 [修复] 更新全局当前执行窗口ID
         currentExecutionTabId = newTabId;
 
-        return; // 新窗口操作成功完成
+        return newTabId; // 返回新窗口ID
       } else if (step.type === 'closeWindow') {
         // 处理关闭窗口操作
         console.log(`🗑️ 在循环中处理关闭窗口步骤: ${stepIdentifier}`);
@@ -1290,32 +1295,81 @@ function initializeWindowManager(mainTabId) {
  */
 function waitForNewWindow(timeout = 10000) {
   return new Promise((resolve, reject) => {
+    // 🔧 [修复] 检查新窗口创建冷却时间
+    const currentTime = Date.now();
+    const timeSinceLastWindow = currentTime - lastNewWindowTime;
+    
+    if (isCreatingNewWindow && timeSinceLastWindow < NEW_WINDOW_COOLDOWN) {
+      console.log(`🚫 新窗口创建冷却中，距离上次创建仅 ${timeSinceLastWindow}ms，拒绝重复请求`);
+      reject(new Error(`新窗口创建过于频繁，请等待 ${NEW_WINDOW_COOLDOWN - timeSinceLastWindow}ms`));
+      return;
+    }
+
+    // 🔧 [修复] 如果已经有窗口正在创建，等待现有的Promise
+    if (isCreatingNewWindow && windowCreationPromises.size > 0) {
+      console.log(`🔄 检测到新窗口正在创建中，复用现有Promise`);
+      const existingPromise = windowCreationPromises.values().next().value;
+      if (existingPromise) {
+        // 复用现有的Promise，避免重复创建
+        resolve = existingPromise.resolve;
+        reject = existingPromise.reject;
+        return;
+      }
+    }
+
+    // 🔧 [修复] 设置创建状态
+    isCreatingNewWindow = true;
+    lastNewWindowTime = currentTime;
+
     const promiseId = Date.now();
 
     const timeoutId = setTimeout(() => {
       windowCreationPromises.delete(promiseId);
+      isCreatingNewWindow = false; // 重置创建状态
       reject(new Error(`等待新窗口创建超时（${timeout}ms）`));
     }, timeout);
 
     const promise = {
       resolve: (tabId) => {
         clearTimeout(timeoutId);
+        isCreatingNewWindow = false; // 重置创建状态
         resolve(tabId);
       },
       reject: (error) => {
         clearTimeout(timeoutId);
+        isCreatingNewWindow = false; // 重置创建状态
         reject(error);
       }
     };
 
     windowCreationPromises.set(promiseId, promise);
 
-    console.log(`⏳ 开始等待新窗口创建... (超时: ${timeout}ms)`);
+    console.log(`⏳ 开始等待新窗口创建... (超时: ${timeout}ms, 当前等待数: ${windowCreationPromises.size})`);
   });
 }
 
+// 🔧 [修复] 添加已处理窗口的跟踪，避免重复处理同一个窗口
+const processedWindows = new Set();
+
 function handleNewTabCreated(tab) {
   console.log(`🆕 检测到新窗口创建: ${tab.id}, URL: ${tab.url || '(URL未加载)'}`);
+
+  // 🔧 [修复] 检查是否已经处理过这个窗口
+  if (processedWindows.has(tab.id)) {
+    console.log(`⏭️ 窗口 ${tab.id} 已经处理过，跳过重复处理`);
+    return;
+  }
+
+  // 🔧 [修复] 标记窗口为已处理
+  processedWindows.add(tab.id);
+  
+  // 🔧 [修复] 设置清理定时器，避免Set无限增长
+  setTimeout(() => {
+    processedWindows.delete(tab.id);
+  }, 30000); // 30秒后清理
+
+  const currentTime = Date.now();
+  const timeSinceLastWindow = currentTime - lastNewWindowTime;
 
   // 如果有等待中的Promise，只解决第一个
   if (windowCreationPromises.size > 0) {
@@ -1324,6 +1378,9 @@ function handleNewTabCreated(tab) {
 
     if (firstPromise) {
       console.log(`✅ 新窗口 ${tab.id} 被选为目标窗口，解决等待Promise`);
+
+      // 🔧 [修复] 更新最后创建时间
+      lastNewWindowTime = currentTime;
 
       // 解决第一个Promise
       firstPromise.resolve(tab.id);
@@ -1334,7 +1391,7 @@ function handleNewTabCreated(tab) {
       // 清除所有等待中的Promise（避免重复处理）
       windowCreationPromises.clear();
 
-      console.log(`📋 已清除 ${windowCreationPromises.size} 个等待中的Promise，防止重复窗口`);
+      console.log(`📋 已清除所有等待中的Promise，防止重复窗口`);
     }
   } else {
     console.log(`⚠️ 检测到意外的新窗口创建: ${tab.id}，没有等待中的Promise`);
@@ -1754,6 +1811,9 @@ async function waitForNewWindowAndReady(currentTabId, step) {
 async function handleNewWindowStep(currentTabId, step) {
   console.log('🪟 处理新窗口步骤:', step);
 
+  // 在处理新窗口步骤前检查执行控制状态
+  await checkExecutionControl('新窗口步骤处理前');
+
   // 先开始等待新窗口创建（在执行点击之前）
   const newWindowPromise = waitForNewWindow(step.newWindowTimeout || 10000);
 
@@ -1824,8 +1884,26 @@ async function handleNewWindowStep(currentTabId, step) {
   // 等待新窗口创建完成
   const newTabId = await newWindowPromise;
 
+  // 🔧 [调试] 在处理新窗口前检查窗口是否仍然存在
+  try {
+    const tabInfo = await chrome.tabs.get(newTabId);
+    console.log(`🔍 [调试] 新窗口状态检查: ${newTabId}, URL: ${tabInfo.url}, 状态: ${tabInfo.status}`);
+  } catch (error) {
+    console.error(`❌ [调试] 新窗口 ${newTabId} 已经不存在:`, error.message);
+    throw new Error(`新窗口 ${newTabId} 在处理过程中被关闭`);
+  }
+
   // 等待新窗口页面加载完成
   await waitForWindowReady(newTabId, step.windowReadyTimeout || 30000);
+
+  // 🔧 [调试] 再次检查窗口状态
+  try {
+    const tabInfo = await chrome.tabs.get(newTabId);
+    console.log(`🔍 [调试] 页面加载后窗口状态: ${newTabId}, URL: ${tabInfo.url}, 状态: ${tabInfo.status}`);
+  } catch (error) {
+    console.error(`❌ [调试] 新窗口 ${newTabId} 在页面加载后不存在:`, error.message);
+    throw new Error(`新窗口 ${newTabId} 在页面加载过程中被关闭`);
+  }
 
   // 向新窗口注入内容脚本
   await injectContentScript(newTabId);
@@ -1839,8 +1917,18 @@ async function handleNewWindowStep(currentTabId, step) {
     console.log(`✅ 新窗口 ${newTabId} 通信正常`);
   } catch (error) {
     console.warn(`⚠️ 新窗口 ${newTabId} 通信测试失败:`, error.message);
+    
+    // 🔧 [调试] 通信失败时检查窗口是否还存在
+    try {
+      const tabInfo = await chrome.tabs.get(newTabId);
+      console.log(`🔍 [调试] 通信失败但窗口仍存在: ${newTabId}, URL: ${tabInfo.url}`);
+    } catch (tabError) {
+      console.error(`❌ [调试] 通信失败且窗口已关闭: ${newTabId}`, tabError.message);
+      throw new Error(`新窗口 ${newTabId} 在通信测试时被关闭`);
+    }
   }
 
+  console.log(`🎉 [调试] 新窗口 ${newTabId} 处理完成，准备返回`);
   return newTabId;
 }
 

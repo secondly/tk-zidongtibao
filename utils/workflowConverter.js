@@ -217,14 +217,17 @@ function convertGraphToWorkflow(graph, workflowName = "新工作流") {
         titleLocator: nodeData.virtualListTitleLocator,
       });
 
-      // 始终传递虚拟列表配置，便于调试
-      stepData.isVirtualList = nodeData.isVirtualList;
-      stepData.virtualListContainer = nodeData.virtualListContainer;
-      stepData.virtualListTitleLocator = nodeData.virtualListTitleLocator;
-      stepData.virtualListScrollDistance =
-        nodeData.virtualListScrollDistance || 100;
-      stepData.virtualListWaitTime = nodeData.virtualListWaitTime || 1000;
-      stepData.virtualListMaxRetries = nodeData.virtualListMaxRetries || 10;
+      // 🔧 [修复] 只有明确启用虚拟列表时才传递配置
+      stepData.isVirtualList = nodeData.isVirtualList === true;
+      
+      if (stepData.isVirtualList) {
+        stepData.virtualListContainer = nodeData.virtualListContainer;
+        stepData.virtualListTitleLocator = nodeData.virtualListTitleLocator;
+        stepData.virtualListScrollDistance =
+          nodeData.virtualListScrollDistance || 100;
+        stepData.virtualListWaitTime = nodeData.virtualListWaitTime || 1000;
+        stepData.virtualListMaxRetries = nodeData.virtualListMaxRetries || 10;
+      }
 
       if (nodeData.isVirtualList) {
         console.log("✅ [DEBUG] 虚拟列表已启用，配置已添加到stepData");

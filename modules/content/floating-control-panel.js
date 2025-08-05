@@ -3,6 +3,9 @@
  * 在每个页面植入一个可以控制插件执行的浮层
  */
 
+// 避免重复定义类
+if (typeof window.FloatingControlPanel === 'undefined') {
+
 class FloatingControlPanel {
     constructor() {
         this.panel = null;
@@ -1177,15 +1180,23 @@ class FloatingControlPanel {
 
         console.log('✅ 浮层控制面板已销毁');
     }
-}
+} // 结束类定义
 
-// 创建全局实例
-if (!window.automationFloatingPanel) {
-    window.automationFloatingPanel = new FloatingControlPanel();
-}
-
-// 导出类
+// 导出类到全局作用域
 window.FloatingControlPanel = FloatingControlPanel;
+console.log('✅ FloatingControlPanel 类已注册');
+
+} else {
+    console.log('⚠️ FloatingControlPanel 类已存在，跳过重复定义');
+} // 结束 if 条件检查
+
+// 创建全局实例 - 在类定义和导出之后
+if (!window.automationFloatingPanel && window.FloatingControlPanel) {
+    window.automationFloatingPanel = new window.FloatingControlPanel();
+    console.log('✅ 浮层控制面板全局实例已创建');
+} else if (window.automationFloatingPanel) {
+    console.log('⚠️ 浮层控制面板实例已存在，跳过重复创建');
+}
 
 
 // 监听从扩展发回的消息
