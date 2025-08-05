@@ -5510,8 +5510,29 @@ window.addEventListener('message', (event) => {
       targetData: payload.data
     }).then(response => {
       console.log(`✅ 消息转发成功:`, response);
+      // 可以选择将响应发送回浮层面板
+      if (response && response.success) {
+        // 发送成功响应到浮层面板
+        window.postMessage({
+          type: 'FROM_CONTENT_SCRIPT',
+          payload: {
+            action: 'forwardResponse',
+            success: true,
+            data: response.response
+          }
+        }, '*');
+      }
     }).catch(error => {
       console.error(`❌ 消息转发失败:`, error);
+      // 发送错误响应到浮层面板
+      window.postMessage({
+        type: 'FROM_CONTENT_SCRIPT',
+        payload: {
+          action: 'forwardResponse',
+          success: false,
+          error: error.message
+        }
+      }, '*');
     });
   }
 });

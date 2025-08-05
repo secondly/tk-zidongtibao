@@ -68,58 +68,93 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.action === "forwardToContentScript") {
     console.log(`📡 Background收到转发请求: ${request.targetAction}`, request.targetData);
 
-    // 获取当前活动标签页
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        // 先检查content script是否存在
-        chrome.tabs.sendMessage(tabs[0].id, { action: "ping" })
-          .then(() => {
-            // content script存在，转发消息
-            return chrome.tabs.sendMessage(tabs[0].id, {
-              action: request.targetAction,
-              data: request.targetData
-            });
-          })
-          .then(response => {
-            console.log(`✅ 消息已转发到content script:`, response);
-            sendResponse({ success: true, response: response });
-          })
-          .catch(error => {
-            console.error(`❌ 转发到content script失败:`, error);
+    // 添加响应状态跟踪，防止重复调用sendResponse
+    let responseAlreadySent = false;
 
-            // 如果是连接问题，尝试注入content script
-            if (error.message.includes('Could not establish connection') ||
-              error.message.includes('Receiving end does not exist')) {
-              console.log(`🔄 尝试注入content script后重试...`);
-
-              injectContentScript(tabs[0].id)
-                .then(() => {
-                  // 等待脚本加载
-                  return new Promise(resolve => setTimeout(resolve, 1000));
-                })
-                .then(() => {
-                  // 重新发送消息
-                  return chrome.tabs.sendMessage(tabs[0].id, {
-                    action: request.targetAction,
-                    data: request.targetData
-                  });
-                })
-                .then(response => {
-                  console.log(`✅ 重试后消息已转发:`, response);
-                  sendResponse({ success: true, response: response });
-                })
-                .catch(retryError => {
-                  console.error(`❌ 重试后仍然失败:`, retryError);
-                  sendResponse({ success: false, error: retryError.message });
-                });
-            } else {
-              sendResponse({ success: false, error: error.message });
-            }
-          });
-      } else {
-        sendResponse({ success: false, error: '没有找到活动标签页' });
+    const safeSendResponse = (response) => {
+      if (!responseAlreadySent) {
+        responseAlreadySent = true;
+        try {
+          sendResponse(response);
+        } catch (error) {
+          console.error(`❌ 发送响应失败:`, error);
+        }
       }
-    });
+    };
+
+    // 设置超时处理，防止消息通道无限期等待
+    const timeoutId = setTimeout(() => {
+      console.warn(`⏰ 消息转发超时`);
+      safeSendResponse({ success: false, error: '消息转发超时' });
+    }, 10000); // 10秒超时
+
+    // 使用async/await重写，确保正确处理异步操作
+    (async () => {
+      try {
+        // 获取当前活动标签页
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        if (!tabs[0]) {
+          clearTimeout(timeoutId);
+          safeSendResponse({ success: false, error: '没有找到活动标签页' });
+          return;
+        }
+
+        const tabId = tabs[0].id;
+
+        try {
+          // 先检查content script是否存在（缩短超时时间）
+          await chrome.tabs.sendMessage(tabId, { action: "ping" });
+
+          // content script存在，转发消息
+          const response = await chrome.tabs.sendMessage(tabId, {
+            action: request.targetAction,
+            data: request.targetData
+          });
+
+          console.log(`✅ 消息已转发到content script:`, response);
+          clearTimeout(timeoutId);
+          safeSendResponse({ success: true, response: response });
+
+        } catch (error) {
+          console.error(`❌ 转发到content script失败:`, error);
+
+          // 如果是连接问题，尝试注入content script
+          if (error.message.includes('Could not establish connection') ||
+            error.message.includes('Receiving end does not exist')) {
+            console.log(`🔄 尝试注入content script后重试...`);
+
+            try {
+              await injectContentScript(tabId);
+              // 等待脚本加载（缩短等待时间）
+              await new Promise(resolve => setTimeout(resolve, 500));
+
+              // 重新发送消息
+              const retryResponse = await chrome.tabs.sendMessage(tabId, {
+                action: request.targetAction,
+                data: request.targetData
+              });
+
+              console.log(`✅ 重试后消息已转发:`, retryResponse);
+              clearTimeout(timeoutId);
+              safeSendResponse({ success: true, response: retryResponse });
+
+            } catch (retryError) {
+              console.error(`❌ 重试后仍然失败:`, retryError);
+              clearTimeout(timeoutId);
+              safeSendResponse({ success: false, error: retryError.message });
+            }
+          } else {
+            clearTimeout(timeoutId);
+            safeSendResponse({ success: false, error: error.message });
+          }
+        }
+      } catch (error) {
+        console.error(`❌ 获取标签页失败:`, error);
+        clearTimeout(timeoutId);
+        safeSendResponse({ success: false, error: error.message });
+      }
+    })();
 
     return true; // 保持消息通道开放
   }
@@ -640,7 +675,7 @@ async function handleStepsExecution(steps) {
         // 🔧 [修复] 统一使用executeStepWithRetry处理所有步骤，避免重复处理
         // executeStepWithRetry内部会检查步骤类型并调用相应的处理函数
         await executeStepWithRetry(currentExecutionTabId, step, i);
-        
+
         // 🔧 [修复] 如果是新窗口操作，更新当前执行窗口ID
         if (step.opensNewWindow && currentExecutionTabId !== step.newTabId) {
           // 注意：newTabId应该在executeStepWithRetry中设置到step对象上
@@ -933,7 +968,8 @@ async function handleLoopOperation(tabId, step, stepIndex) {
                 throw error;
               } else {
                 console.log(`⚠️ 子步骤失败但继续执行，错误处理策略: ${step.errorHandling || 'continue'}`);
-                break; // 跳过剩余子步骤，继续下一个循环项目
+                // 不要break，继续执行下一个子步骤
+                continue;
               }
             }
           }
@@ -997,7 +1033,7 @@ async function executeStepWithRetry(tabId, step, stepIdentifier) {
 
         // 🔧 [修复] 将新窗口ID保存到step对象中，供主执行流程使用
         step.newTabId = newTabId;
-        
+
         // 🔧 [修复] 更新全局当前执行窗口ID
         currentExecutionTabId = newTabId;
 
@@ -1298,7 +1334,7 @@ function waitForNewWindow(timeout = 10000) {
     // 🔧 [修复] 检查新窗口创建冷却时间
     const currentTime = Date.now();
     const timeSinceLastWindow = currentTime - lastNewWindowTime;
-    
+
     if (isCreatingNewWindow && timeSinceLastWindow < NEW_WINDOW_COOLDOWN) {
       console.log(`🚫 新窗口创建冷却中，距离上次创建仅 ${timeSinceLastWindow}ms，拒绝重复请求`);
       reject(new Error(`新窗口创建过于频繁，请等待 ${NEW_WINDOW_COOLDOWN - timeSinceLastWindow}ms`));
@@ -1362,7 +1398,7 @@ function handleNewTabCreated(tab) {
 
   // 🔧 [修复] 标记窗口为已处理
   processedWindows.add(tab.id);
-  
+
   // 🔧 [修复] 设置清理定时器，避免Set无限增长
   setTimeout(() => {
     processedWindows.delete(tab.id);
@@ -1917,7 +1953,7 @@ async function handleNewWindowStep(currentTabId, step) {
     console.log(`✅ 新窗口 ${newTabId} 通信正常`);
   } catch (error) {
     console.warn(`⚠️ 新窗口 ${newTabId} 通信测试失败:`, error.message);
-    
+
     // 🔧 [调试] 通信失败时检查窗口是否还存在
     try {
       const tabInfo = await chrome.tabs.get(newTabId);
