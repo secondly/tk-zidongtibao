@@ -41,7 +41,7 @@ class DesignerNodes {
         loopType: loopType,
         locator: { strategy: "css", value: "" },
         loopSelector: "",
-        maxIterations: 10,
+        maxIterations: 1000,
         startIndex: 0,
         endIndex: -1,
         operationType: "click",
@@ -945,7 +945,7 @@ class DesignerNodes {
       </div>
       <div class="form-group">
           <label class="form-label">最大循环次数</label>
-          <input type="number" class="form-input" id="maxIterations" value="${config.maxIterations || 10
+          <input type="number" class="form-input" id="maxIterations" value="${config.maxIterations || 1000
       }" min="1" max="1000">
       </div>
       <div class="form-group">
@@ -1605,7 +1605,7 @@ class DesignerNodes {
 
     const maxIterations = document.getElementById("maxIterations");
     if (maxIterations) {
-      config.maxIterations = parseInt(maxIterations.value) || 10;
+      config.maxIterations = parseInt(maxIterations.value) || 1000;
     }
 
     const startIndex = document.getElementById("startIndex");
