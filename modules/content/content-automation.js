@@ -10,63 +10,16 @@
  */
 async function executeUniversalWorkflow(workflow) {
   try {
-    console.log("🚀 开始执行通用自动化工作流:", workflow.name);
-
-    // 尝试加载引擎，如果失败则使用简化执行
-    let useAdvancedEngine = false;
-    try {
-      await loadUniversalAutomationEngine();
-      useAdvancedEngine = true;
-      console.log("✅ 使用高级自动化引擎");
-    } catch (error) {
-      console.log("⚠️ 引擎加载失败，使用简化执行模式:", error.message);
-      useAdvancedEngine = false;
-    }
-
-    if (useAdvancedEngine && window.UniversalAutomationEngine) {
-      // 使用高级引擎
-      if (!window.automationEngine) {
-        window.automationEngine = new window.UniversalAutomationEngine();
-
-        // 设置进度回调
-        window.automationEngine.onProgress = (progress) => {
-          console.log("📊 执行进度更新:", progress);
-          chrome.runtime.sendMessage({
-            action: "executionProgress",
-            data: progress,
-          });
-        };
-
-        // 设置完成回调
-        window.automationEngine.onComplete = (stats) => {
-          console.log("✅ 执行完成:", stats);
-          chrome.runtime.sendMessage({
-            action: "executionComplete",
-            data: stats,
-          });
-        };
-
-        // 设置错误回调
-        window.automationEngine.onError = (error) => {
-          console.error("❌ 执行错误:", error);
-          chrome.runtime.sendMessage({
-            action: "executionError",
-            data: { error: error.message },
-          });
-        };
-      }
-
-      // 执行工作流
-      const result = await window.automationEngine.execute(workflow);
-      console.log("✅ 工作流执行完成");
-      return { success: true, result };
+    console.log("🚀 开始执行工作流:", workflow.name);
+    
+    // 直接调用content.js中的executeSimplifiedWorkflow函数
+    if (typeof window.executeSimplifiedWorkflow === 'function') {
+      return await window.executeSimplifiedWorkflow(workflow);
     } else {
-      // 使用简化执行模式
-      console.log("🔄 使用简化执行模式");
-      return await executeSimplifiedWorkflow(workflow);
+      throw new Error("executeSimplifiedWorkflow函数未找到");
     }
   } catch (error) {
-    console.error("❌ 通用工作流执行失败:", error);
+    console.error("❌ 工作流执行失败:", error);
     throw error;
   }
 }
@@ -75,10 +28,10 @@ async function executeUniversalWorkflow(workflow) {
  * 根据连接关系构建正确的执行顺序（简化版）
  */
 function buildExecutionOrderSimplified(steps, connections = []) {
-  console.log("🔄 简化模式：开始构建执行顺序...");
+  console.log("🔄 开始构建执行顺序...");
 
   if (!connections || connections.length === 0) {
-    console.log("⚠️ 简化模式：没有连接信息，按原顺序执行步骤");
+    console.log("⚠️ 没有连接信息，按原顺序执行步骤");
     return steps;
   }
 
@@ -133,309 +86,13 @@ function buildExecutionOrderSimplified(steps, connections = []) {
     });
   }
 
-  console.log(`✅ 简化模式：执行顺序构建完成，共 ${result.length} 个步骤`);
+  console.log(`✅ 执行顺序构建完成，共 ${result.length} 个步骤`);
   return result;
 }
 
-/**
- * 简化执行模式 - 当高级引擎加载失败时使用
- */
-async function executeSimplifiedWorkflow(workflow) {
-  console.log("🔄 开始简化执行模式");
+// executeSimplifiedWorkflow 函数已移至 content.js 中，避免重复定义
 
-  // 构建正确的执行顺序
-  const orderedSteps = buildExecutionOrderSimplified(
-    workflow.steps,
-    workflow.connections
-  );
-  console.log(`🔄 根据连接关系构建执行顺序，共 ${orderedSteps.length} 个步骤`);
-
-  let completedSteps = 0;
-  const totalSteps = orderedSteps.length;
-
-  // 创建简化模式的执行控制对象
-  window.simplifiedExecutionControl = {
-    isPaused: false,
-    pausePromise: null,
-    pauseResolve: null,
-
-    pause() {
-      console.log("🔧 [DEBUG] 简化模式 pause() 被调用");
-      this.isPaused = true;
-      console.log("🔧 [DEBUG] 简化模式暂停状态设置为:", this.isPaused);
-      console.log("⏸️ 简化模式执行已暂停");
-
-      // 发送暂停确认消息
-      chrome.runtime
-        .sendMessage({
-          action: "executionPaused",
-          data: { isPaused: true },
-        })
-        .catch((err) => console.error("发送暂停消息失败:", err));
-    },
-
-    resume() {
-      console.log("🔧 [DEBUG] 简化模式 resume() 被调用");
-      this.isPaused = false;
-      console.log("🔧 [DEBUG] 简化模式暂停状态设置为:", this.isPaused);
-      console.log("▶️ 简化模式继续执行");
-
-      if (this.pauseResolve) {
-        this.pauseResolve();
-        this.pauseResolve = null;
-        this.pausePromise = null;
-      }
-
-      // 发送继续确认消息
-      chrome.runtime
-        .sendMessage({
-          action: "executionResumed",
-          data: { isPaused: false },
-        })
-        .catch((err) => console.error("发送继续消息失败:", err));
-    },
-
-    async checkPause() {
-      console.log("🔧 [DEBUG] checkPause 被调用，当前暂停状态:", this.isPaused);
-      if (this.isPaused) {
-        console.log("🔧 [DEBUG] 检测到暂停状态，开始等待...");
-        if (!this.pausePromise) {
-          console.log("🔧 [DEBUG] 创建新的暂停Promise");
-          this.pausePromise = new Promise((resolve) => {
-            this.pauseResolve = resolve;
-          });
-        }
-        console.log("🔧 [DEBUG] 等待暂停Promise解决...");
-        await this.pausePromise;
-        console.log("🔧 [DEBUG] 暂停Promise已解决，继续执行");
-      }
-    },
-  };
-
-  // 暂停检查函数
-  const checkPause = () => window.simplifiedExecutionControl.checkPause();
-
-  // 发送初始进度
-  chrome.runtime.sendMessage({
-    action: "executionProgress",
-    data: {
-      isRunning: true,
-      isPaused: false,
-      startTime: Date.now(),
-      totalSteps: totalSteps,
-      completedSteps: 0,
-      currentOperation: "开始执行工作流...",
-    },
-  });
-
-  try {
-    // 设置整体执行超时（5分钟）
-    const executionTimeout = setTimeout(() => {
-      throw new Error("工作流执行超时（5分钟）");
-    }, 5 * 60 * 1000);
-
-    for (let i = 0; i < orderedSteps.length; i++) {
-      console.log(`🔧 [DEBUG] 准备执行步骤 ${i + 1}/${totalSteps}`);
-      // 检查是否需要暂停
-      await checkPause();
-      console.log(`🔧 [DEBUG] 暂停检查完成，继续执行步骤 ${i + 1}`);
-
-      const step = orderedSteps[i];
-      console.log(
-        `🎯 执行步骤 ${i + 1}/${totalSteps}: ${step.name} (${step.type})`
-      );
-
-      // 更新进度
-      chrome.runtime.sendMessage({
-        action: "executionProgress",
-        data: {
-          completedSteps: i,
-          currentOperation: `执行步骤: ${step.name || step.type}`,
-        },
-      });
-
-      // 为每个步骤设置超时
-      const stepTimeout = new Promise((_, reject) => {
-        setTimeout(
-          () => reject(new Error(`步骤执行超时: ${step.name || step.type}`)),
-          30000
-        );
-      });
-
-      const stepExecution = (async () => {
-        switch (step.type) {
-          case "click":
-            await executeClickStep(step);
-            break;
-          case "input":
-            await executeInputStep(step);
-            break;
-          case "wait":
-            await executeWaitStep(step);
-            break;
-          case "smartWait":
-            await executeSmartWaitStep(step);
-            break;
-          case "loop":
-            await executeLoopStep(step);
-            break;
-          case "condition":
-            await executeConditionStep(step);
-            break;
-          case "drag":
-            await executeDragStep(step);
-            break;
-          case "closeWindow":
-            console.log("🪟 检测到关闭窗口操作，发送到background处理");
-            await chrome.runtime.sendMessage({
-              action: "handleCloseWindow",
-              step: step
-            });
-            break;
-          default:
-            console.log(`⚠️ 跳过不支持的步骤类型: ${step.type}`);
-        }
-      })();
-
-      // 等待步骤完成或超时
-      await Promise.race([stepExecution, stepTimeout]);
-
-      completedSteps++;
-
-      // 更新完成进度
-      chrome.runtime.sendMessage({
-        action: "executionProgress",
-        data: {
-          completedSteps: completedSteps,
-        },
-      });
-
-      // 步骤间等待（支持暂停）
-      console.log("🔧 [DEBUG] 步骤间等待开始");
-      const waitDuration = 200;
-      const waitStartTime = Date.now();
-      while (Date.now() - waitStartTime < waitDuration) {
-        // 在等待期间检查暂停状态
-        await checkPause();
-        await new Promise((resolve) =>
-          setTimeout(
-            resolve,
-            Math.min(50, waitDuration - (Date.now() - waitStartTime))
-          )
-        );
-      }
-    }
-
-    // 清除超时
-    clearTimeout(executionTimeout);
-    console.log("🔧 [DEBUG] 所有步骤执行完成");
-
-    // 发送完成消息
-    chrome.runtime.sendMessage({
-      action: "executionComplete",
-      data: {
-        successCount: completedSteps,
-        errorCount: 0,
-        totalSteps: totalSteps,
-      },
-    });
-
-    console.log("✅ 简化模式工作流执行完成");
-    return { success: true, message: "工作流执行完成" };
-  } catch (error) {
-    console.error("❌ 简化模式执行失败:", error);
-
-    // 发送错误消息
-    chrome.runtime.sendMessage({
-      action: "executionError",
-      data: { error: error.message },
-    });
-
-    throw error;
-  } finally {
-    // 清理简化执行控制对象
-    window.simplifiedExecutionControl = null;
-    console.log("🧹 简化模式执行控制已清理");
-  }
-}
-
-/**
- * 动态加载通用自动化引擎
- */
-async function loadUniversalAutomationEngine() {
-  return new Promise((resolve, reject) => {
-    console.log("🔄 开始加载通用自动化引擎...");
-
-    // 检查是否已经加载
-    if (
-      window.UniversalAutomationEngine &&
-      typeof window.UniversalAutomationEngine === "function"
-    ) {
-      console.log("✅ 通用自动化引擎已存在");
-      resolve();
-      return;
-    }
-
-    // 设置加载超时 - 3秒超时
-    const timeoutId = setTimeout(() => {
-      console.warn("⚠️ 引擎加载超时，将使用简化执行模式");
-      reject(new Error("引擎加载超时"));
-    }, 3000);
-
-    // 清理所有旧的脚本和全局变量
-    const oldScripts = document.querySelectorAll(
-      'script[data-automation-engine="true"]'
-    );
-    oldScripts.forEach((script) => {
-      console.log("🗑️ 移除旧的引擎脚本");
-      script.remove();
-    });
-
-    // 清理全局变量，避免重复声明错误
-    if (typeof window.UniversalAutomationEngine !== "undefined") {
-      console.log("🗑️ 清理旧的引擎全局变量");
-      delete window.UniversalAutomationEngine;
-    }
-    if (typeof window.automationEngine !== "undefined") {
-      console.log("🗑️ 清理旧的引擎实例");
-      delete window.automationEngine;
-    }
-
-    // 创建脚本标签注入到页面
-    const script = document.createElement("script");
-    script.src = chrome.runtime.getURL("universal-automation-engine.js");
-    script.setAttribute("data-automation-engine", "true");
-
-    // 监听脚本加载事件
-    script.onload = () => {
-      console.log("📜 引擎脚本文件加载完成");
-      // 给一点时间让脚本执行
-      setTimeout(() => {
-        if (
-          window.UniversalAutomationEngine &&
-          typeof window.UniversalAutomationEngine === "function"
-        ) {
-          console.log("✅ 引擎加载成功");
-          clearTimeout(timeoutId);
-          resolve();
-        } else {
-          console.error("❌ 引擎脚本加载后仍不可用");
-          clearTimeout(timeoutId);
-          reject(new Error("引擎脚本加载后不可用"));
-        }
-      }, 200);
-    };
-
-    script.onerror = (error) => {
-      console.error("❌ 引擎脚本加载失败:", error);
-      clearTimeout(timeoutId);
-      reject(new Error("引擎脚本加载失败"));
-    };
-
-    // 注入到页面而不是content script上下文
-    document.documentElement.appendChild(script);
-  });
-}
+// loadUniversalAutomationEngine 函数已删除，因为不再使用高级引擎
 
 // 简单的步骤执行函数
 async function executeClickStep(step) {
@@ -2228,8 +1885,6 @@ function findSingleElement(strategy, value) {
 // 导出自动化功能到全局作用域
 window.ContentAutomation = {
   executeUniversalWorkflow,
-  executeSimplifiedWorkflow,
-  loadUniversalAutomationEngine,
   executeClickStep,
   executeInputStep,
   executeWaitStep,

@@ -114,7 +114,7 @@ class FloatingControlPanel {
                 z-index: 999999;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 font-size: 14px;
-                user-select: none;
+                user-select: text;
                 transition: all 0.3s ease;
             }
 
@@ -1090,9 +1090,9 @@ class FloatingControlPanel {
         // 自动滚动到底部
         logContent.scrollTop = logContent.scrollHeight;
 
-        // 限制日志条数，保留最新的50条
+        // 限制日志条数，保留最新的500条
         const logItems = logContent.querySelectorAll('.log-item');
-        if (logItems.length > 50) {
+        if (logItems.length > 500) {
             logItems[0].remove();
         }
 

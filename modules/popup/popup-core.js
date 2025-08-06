@@ -9,7 +9,6 @@ import { performanceMonitor, memoryManager } from '../../shared/popup/popup-perf
 import { errorHandler, handleError, ERROR_TYPES } from '../../shared/popup/popup-error-handler.js';
 
 // 全局变量
-export let automationEngine;
 export let workflowManager = null;
 export let currentWorkflow = null;
 export let editingStep = null;
@@ -31,9 +30,6 @@ export function initializePopup() {
 
         // 初始化工作流管理器
         initializeWorkflowManager();
-
-        // 初始化自动化引擎
-        initializeAutomationEngine();
 
         // 初始化三栏布局
         initializeLayout();
@@ -63,17 +59,7 @@ function initializeWorkflowManager() {
     }
 }
 
-/**
- * 初始化自动化引擎
- */
-function initializeAutomationEngine() {
-    if (typeof UniversalAutomationEngine !== 'undefined') {
-        automationEngine = new UniversalAutomationEngine();
-        debugLog('UniversalAutomationEngine 已初始化');
-    } else {
-        console.warn('⚠️ UniversalAutomationEngine 未找到');
-    }
-}
+
 
 /**
  * 初始化三栏布局
@@ -290,13 +276,7 @@ export function getWorkflowManager() {
     return workflowManager;
 }
 
-/**
- * 获取自动化引擎
- * @returns {Object|null} 自动化引擎实例
- */
-export function getAutomationEngine() {
-    return automationEngine;
-}
+
 
 /**
  * 初始化性能监控

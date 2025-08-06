@@ -273,28 +273,14 @@ if (
       });
 
       try {
-        if (window.automationEngine && window.automationEngine.isRunning) {
-          console.log("🔧 [DEBUG] 使用高级引擎暂停（引擎正在运行）");
-          // 高级引擎模式
-          window.automationEngine.pause();
-          console.log("🔧 [DEBUG] 高级引擎暂停调用完成");
-          sendResponse({ success: true, mode: "advanced" });
-        } else if (window.simplifiedExecutionControl) {
-          console.log("🔧 [DEBUG] 使用简化模式暂停");
-          // 简化模式
+        if (window.simplifiedExecutionControl) {
+          console.log("🔧 [DEBUG] 暂停执行");
           window.simplifiedExecutionControl.pause();
-          console.log("🔧 [DEBUG] 简化模式暂停调用完成");
-          sendResponse({ success: true, mode: "simplified" });
+          console.log("🔧 [DEBUG] 暂停调用完成");
+          sendResponse({ success: true });
         } else {
-          console.log("❌ [DEBUG] 没有可用的执行引擎或引擎未运行");
-          console.log("🔧 [DEBUG] 详细状态:", {
-            hasEngine: !!window.automationEngine,
-            engineRunning: window.automationEngine
-              ? window.automationEngine.isRunning
-              : "N/A",
-            hasSimplified: !!window.simplifiedExecutionControl,
-          });
-          sendResponse({ success: false, error: "自动化引擎未初始化或未运行" });
+          console.log("❌ [DEBUG] 没有可用的执行控制");
+          sendResponse({ success: false, error: "执行控制未初始化或未运行" });
         }
       } catch (error) {
         console.error("❌ 暂停执行失败:", error);
@@ -306,16 +292,11 @@ if (
     // 处理继续执行请求
     if (request.action === "resumeExecution") {
       try {
-        if (window.automationEngine) {
-          // 高级引擎模式
-          window.automationEngine.resume();
-          sendResponse({ success: true });
-        } else if (window.simplifiedExecutionControl) {
-          // 简化模式
+        if (window.simplifiedExecutionControl) {
           window.simplifiedExecutionControl.resume();
           sendResponse({ success: true });
         } else {
-          sendResponse({ success: false, error: "自动化引擎未初始化" });
+          sendResponse({ success: false, error: "执行控制未初始化" });
         }
       } catch (error) {
         console.error("继续执行失败:", error);
@@ -1924,7 +1905,7 @@ function handleMessage(request, sender, sendResponse) {
   // 处理停止执行
   if (request.action === "stopExecution") {
     console.log("🔧 收到停止执行请求");
-    // 简化模式没有专门的stop方法，通过设置全局停止标志
+    // 通过设置全局停止标志
     if (window.simplifiedExecutionControl) {
       window.simplifiedExecutionControl.isStopped = true;
       window.simplifiedExecutionControl.isPaused = false;
