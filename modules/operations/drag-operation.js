@@ -106,8 +106,12 @@ class DragOperation {
    * @param {Object} config - 拖拽配置
    */
   async performDragOperation(element, config) {
-    // 获取元素的中心位置
+    console.log('🖱️ 开始真实拖拽模拟');
+
+    // 获取元素的精确位置
     const rect = element.getBoundingClientRect();
+
+    // 计算元素中心的绝对坐标
     const startX = rect.left + rect.width / 2;
     const startY = rect.top + rect.height / 2;
 
@@ -115,9 +119,30 @@ class DragOperation {
     const endX = startX + config.horizontalDistance;
     const endY = startY + config.verticalDistance;
 
-    console.log(`🖱️ 拖拽路径: (${startX}, ${startY}) -> (${endX}, ${endY})`);
+    console.log(`🖱️ 拖拽路径: (${Math.round(startX)}, ${Math.round(startY)}) -> (${Math.round(endX)}, ${Math.round(endY)})`);
+    console.log(`🖱️ 拖拽距离: 水平${config.horizontalDistance}px, 垂直${config.verticalDistance}px`);
 
-    // 1. 触发 mousedown 事件
+    // 1. 模拟鼠标按下 - 更真实的事件序列
+    console.log('🖱️ 第1步: 模拟鼠标按下');
+
+    // 先触发 mouseenter 和 mouseover
+    element.dispatchEvent(new MouseEvent('mouseenter', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+      clientX: startX,
+      clientY: startY
+    }));
+
+    element.dispatchEvent(new MouseEvent('mouseover', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+      clientX: startX,
+      clientY: startY
+    }));
+
+    // 触发 mousedown 事件
     const mouseDownEvent = new MouseEvent('mousedown', {
       view: window,
       bubbles: true,
@@ -125,23 +150,43 @@ class DragOperation {
       clientX: startX,
       clientY: startY,
       button: 0,
-      buttons: 1
+      buttons: 1,
+      detail: 1
     });
     element.dispatchEvent(mouseDownEvent);
-    console.log('🖱️ 已触发 mousedown 事件');
 
-    // 等待一小段时间
-    await this.sleep(config.dragSpeed);
+    // 触发 dragstart 事件（如果元素支持拖拽）
+    if (element.draggable || element.getAttribute('draggable') === 'true') {
+      console.log('🖱️ 检测到可拖拽元素，触发 dragstart 事件');
+      const dragStartEvent = new DragEvent('dragstart', {
+        view: window,
+        bubbles: true,
+        cancelable: true,
+        clientX: startX,
+        clientY: startY
+      });
+      element.dispatchEvent(dragStartEvent);
+    }
 
-    // 2. 触发 mousemove 事件（可选：分步移动以模拟真实拖拽）
-    const steps = Math.max(Math.abs(config.horizontalDistance), Math.abs(config.verticalDistance)) / 10;
-    const stepCount = Math.min(Math.max(steps, 1), 20); // 限制步数在1-20之间
+    // 等待一小段时间，模拟用户按下鼠标的停顿
+    await this.sleep(Math.max(50, config.dragSpeed / 10));
+
+    // 2. 模拟拖拽过程 - 分步移动
+    console.log('🖱️ 第2步: 模拟拖拽移动');
+
+    const totalDistance = Math.sqrt(
+      Math.pow(config.horizontalDistance, 2) + Math.pow(config.verticalDistance, 2)
+    );
+    const stepCount = Math.min(Math.max(Math.ceil(totalDistance / 5), 3), 30); // 根据距离调整步数
+
+    console.log(`🖱️ 将分 ${stepCount} 步完成拖拽，总距离: ${Math.round(totalDistance)}px`);
 
     for (let i = 1; i <= stepCount; i++) {
       const progress = i / stepCount;
       const currentX = startX + (config.horizontalDistance * progress);
       const currentY = startY + (config.verticalDistance * progress);
 
+      // 创建更真实的 mousemove 事件
       const mouseMoveEvent = new MouseEvent('mousemove', {
         view: window,
         bubbles: true,
@@ -149,19 +194,54 @@ class DragOperation {
         clientX: currentX,
         clientY: currentY,
         button: 0,
-        buttons: 1
+        buttons: 1,
+        movementX: i === 1 ? 0 : (currentX - (startX + (config.horizontalDistance * (i - 1) / stepCount))),
+        movementY: i === 1 ? 0 : (currentY - (startY + (config.verticalDistance * (i - 1) / stepCount)))
       });
 
-      // 在document上触发mousemove事件
+      // 在document和元素上都触发mousemove事件
       document.dispatchEvent(mouseMoveEvent);
-      
-      // 短暂等待以模拟真实拖拽速度
-      await this.sleep(config.dragSpeed / stepCount);
+      element.dispatchEvent(mouseMoveEvent);
+
+      // 如果是HTML5拖拽，触发drag事件
+      if (element.draggable || element.getAttribute('draggable') === 'true') {
+        const dragEvent = new DragEvent('drag', {
+          view: window,
+          bubbles: true,
+          cancelable: true,
+          clientX: currentX,
+          clientY: currentY
+        });
+        element.dispatchEvent(dragEvent);
+      }
+
+      // 动态调整等待时间，开始慢，中间快，结束慢
+      const speedMultiplier = 1 - Math.abs(0.5 - progress) * 0.5;
+      const stepDelay = Math.max(10, (config.dragSpeed / stepCount) * speedMultiplier);
+      await this.sleep(stepDelay);
     }
 
-    console.log('🖱️ 已完成 mousemove 事件序列');
+    console.log('🖱️ 第3步: 完成拖拽移动序列');
 
-    // 3. 触发 mouseup 事件
+    // 3. 模拟鼠标松开 - 完整的事件序列
+    console.log('🖱️ 第4步: 模拟鼠标松开');
+
+    // 触发最后的 mousemove 到精确位置
+    const finalMoveEvent = new MouseEvent('mousemove', {
+      view: window,
+      bubbles: true,
+      cancelable: true,
+      clientX: endX,
+      clientY: endY,
+      button: 0,
+      buttons: 1
+    });
+    document.dispatchEvent(finalMoveEvent);
+
+    // 等待一小段时间
+    await this.sleep(50);
+
+    // 触发 mouseup 事件
     const mouseUpEvent = new MouseEvent('mouseup', {
       view: window,
       bubbles: true,
@@ -169,13 +249,52 @@ class DragOperation {
       clientX: endX,
       clientY: endY,
       button: 0,
-      buttons: 0
+      buttons: 0,
+      detail: 1
     });
-    document.dispatchEvent(mouseUpEvent);
-    console.log('🖱️ 已触发 mouseup 事件');
 
-    // 等待拖拽完成
+    // 在document和元素上都触发mouseup
+    document.dispatchEvent(mouseUpEvent);
+    element.dispatchEvent(mouseUpEvent);
+
+    // 如果是HTML5拖拽，触发dragend事件
+    if (element.draggable || element.getAttribute('draggable') === 'true') {
+      console.log('🖱️ 触发 dragend 事件');
+      const dragEndEvent = new DragEvent('dragend', {
+        view: window,
+        bubbles: true,
+        cancelable: true,
+        clientX: endX,
+        clientY: endY
+      });
+      element.dispatchEvent(dragEndEvent);
+    }
+
+    // 触发 click 事件（如果拖拽距离很小）
+    const dragDistance = Math.sqrt(
+      Math.pow(config.horizontalDistance, 2) + Math.pow(config.verticalDistance, 2)
+    );
+
+    if (dragDistance < 5) {
+      console.log('🖱️ 拖拽距离很小，触发 click 事件');
+      const clickEvent = new MouseEvent('click', {
+        view: window,
+        bubbles: true,
+        cancelable: true,
+        clientX: endX,
+        clientY: endY,
+        button: 0,
+        detail: 1
+      });
+      element.dispatchEvent(clickEvent);
+    }
+
+    console.log('🖱️ 拖拽操作完成，等待页面响应');
+
+    // 等待拖拽完成和页面响应
     await this.sleep(config.waitAfterDrag);
+
+    console.log(`✅ 真实拖拽模拟完成: 移动了${Math.round(dragDistance)}px`);
   }
 
   /**
