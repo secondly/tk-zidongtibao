@@ -56,6 +56,10 @@ let isCreatingNewWindow = false;
 let lastNewWindowTime = 0;
 const NEW_WINDOW_COOLDOWN = 2000; // 2秒冷却时间
 
+// 🔧 [智能重复窗口检测] 根据执行状态和工作流内容自动控制
+let currentWorkflowHasNewWindow = false; // 当前工作流是否包含新窗口操作
+let isWorkflowExecuting = false; // 是否正在执行工作流
+
 // 监听来自弹出界面的消息
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   console.log(`📡 [Background-DEBUG] 收到消息:`, {
@@ -169,6 +173,13 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     const steps = request.data?.steps || [];
     console.log("🪟 [Background-DEBUG] 步骤数量:", steps.length);
     console.log("🪟 [Background-DEBUG] 步骤详情:", steps.map(s => ({ name: s.name, type: s.type, opensNewWindow: s.opensNewWindow })));
+
+    // 🔧 [智能重复窗口检测] 检查工作流是否包含新窗口操作
+    currentWorkflowHasNewWindow = checkWorkflowHasNewWindowOperations(steps);
+    isWorkflowExecuting = true;
+
+    console.log(`🔍 [智能检测] 工作流包含新窗口操作: ${currentWorkflowHasNewWindow}`);
+    console.log(`🔍 [智能检测] 重复窗口检测${currentWorkflowHasNewWindow ? '已启用' : '已禁用'}`);
 
     // 检查是否有循环步骤
     const loopSteps = steps.filter(step => step.type === 'loop' || step.action === 'loop');
@@ -511,6 +522,11 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     currentExecutionTabId = null;
     pauseNotificationSent = false; // 重置暂停通知标志
 
+    // 🔧 [智能重复窗口检测] 停止执行时禁用重复窗口检测
+    isWorkflowExecuting = false;
+    currentWorkflowHasNewWindow = false;
+    console.log("🔍 [智能检测] 执行已停止，重复窗口检测已禁用");
+
     console.log("⏹️ [Background-DEBUG] 已设置停止标志");
     console.log("⏹️ [Background-DEBUG] 新的执行状态:", { isExecutionStopped, isExecutionPaused, currentExecutionTabId });
 
@@ -534,6 +550,10 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     isExecutionPaused = true;
     pauseNotificationSent = false; // 重置暂停通知标志，允许发送新的暂停通知
 
+    // 🔧 [智能重复窗口检测] 暂停时临时禁用重复窗口检测
+    // 注意：这里不完全重置状态，因为恢复时需要知道原来的状态
+    console.log("🔍 [智能检测] 执行已暂停，临时禁用重复窗口检测");
+
     console.log("⏸️ [Background-DEBUG] 已设置暂停标志");
     console.log("⏸️ [Background-DEBUG] 新的执行状态:", { isExecutionStopped, isExecutionPaused, currentExecutionTabId });
 
@@ -555,6 +575,12 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     console.log("▶️ [Background-DEBUG] 当前执行状态:", { isExecutionStopped, isExecutionPaused, currentExecutionTabId });
 
     isExecutionPaused = false;
+
+    // 🔧 [智能重复窗口检测] 恢复执行时，重复窗口检测状态保持不变
+    // 因为暂停时我们没有完全重置状态，所以恢复时也不需要特别处理
+    console.log("🔍 [智能检测] 执行已恢复，重复窗口检测状态保持不变");
+    console.log("🔍 [智能检测] - 工作流执行中: " + isWorkflowExecuting);
+    console.log("🔍 [智能检测] - 包含新窗口操作: " + currentWorkflowHasNewWindow);
 
     console.log("▶️ [Background-DEBUG] 已清除暂停标志");
     console.log("▶️ [Background-DEBUG] 新的执行状态:", { isExecutionStopped, isExecutionPaused, currentExecutionTabId });
@@ -699,6 +725,11 @@ async function handleStepsExecution(steps) {
     // 执行完成
     console.log("所有步骤执行完成");
 
+    // 🔧 [智能重复窗口检测] 执行完成时禁用重复窗口检测
+    isWorkflowExecuting = false;
+    currentWorkflowHasNewWindow = false;
+    console.log("🔍 [智能检测] 执行已完成，重复窗口检测已禁用");
+
     // 通知执行完成
     notifyExecutionStatusChange({
       isRunning: false,
@@ -709,6 +740,11 @@ async function handleStepsExecution(steps) {
     return { success: true, message: "所有步骤执行完成" };
   } catch (error) {
     console.error("执行步骤时出错:", error);
+
+    // 🔧 [智能重复窗口检测] 执行失败时禁用重复窗口检测
+    isWorkflowExecuting = false;
+    currentWorkflowHasNewWindow = false;
+    console.log("🔍 [智能检测] 执行失败，重复窗口检测已禁用");
 
     // 通知执行失败
     notifyExecutionStatusChange({
@@ -1431,14 +1467,59 @@ function handleNewTabCreated(tab) {
     }
   } else {
     console.log(`⚠️ 检测到意外的新窗口创建: ${tab.id}，没有等待中的Promise`);
-    console.log(`🔍 这可能是重复窗口，准备检查并清理`);
 
-    // 延迟检查，给新窗口时间加载URL
-    setTimeout(() => {
-      console.log(`🔍 开始检查意外窗口: ${tab.id}`);
-      closeDuplicateWindows(tab.id);
-    }, 2000);
+    // 🔧 [智能重复窗口检测] 只有在执行包含新窗口操作的工作流时才检测重复窗口
+    if (isWorkflowExecuting && currentWorkflowHasNewWindow) {
+      console.log(`🔍 [智能检测] 正在执行包含新窗口操作的工作流，启用重复窗口检测`);
+
+      // 延迟检查，给新窗口时间加载URL
+      setTimeout(() => {
+        console.log(`🔍 开始检查意外窗口: ${tab.id}`);
+        closeDuplicateWindows(tab.id);
+      }, 2000);
+    } else {
+      console.log(`🔍 [智能检测] 当前状态不需要重复窗口检测`);
+      console.log(`🔍 [智能检测] - 工作流执行中: ${isWorkflowExecuting}`);
+      console.log(`🔍 [智能检测] - 包含新窗口操作: ${currentWorkflowHasNewWindow}`);
+      console.log(`📝 [智能检测] 跳过重复窗口检测，允许用户正常打开新窗口`);
+    }
   }
+}
+
+/**
+ * 🔧 [智能重复窗口检测] 检查工作流是否包含新窗口操作
+ * @param {Array} steps - 工作流步骤数组
+ * @returns {boolean} 是否包含新窗口操作
+ */
+function checkWorkflowHasNewWindowOperations(steps) {
+  if (!steps || !Array.isArray(steps)) {
+    return false;
+  }
+
+  for (const step of steps) {
+    // 检查直接的新窗口操作
+    if (step.opensNewWindow ||
+      step.type === 'closeWindow' ||
+      step.action === 'closeWindow') {
+      console.log(`🔍 [智能检测] 发现新窗口操作: ${step.name || step.type}`);
+      return true;
+    }
+
+    // 检查循环步骤内部的子操作
+    if (step.type === 'loop' && step.subOperations && Array.isArray(step.subOperations)) {
+      for (const subOp of step.subOperations) {
+        if (subOp.opensNewWindow ||
+          subOp.type === 'closeWindow' ||
+          subOp.action === 'closeWindow') {
+          console.log(`🔍 [智能检测] 发现循环内新窗口操作: ${subOp.name || subOp.type}`);
+          return true;
+        }
+      }
+    }
+  }
+
+  console.log(`🔍 [智能检测] 工作流不包含新窗口操作`);
+  return false;
 }
 
 /**
